@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Large File Finder</title>
+<style>
+  /* ── Reset & Fonts ─────────────────────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:        #0a0a0c;
+    --surface:   #111114;
+    --surface2:  #18181c;
+    --border:    #222228;
+    --text:      #d4d4d8;
+    --text-dim:  #63636e;
+    --accent:    #6366f1;
+    --accent-h:  #818cf8;
+    --danger:    #ef4444;
+    --danger-h:  #f87171;
+    --radius:    10px;
+    --font:      'DM Sans', system-ui, sans-serif;
+    --mono:      'JetBrains Mono', monospace;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Layout ────────────────────────────────────────────────────── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* Draggable title bar region */
+  .titlebar {
+    -webkit-app-region: drag;
+    height: 38px;
+    flex-shrink: 0;
+  }
+
+  /* ── Top Controls ──────────────────────────────────────────────── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px 14px;
+    flex-wrap: wrap;
+  }
+
+  .controls label {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .controls input[type="number"] {
+    width: 64px;
+    padding: 7px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+    -moz-appearance: textfield;
+  }
+  .controls input[type="number"]::-webkit-inner-spin-button,
+  .controls input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+  }
+  .controls input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+
+  .controls select {
+    padding: 7px 28px 7px 12px;
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2363636e'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    appearance: none;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .controls select:focus { border-color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-app-region: no-drag;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-accent:hover { background: var(--accent-h); }
+  .btn-accent:disabled {
+    background: #2a2a40;
+    color: #555;
+    cursor: default;
+    transform: none;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+  }
+  .btn-danger:hover { background: var(--danger-h); }
+
+  .spacer { flex: 1; }
+
+  .status {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  /* ── Progress ──────────────────────────────────────────────────── */
+  .progress-track {
+    height: 2px;
+    background: var(--surface);
+    margin: 0 20px;
+    border-radius: 1px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 30%;
+    background: var(--accent);
+    border-radius: 1px;
+    transform: translateX(-100%);
+    transition: none;
+  }
+  .progress-bar.active {
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(430%); }
+  }
+
+  /* ── Table ─────────────────────────────────────────────────────── */
+  .table-wrap {
+    flex: 1;
+    margin: 12px 20px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .table-header {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .table-header span {
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+  }
+  .col-index { width: 48px; text-align: center; }
+  .col-size  { width: 110px; text-align: right; }
+  .col-path  { flex: 1; }
+
+  .table-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar */
+  .table-body::-webkit-scrollbar { width: 6px; }
+  .table-body::-webkit-scrollbar-track { background: transparent; }
+  .table-body::-webkit-scrollbar-thumb {
+    background: #2a2a30;
+    border-radius: 3px;
+  }
+  .table-body::-webkit-scrollbar-thumb:hover { background: #3a3a40; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--surface2); }
+  .row.selected { background: rgba(99, 102, 241, 0.12); }
+
+  .row span {
+    padding: 9px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row .col-index {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .row .col-size {
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--accent-h);
+    font-size: 12.5px;
+  }
+  .row .col-path {
+    color: var(--text);
+    direction: rtl;
+    text-align: left;
+  }
+
+  /* ── Empty state ───────────────────────────────────────────────── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 8px;
+    color: var(--text-dim);
+  }
+  .empty-state .icon {
+    font-size: 32px;
+    opacity: 0.3;
+    margin-bottom: 4px;
+  }
+  .empty-state p { font-size: 13px; }
+
+  /* ── Bottom Bar ────────────────────────────────────────────────── */
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px 14px;
+    flex-shrink: 0;
+  }
+
+  .footer-info {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .footer-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .footer-links span { color: var(--text-dim); }
+  .footer-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s;
+    cursor: pointer;
+  }
+  .footer-links a:hover { color: var(--accent-h); }
+  .footer-links .sep { opacity: 0.3; }
+
+  /* ── Animations ────────────────────────────────────────────────── */
+  .row {
+    animation: fadeIn 0.2s ease both;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="titlebar"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <label for="count">Show top</label>
+    <input type="number" id="count" value="50" min="1" max="500" />
+
+    <select id="mode">
+      <option value="files">Largest files</option>
+      <option value="folders">Largest folders</option>
+    </select>
+
+    <button class="btn btn-accent" id="scanBtn">Scan All Drives</button>
+    <button class="btn btn-ghost"  id="pauseBtn" disabled>Pause</button>
+    <button class="btn btn-ghost"  id="stopBtn" disabled>Stop</button>
+
+    <div class="spacer"></div>
+    <span class="status" id="status">Ready</span>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-track">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="col-index">#</span>
+      <span class="col-size">Size</span>
+      <span class="col-path">Path</span>
+    </div>
+    <div class="table-body" id="tableBody">
+      <div class="empty-state" id="emptyState">
+        <div class="icon">⌕</div>
+        <p>Hit <strong>Scan All Drives</strong> to find the largest files</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="bottom-bar">
+    <button class="btn btn-danger" id="deleteBtn">Delete Selected</button>
+    <button class="btn btn-ghost"  id="explorerBtn">Show in Explorer</button>
+    <div class="spacer"></div>
+    <span class="footer-info" id="footerInfo"></span>
+    <div class="footer-links">
+      <span>Made by</span>
+      <a id="linkEerie" href="#">EERIE</a>
+      <span class="sep">·</span>
+      <a id="linkCoffee" href="#">Buy Me a Coffee</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ── Elements ──────────────────────────────────────────────────
+  const $ = (s) => document.querySelector(s);
+  const countInput  = $("#count");
+  const modeSelect  = $("#mode");
+  const scanBtn     = $("#scanBtn");
+  const pauseBtn    = $("#pauseBtn");
+  const stopBtn     = $("#stopBtn");
+  const statusEl    = $("#status");
+  const progressBar = $("#progressBar");
+  const tableBody   = $("#tableBody");
+  const emptyState  = $("#emptyState");
+  const deleteBtn   = $("#deleteBtn");
+  const explorerBtn = $("#explorerBtn");
+  const footerInfo  = $("#footerInfo");
+
+  let items = [];            // current result set [{size, path}]
+  let selected = new Set();  // indices of selected rows
+
+  // ── External links ────────────────────────────────────────────
+  $("#linkEerie").addEventListener("click", (e) => {
+    e.preventDefault();
+    window.api.openExternal("https://eeriegoesd.com");
+  });
+  $("#linkCoffee").addEventListener("click", (e) => {
+    e.preventDefault();
+    window.api.openExternal("https://buymeacoffee.com/eeriegoesd");
+  });
+
+  // ── Format helpers ────────────────────────────────────────────
+  function fmtSize(bytes) {
+    const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+    let i = 0;
+    let v = bytes;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return i === 0 ? `${v} B` : `${v.toFixed(1)} ${units[i]}`;
+  }
+
+  function fmtNum(n) {
+    return n.toLocaleString("en-US");
+  }
+
+  // ── Render table ──────────────────────────────────────────────
+  function renderTable() {
+    tableBody.innerHTML = "";
+    if (!items.length) {
+      tableBody.appendChild(emptyState);
+      emptyState.querySelector("p").innerHTML =
+        'Hit <strong>Scan All Drives</strong> to find the largest ' + modeSelect.value;
+      return;
+    }
+    items.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "row" + (selected.has(i) ? " selected" : "");
+      row.style.animationDelay = `${Math.min(i * 15, 400)}ms`;
+      row.dataset.index = i;
+      row.innerHTML = `
+        <span class="col-index">${i + 1}</span>
+        <span class="col-size">${fmtSize(item.size)}</span>
+        <span class="col-path" title="${item.path}">${item.path}</span>
+      `;
+      row.addEventListener("click", (e) => onRowClick(i, e));
+      tableBody.appendChild(row);
+    });
+  }
+
+  // ── Row selection ─────────────────────────────────────────────
+  let lastClickedIndex = null;
+
+  function onRowClick(index, e) {
+    if (e.ctrlKey || e.metaKey) {
+      selected.has(index) ? selected.delete(index) : selected.add(index);
+    } else if (e.shiftKey && lastClickedIndex !== null) {
+      const from = Math.min(lastClickedIndex, index);
+      const to = Math.max(lastClickedIndex, index);
+      for (let i = from; i <= to; i++) selected.add(i);
+    } else {
+      selected.clear();
+      selected.add(index);
+    }
+    lastClickedIndex = index;
+    updateRowStyles();
+  }
+
+  function updateRowStyles() {
+    tableBody.querySelectorAll(".row").forEach((row) => {
+      const i = parseInt(row.dataset.index);
+      row.classList.toggle("selected", selected.has(i));
+    });
+  }
+
+  // ── Scan ──────────────────────────────────────────────────────
+  let removeProgressListener = null;
+
+  scanBtn.addEventListener("click", async () => {
+    const limit = parseInt(countInput.value) || 50;
+    const mode = modeSelect.value;
+
+    items = [];
+    selected.clear();
+    renderTable();
+
+    scanBtn.disabled = true;
+    pauseBtn.disabled = false;
+    stopBtn.disabled = false;
+    progressBar.classList.add("active");
+    statusEl.textContent = "Scanning…";
+    footerInfo.textContent = "";
+
+    removeProgressListener = window.api.onScanProgress(({ scanned, label }) => {
+      statusEl.textContent = `${fmtNum(scanned)} ${label} scanned…`;
+    });
+
+    try {
+      const result = await window.api.startScan({ limit, mode });
+      items = result.items;
+      renderTable();
+      statusEl.textContent = `Done — ${fmtNum(result.scanned)} ${result.label} scanned`;
+      const totalSize = items.reduce((s, it) => s + it.size, 0);
+      footerInfo.textContent =
+        `${items.length} ${result.label}  ·  ${fmtSize(totalSize)} total`;
+    } catch (err) {
+      statusEl.textContent = "Scan failed";
+    }
+
+    progressBar.classList.remove("active");
+    scanBtn.disabled = false;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = "Pause";
+    stopBtn.disabled = true;
+    if (removeProgressListener) { removeProgressListener(); removeProgressListener = null; }
+  });
+
+  let paused = false;
+
+    pauseBtn.addEventListener("click", () => {
+      if (!paused) {
+        window.api.pauseScan();
+        paused = true;
+        pauseBtn.textContent = "Resume";
+        progressBar.classList.remove("active");
+        statusEl.textContent = statusEl.textContent.replace("scanned…", "scanned (paused)");
+      } else {
+        window.api.resumeScan();
+        paused = false;
+        pauseBtn.textContent = "Pause";
+        progressBar.classList.add("active");
+        statusEl.textContent = statusEl.textContent.replace(" (paused)", "…");
+      }
+    });
+
+    stopBtn.addEventListener("click", () => {
+      window.api.stopScan();
+      stopBtn.disabled = true;
+      pauseBtn.disabled = true;
+      paused = false;
+      pauseBtn.textContent = "Pause";
+      statusEl.textContent = "Stopping…";
+    });
+
+  // ── Delete ────────────────────────────────────────────────────
+  deleteBtn.addEventListener("click", async () => {
+    if (!selected.size) return;
+    const paths = [...selected].sort((a, b) => a - b).map((i) => items[i].path);
+    const label = modeSelect.value === "folders" ? "folder" : "file";
+    const plural = paths.length > 1 ? label + "s" : label;
+    const ok = confirm(`Move ${paths.length} ${plural} to Recycle Bin?`);
+    if (!ok) return;
+
+    const results = await window.api.deleteFiles(paths);
+    let deleted = 0;
+    for (const r of results) {
+      if (r.ok) {
+        const idx = items.findIndex((it) => it.path === r.path);
+        if (idx !== -1) { items.splice(idx, 1); deleted++; }
+      } else {
+        alert(`Could not delete:\n${r.path}\n\n${r.error}`);
+      }
+    }
+    selected.clear();
+    renderTable();
+    if (deleted) statusEl.textContent = `Moved ${deleted} ${plural} to Recycle Bin`;
+  });
+
+  // ── Show in Explorer ──────────────────────────────────────────
+  explorerBtn.addEventListener("click", () => {
+    if (!selected.size) return;
+    const first = Math.min(...selected);
+    window.api.showInExplorer(items[first].path);
+  });
+})();
+</script>
+</body>
+</html>
