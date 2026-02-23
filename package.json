@@ -9,9 +9,9 @@
     "start": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "dist:appx": "electron-builder --win appx"
-  },
+    "dist:appx": "electron-builder --win appx"  },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8"
   },
@@ -25,7 +25,10 @@
       "buildResources": "build"
     },
     "win": {
-      "target": ["appx", "nsis"],
+      "target": [
+        "appx",
+        "nsis"
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
@@ -39,8 +42,9 @@
       "applicationId": "LargeFileFinder",
       "displayName": "Large File Finder",
       "backgroundColor": "#0a0a0c",
-      "languages": ["en-US"],
-      "assets": "build/appx"
+      "languages": [
+        "en-US"
+      ]
     }
   }
 }
