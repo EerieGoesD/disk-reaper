@@ -9,7 +9,8 @@
     "start": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "dist:appx": "electron-builder --win appx"  },
+    "dist:appx": "electron-builder --win appx"
+  },
   "devDependencies": {
     "cross-env": "^10.1.0",
     "electron": "^33.0.0",
@@ -17,7 +18,7 @@
   },
   "build": {
     "appId": "com.eerie.largefilefinder",
-    "productName": "Large File Finder",
+    "productName": "Disk Reaper",
     "copyright": "© 2025 EERIE",
     "icon": "build/icon.ico",
     "directories": {
@@ -36,15 +37,13 @@
       "allowToChangeInstallationDirectory": true
     },
     "appx": {
-      "identityName": "EERIE.LargeFileFinder",
-      "publisher": "CN=EERIE",
+      "identityName": "20715EerieGoesD.DiskReaper",
+      "publisher": "CN=A2A89A47-0B2B-4C32-B85C-9753888A9FFC",
       "publisherDisplayName": "EERIE",
-      "applicationId": "LargeFileFinder",
-      "displayName": "Large File Finder",
+      "applicationId": "DiskReaper",
+      "displayName": "Disk Reaper",
       "backgroundColor": "#0a0a0c",
-      "languages": [
-        "en-US"
-      ]
+      "languages": ["en-US"]
     }
   }
 }
