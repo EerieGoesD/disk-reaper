@@ -5,364 +5,495 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Disk Reaper</title>
 <style>
-  /* ── Reset & Fonts ─────────────────────────────────────────────── */
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --bg:        #0a0a0c;
-    --surface:   #111114;
-    --surface2:  #18181c;
-    --border:    #222228;
-    --text:      #d4d4d8;
-    --text-dim:  #63636e;
-    --accent:    #6366f1;
-    --accent-h:  #818cf8;
-    --danger:    #ef4444;
-    --danger-h:  #f87171;
-    --radius:    10px;
-    --font:      'DM Sans', system-ui, sans-serif;
-    --mono:      'JetBrains Mono', monospace;
+    --bg:       #0a0a0c;
+    --surface:  #111114;
+    --surface2: #18181c;
+    --border:   #222228;
+    --text:     #d4d4d8;
+    --text-dim: #63636e;
+    --accent:   #6366f1;
+    --accent-h: #818cf8;
+    --danger:   #ef4444;
+    --danger-h: #f87171;
+    --success:  #22c55e;
+    --warning:  #eab308;
+    --orange:   #f97316;
+    --radius:   10px;
+    --font:     'DM Sans', system-ui, sans-serif;
+    --mono:     'JetBrains Mono', monospace;
   }
 
-  html, body {
-    height: 100%;
-    font-family: var(--font);
-    background: var(--bg);
-    color: var(--text);
-    overflow: hidden;
-    user-select: none;
-  }
+  html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); overflow: hidden; user-select: none; }
 
-  /* ── Layout ────────────────────────────────────────────────────── */
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
+  #app { display: flex; flex-direction: column; height: 100vh; }
+  .titlebar { -webkit-app-region: drag; height: 38px; flex-shrink: 0; }
+  .main-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
-  /* Draggable title bar region */
-  .titlebar {
-    -webkit-app-region: drag;
-    height: 38px;
-    flex-shrink: 0;
-  }
+  /* ── Sidebar ── */
+  .sidebar { width: 188px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 6px 0 12px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 12px; margin: 1px 8px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text-dim); cursor: pointer; transition: background 0.12s, color 0.12s; -webkit-app-region: no-drag; }
+  .nav-item:hover  { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(99,102,241,0.14); color: var(--accent-h); }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .app-title { display: flex; align-items: center; gap: 8px; padding: 12px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .app-title span { font-size: 14px; font-weight: 700; color: var(--accent-h); letter-spacing: -0.3px; }
+  .app-title-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent-h); filter: drop-shadow(0 0 6px rgba(99,102,241,0.5)); }
 
-  /* ── Top Controls ──────────────────────────────────────────────── */
-  .controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 20px 14px;
-    flex-wrap: wrap;
-  }
+  /* ── Panels ── */
+  .panels { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .panel  { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .panel.active { display: flex; }
 
-  .controls label {
-    font-size: 13px;
-    color: var(--text-dim);
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  .controls input[type="number"] {
-    width: 64px;
-    padding: 7px 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    text-align: center;
-    outline: none;
-    transition: border-color 0.2s;
-    -moz-appearance: textfield;
-  }
+  /* ── Controls ── */
+  .controls { display: flex; align-items: center; gap: 10px; padding: 14px 20px 10px; flex-wrap: wrap; flex-shrink: 0; }
+  .controls label { font-size: 13px; color: var(--text-dim); font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase; }
+  .controls input[type="number"] { width: 64px; padding: 7px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 13px; text-align: center; outline: none; transition: border-color 0.2s; -moz-appearance: textfield; }
   .controls input[type="number"]::-webkit-inner-spin-button,
-  .controls input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-  }
-  .controls input[type="number"]:focus {
-    border-color: var(--accent);
-  }
-
-  .controls select {
-    padding: 7px 28px 7px 12px;
-    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2363636e'/%3E%3C/svg%3E") no-repeat right 10px center;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 13px;
-    appearance: none;
-    outline: none;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
+  .controls input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .controls input[type="number"]:focus { border-color: var(--accent); }
+  .controls select { padding: 7px 28px 7px 12px; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2363636e'/%3E%3C/svg%3E") no-repeat right 10px center; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; appearance: none; outline: none; cursor: pointer; transition: border-color 0.2s; }
   .controls select:focus { border-color: var(--accent); }
 
-  /* Buttons */
-  .btn {
-    padding: 8px 18px;
-    border: none;
-    border-radius: var(--radius);
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s;
-    -webkit-app-region: no-drag;
-  }
+  /* ── Buttons ── */
+  .btn { padding: 7px 16px; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; -webkit-app-region: no-drag; }
   .btn:active { transform: scale(0.97); }
-
-  .btn-accent {
-    background: var(--accent);
-    color: #fff;
-  }
+  .btn-accent { background: var(--accent); color: #fff; }
   .btn-accent:hover { background: var(--accent-h); }
-  .btn-accent:disabled {
-    background: #2a2a40;
-    color: #555;
-    cursor: default;
-    transform: none;
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--text-dim);
-    border: 1px solid var(--border);
-  }
+  .btn-accent:disabled { background: #2a2a40; color: #555; cursor: default; transform: none; }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
   .btn-ghost:hover { background: var(--surface2); color: var(--text); }
-
-  .btn-danger {
-    background: var(--danger);
-    color: #fff;
-  }
+  .btn-ghost:disabled { opacity: 0.35; cursor: default; transform: none; }
+  .btn-ghost:disabled:hover { background: transparent; color: var(--text-dim); }
+  .btn-danger { background: var(--danger); color: #fff; }
   .btn-danger:hover { background: var(--danger-h); }
+  .btn-danger:disabled { background: #2e1212; color: #444; cursor: default; transform: none; }
+  .btn-success { background: var(--success); color: #0a0a0c; font-weight: 600; }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn-success:disabled { background: #0e2a12; color: #3a5a3a; cursor: default; transform: none; }
+  .btn-export { background: var(--warning); color: #0a0a0c; font-weight: 700; }
+  .btn-export:hover { background: #f0c020; }
+
+  /* ── Export dropdown ── */
+  .export-wrap { position: relative; }
+  .export-menu { position: absolute; bottom: calc(100% + 4px); right: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-width: 152px; z-index: 100; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+  .export-menu.open { display: block; }
+  .export-menu button { display: block; width: 100%; padding: 9px 14px; background: none; border: none; text-align: left; color: var(--text); font-family: var(--font); font-size: 13px; cursor: pointer; transition: background 0.1s; }
+  .export-menu button:hover { background: var(--surface); }
+  .export-menu button + button { border-top: 1px solid var(--border); }
 
   .spacer { flex: 1; }
+  .status-text { font-size: 12px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; }
 
-  .status {
-    font-size: 12px;
-    color: var(--text-dim);
-    font-family: var(--mono);
-    white-space: nowrap;
-  }
+  /* ── Progress ── */
+  .progress-track { height: 2px; background: var(--surface); margin: 0 20px 10px; border-radius: 1px; overflow: hidden; flex-shrink: 0; }
+  .progress-bar { height: 100%; width: 30%; background: var(--accent); border-radius: 1px; transform: translateX(-100%); }
+  .progress-bar.active { animation: shimmer 1.4s ease-in-out infinite; }
+  .progress-bar.warn { background: var(--warning); }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(430%); } }
 
-  /* ── Progress ──────────────────────────────────────────────────── */
-  .progress-track {
-    height: 2px;
-    background: var(--surface);
-    margin: 0 20px;
-    border-radius: 1px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  .progress-bar {
-    height: 100%;
-    width: 30%;
-    background: var(--accent);
-    border-radius: 1px;
-    transform: translateX(-100%);
-    transition: none;
-  }
-  .progress-bar.active {
-    animation: shimmer 1.4s ease-in-out infinite;
-  }
-  @keyframes shimmer {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(430%); }
-  }
+  /* ── Search ── */
+  .search-input { padding: 7px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; outline: none; transition: border-color 0.2s; width: 210px; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text-dim); }
 
-  /* ── Table ─────────────────────────────────────────────────────── */
+  /*
+   * TABLE LAYOUT — how it works:
+   *
+   * .table-wrap          overflow:hidden container
+   *   .table-scroll      THE ONLY horizontal scroller — wraps header+body together
+   *     .table-inner     width:max-content so it expands to total column width
+   *       .table-header  never scrolls independently
+   *       .table-body    vertical scroll only (overflow-y:scroll, overflow-x:hidden)
+   *
+   * Because .table-inner holds BOTH header and body and is the child of the
+   * single horizontal scroller, they always move together. No desync possible.
+   */
   .table-wrap {
     flex: 1;
-    margin: 12px 20px 0;
+    margin: 0 20px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     overflow: hidden;
+  }
+  .table-scroll {
+    flex: 1;
+    overflow: auto;
     display: flex;
     flex-direction: column;
     min-height: 0;
   }
+  .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  .table-scroll::-webkit-scrollbar-track { background: var(--surface2); }
+  .table-scroll::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .table-scroll::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  .table-scroll::-webkit-scrollbar-corner { background: var(--surface2); }
 
+  .table-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: max-content;   /* expands to sum of column widths */
+    min-width: 100%;      /* but never narrower than the panel */
+  }
   .table-header {
     display: flex;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
   }
+
   .table-header span {
-    padding: 10px 16px;
-    font-size: 11px;
+    padding: 9px 14px;
+    font-size: 10.5px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-dim);
-  }
-  .col-index { width: 48px; text-align: center; }
-  .col-size  { width: 110px; text-align: right; }
-  .col-path  { flex: 1; }
-
-  .table-body {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  /* Custom scrollbar */
-  .table-body::-webkit-scrollbar { width: 6px; }
-  .table-body::-webkit-scrollbar-track { background: transparent; }
-  .table-body::-webkit-scrollbar-thumb {
-    background: #2a2a30;
-    border-radius: 3px;
-  }
-  .table-body::-webkit-scrollbar-thumb:hover { background: #3a3a40; }
-
-  .row {
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    transition: background 0.1s;
-  }
-  .row:last-child { border-bottom: none; }
-  .row:hover { background: var(--surface2); }
-  .row.selected { background: rgba(99, 102, 241, 0.12); }
-
-  .row span {
-    padding: 9px 16px;
-    font-size: 13px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .row .col-index {
-    color: var(--text-dim);
-    font-family: var(--mono);
-    font-size: 11px;
-  }
-  .row .col-size {
-    font-family: var(--mono);
-    font-weight: 500;
-    color: var(--accent-h);
-    font-size: 12.5px;
-  }
-  .row .col-path {
-    color: var(--text);
-    direction: rtl;
-    text-align: left;
-  }
-
-  /* ── Empty state ───────────────────────────────────────────────── */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 8px;
-    color: var(--text-dim);
-  }
-  .empty-state .icon {
-    font-size: 32px;
-    opacity: 0.3;
-    margin-bottom: 4px;
-  }
-  .empty-state p { font-size: 13px; }
-
-  /* ── Bottom Bar ────────────────────────────────────────────────── */
-  .bottom-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px 14px;
+    position: relative;
+    user-select: none;
     flex-shrink: 0;
   }
+  .table-header span.sortable { cursor: pointer; transition: color 0.12s; }
+  .table-header span.sortable:hover { color: var(--text); }
+  .sort-ind { font-size: 9px; margin-left: 2px; }
 
-  .footer-info {
-    font-size: 12px;
-    color: var(--text-dim);
-    font-family: var(--mono);
+  /* table-body no longer scrolls — .table-scroll handles everything */
+  .table-body {
+    flex: 1;
+    overflow: visible;
+    min-height: 0;
   }
 
-  .footer-links {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-  }
+  /* ── Resize handle ── */
+  .col-resize-handle { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 10; }
+  .col-resize-handle:hover, .col-resize-handle.resizing { background: var(--accent); opacity: 0.5; }
+
+  /* ── Column widths (defaults — overridden by JS fit-to-content) ── */
+  .col-index      { width: 56px;  text-align: center; flex-shrink: 0; }
+  .col-size       { width: 110px; flex-shrink: 0; }
+  .col-path       { width: 480px; flex-shrink: 0; }
+  .col-mem        { width: 110px; flex-shrink: 0; }
+  .col-pid        { width: 72px;  flex-shrink: 0; }
+  .col-proc-name  { width: 200px; flex-shrink: 0; }
+  .col-proc-desc  { width: 320px; flex-shrink: 0; }
+  .col-dot        { width: 36px;  flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .col-svc-status { width: 110px; flex-shrink: 0; }
+  .col-svc-name   { width: 220px; flex-shrink: 0; }
+  .col-svc-dname  { width: 320px; flex-shrink: 0; }
+  .col-app-name   { width: 260px; flex-shrink: 0; }
+  .col-app-size   { width: 110px; flex-shrink: 0; }
+  .col-version    { width: 100px; flex-shrink: 0; }
+  .col-publisher  { width: 200px; flex-shrink: 0; }
+
+  /* ── Rows ── */
+  .row { display: flex; align-items: center; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; animation: fadeIn 0.18s ease both; }
+  .row:last-child { border-bottom: none; }
+  .row:hover    { background: var(--surface2); }
+  .row.selected { background: rgba(99,102,241,0.12); }
+  .row span { padding: 8px 14px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; flex-shrink: 0; }
+
+  .row .col-index     { color: var(--text-dim); font-family: var(--mono); font-size: 11px; text-align: center; }
+  .row .col-size      { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-path      { direction: rtl; text-align: left; }
+  .row .col-mem       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-pid       { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
+  .row .col-proc-desc { color: var(--text-dim); font-size: 12px; }
+  .row .col-svc-status{ font-size: 12px; font-weight: 500; }
+  .row .col-version   { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
+  .row .col-publisher { color: var(--text-dim); font-size: 12px; }
+  .row .col-app-size  { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+
+  /* ── Status dot ── */
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .dot-running { background: var(--success); box-shadow: 0 0 5px var(--success); }
+  .dot-stopped { background: var(--danger); }
+  .dot-pending { background: var(--warning); }
+  .dot-paused  { background: var(--orange); }
+  .dot-unknown { background: #52525b; }
+
+  /* ── Empty state ── */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 8px; color: var(--text-dim); }
+  .empty-state .icon { font-size: 28px; opacity: 0.22; margin-bottom: 4px; }
+  .empty-state p { font-size: 13px; }
+
+  /* ── Panel actions ── */
+  .panel-actions { display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-shrink: 0; }
+  .panel-footer-info { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+
+  /* ── Footer ── */
+  .global-footer { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 5px 20px 8px; flex-shrink: 0; border-top: 1px solid var(--border); }
+  .footer-links { display: flex; align-items: center; gap: 6px; font-size: 12px; }
   .footer-links span { color: var(--text-dim); }
-  .footer-links a {
-    color: var(--text-dim);
-    text-decoration: none;
-    transition: color 0.15s;
-    cursor: pointer;
-  }
+  .footer-links a { color: var(--text-dim); text-decoration: none; transition: color 0.15s; cursor: pointer; }
   .footer-links a:hover { color: var(--accent-h); }
   .footer-links .sep { opacity: 0.3; }
 
-  /* ── Animations ────────────────────────────────────────────────── */
-  .row {
-    animation: fadeIn 0.2s ease both;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+  /* ── Cleaner ── */
+  .coming-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 10px; }
+  .coming-soon .cs-icon { font-size: 36px; opacity: 0.1; margin-bottom: 6px; }
+  .coming-soon h3 { font-size: 15px; font-weight: 500; color: var(--text); opacity: 0.3; }
+  .coming-soon p  { font-size: 13px; color: var(--text-dim); opacity: 0.4; }
+
+  /* ── Custom confirm dialog ── */
+  .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: dialogFadeIn 0.12s ease; }
+  .dialog-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px 20px; min-width: 320px; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .dialog-message { font-size: 13.5px; color: var(--text); line-height: 1.6; white-space: pre-wrap; text-align: center; }
+  .dialog-actions { display: flex; justify-content: center; gap: 8px; }
+  @keyframes dialogFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+
 </style>
 </head>
 <body>
-
 <div id="app">
   <div class="titlebar"></div>
+  <div class="main-layout">
 
-  <!-- Controls -->
-  <div class="controls">
-    <label for="count">Show top</label>
-    <input type="number" id="count" value="50" min="1" max="500" />
-
-    <select id="mode">
-      <option value="files">Largest files</option>
-      <option value="folders">Largest folders</option>
-    </select>
-
-    <button class="btn btn-accent" id="scanBtn">Scan All Drives</button>
-    <button class="btn btn-ghost"  id="pauseBtn" disabled>Pause</button>
-    <button class="btn btn-ghost"  id="stopBtn" disabled>Stop</button>
-
-    <div class="spacer"></div>
-    <span class="status" id="status">Ready</span>
-  </div>
-
-  <!-- Progress -->
-  <div class="progress-track">
-    <div class="progress-bar" id="progressBar"></div>
-  </div>
-
-  <!-- Table -->
-  <div class="table-wrap">
-    <div class="table-header">
-      <span class="col-index">#</span>
-      <span class="col-size">Size</span>
-      <span class="col-path">Path</span>
-    </div>
-    <div class="table-body" id="tableBody">
-      <div class="empty-state" id="emptyState">
-        <div class="icon">⌕</div>
-        <p>Hit <strong>Scan All Drives</strong> to find the largest files</p>
+    <nav class="sidebar">
+      <div class="app-title">
+        <div class="app-title-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="12" rx="10" ry="3.5"/>
+            <ellipse cx="12" cy="12" rx="10" ry="3.5" transform="rotate(60 12 12)"/>
+            <ellipse cx="12" cy="12" rx="10" ry="3.5" transform="rotate(120 12 12)"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <span>Disk Reaper</span>
       </div>
+      <div class="nav-item active" data-panel="files">
+        <svg viewBox="0 0 16 16"><path d="M3 13V4.5L6.5 2H12a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M6.5 2v2.5H3"/></svg>
+        Large Files
+      </div>
+      <div class="nav-item" data-panel="apps">
+        <svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+        Installed Apps
+      </div>
+      <div class="nav-item" data-panel="processes">
+        <svg viewBox="0 0 16 16"><polyline points="1,9 3.5,4 6,10 8.5,6 11,9.5 13,7 15,9"/></svg>
+        Processes
+      </div>
+      <div class="nav-item" data-panel="services">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>
+        Services
+      </div>
+      <div class="nav-item" data-panel="cleaner">
+        <svg viewBox="0 0 16 16"><path d="M8 1l1.5 3.2L13 5l-2.5 2.4.6 3.6L8 9.3 4.9 11l.6-3.6L3 5l3.5-.8z"/></svg>
+        Cleaner
+      </div>
+    </nav>
+
+    <div class="panels">
+
+      <!-- Large Files -->
+      <div id="panel-files" class="panel active">
+        <div class="controls">
+          <label for="count">Show top</label>
+          <input type="number" id="count" value="50" min="1" max="500" />
+          <select id="mode">
+            <option value="files">Largest files</option>
+            <option value="folders">Largest folders</option>
+          </select>
+          <button class="btn btn-accent" id="scanBtn">Scan All Drives</button>
+          <button class="btn btn-ghost"  id="pauseBtn" disabled>Pause</button>
+          <button class="btn btn-ghost"  id="stopBtn"  disabled>Stop</button>
+          <div class="spacer"></div>
+          <span class="status-text" id="filesStatus">Ready</span>
+        </div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-index">#</span>
+                <span class="col-size sortable" data-sort="size">Size<span class="sort-ind"> ▼</span></span>
+                <span class="col-path sortable" data-sort="path">Path<span class="sort-ind"></span></span>
+              </div>
+              <div class="table-body" id="filesBody">
+                <div class="empty-state" id="filesEmpty">
+                  <div class="icon">⌕</div>
+                  <p>Hit <strong>Scan All Drives</strong> to find the largest files</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-danger" id="deleteBtn">Delete Selected</button>
+          <button class="btn btn-ghost"  id="explorerBtn">Show in Explorer</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="filesFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="filesExportBtn">Export ↑</button>
+            <div class="export-menu" id="filesExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Installed Apps -->
+      <div id="panel-apps" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="appsRefreshBtn">Scan Apps</button>
+          <input class="search-input" type="text" id="appsSearch" placeholder="Search apps…" />
+          <select id="appsSizeMode">
+            <option value="total">App + Data (total)</option>
+            <option value="app">App size only</option>
+            <option value="data">Data size only</option>
+          </select>
+          <div class="spacer"></div>
+          <span class="status-text" id="appsStatus">Ready</span>
+        </div>
+        <div class="progress-track" id="appsCalcTrack" style="display:none;">
+          <div class="progress-bar warn active" id="appsCalcBar"></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-index">#</span>
+                <span class="col-app-name  sortable" data-sort="name">Application<span class="sort-ind"></span></span>
+                <span class="col-app-size  sortable" data-sort="size">Size<span class="sort-ind"> ▼</span></span>
+                <span class="col-version   sortable" data-sort="version">Version<span class="sort-ind"></span></span>
+                <span class="col-publisher sortable" data-sort="publisher">Publisher<span class="sort-ind"></span></span>
+              </div>
+              <div class="table-body" id="appsBody">
+                <div class="empty-state" id="appsEmpty">
+                  <div class="icon">⊞</div>
+                  <p>Hit <strong>Scan Apps</strong> to list installed applications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-danger" id="appsUninstallBtn" disabled>Uninstall</button>
+          <button class="btn btn-ghost"  id="appsProgramsBtn">Open Programs &amp; Features</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="appsFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="appsExportBtn">Export ↑</button>
+            <div class="export-menu" id="appsExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processes -->
+      <div id="panel-processes" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="procRefreshBtn">Refresh</button>
+          <input class="search-input" type="text" id="procSearch" placeholder="Search processes…" />
+          <select id="procGroupMode">
+            <option value="individual">Each process individually</option>
+            <option value="grouped">Group by application</option>
+          </select>
+          <div class="spacer"></div>
+          <span class="status-text" id="procStatus">Ready</span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-index">#</span>
+                <span class="col-pid       sortable" data-sort="pid" id="procPidHeader">PID<span class="sort-ind"></span></span>
+                <span class="col-mem       sortable" data-sort="mem">Memory<span class="sort-ind"> ▼</span></span>
+                <span class="col-proc-name sortable" data-sort="name">Process<span class="sort-ind"></span></span>
+                <span class="col-proc-desc">Description</span>
+              </div>
+              <div class="table-body" id="procBody">
+                <div class="empty-state" id="procEmpty">
+                  <div class="icon">⚡</div>
+                  <p>Hit <strong>Refresh</strong> to list running processes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-danger" id="killBtn" disabled>Kill Process</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="procFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="procExportBtn">Export ↑</button>
+            <div class="export-menu" id="procExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Services -->
+      <div id="panel-services" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="svcRefreshBtn">Refresh</button>
+          <input class="search-input" type="text" id="svcSearch" placeholder="Search services…" />
+          <div class="spacer"></div>
+          <span class="status-text" id="svcStatus">Ready</span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-dot"></span>
+                <span class="col-svc-status sortable" data-sort="status">Status<span class="sort-ind"></span></span>
+                <span class="col-svc-name   sortable" data-sort="name">Service Name<span class="sort-ind"></span></span>
+                <span class="col-svc-dname  sortable" data-sort="displayName">Display Name<span class="sort-ind"> ▲</span></span>
+              </div>
+              <div class="table-body" id="svcBody">
+                <div class="empty-state" id="svcEmpty">
+                  <div class="icon">⚙</div>
+                  <p>Hit <strong>Refresh</strong> to list Windows services</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-success" id="startSvcBtn" disabled>Start Service</button>
+          <button class="btn btn-danger"  id="stopSvcBtn"  disabled>Stop Service</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="svcFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="svcExportBtn">Export ↑</button>
+            <div class="export-menu" id="svcExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cleaner -->
+      <div id="panel-cleaner" class="panel">
+        <div class="coming-soon">
+          <div class="cs-icon">✦</div>
+          <h3>Cleaner</h3>
+          <p>Coming soon</p>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- Bottom bar -->
-  <div class="bottom-bar">
-    <button class="btn btn-danger" id="deleteBtn">Delete Selected</button>
-    <button class="btn btn-ghost"  id="explorerBtn">Show in Explorer</button>
-    <div class="spacer"></div>
-    <span class="footer-info" id="footerInfo"></span>
+  <div class="global-footer">
     <div class="footer-links">
       <span>Made by</span>
       <a id="linkEerie" href="#">EERIE</a>
@@ -374,195 +505,839 @@
 
 <script>
 (() => {
-  // ── Elements ──────────────────────────────────────────────────
-  const $ = (s) => document.querySelector(s);
+  const $ = s => document.querySelector(s);
+
+  // ── Custom confirm dialog (replaces native browser confirm()) ──
+    function customConfirm(message) {
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+        overlay.innerHTML = `
+          <div class="dialog-box">
+            <div class="dialog-message">${esc(message)}</div>
+            <div class="dialog-actions">
+              <button class="btn btn-ghost" id="dlgCancel">Cancel</button>
+              <button class="btn btn-danger" id="dlgOk">Confirm</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        const cleanup = val => { overlay.remove(); resolve(val); };
+        overlay.querySelector('#dlgOk').addEventListener('click', () => cleanup(true));
+        overlay.querySelector('#dlgCancel').addEventListener('click', () => cleanup(false));
+        overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(false); });
+        overlay.querySelector('#dlgOk').focus();
+      });
+    }
+
+  function fmtSize(bytes) {
+    if (!bytes) return "—";
+    const u = ["B","KB","MB","GB","TB","PB"];
+    let i = 0, v = bytes;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return i === 0 ? `${v} B` : `${v.toFixed(1)} ${u[i]}`;
+  }
+  function fmtNum(n) { return n.toLocaleString("en-US"); }
+  function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  // ══════════════════════════════════════════════════════════════
+  // COLUMN RESIZING
+  //
+  // colWidths[panelId][colIdx] = px
+  //
+  // THE CRITICAL RULE: call applyColWidths(panelId) at the end
+  // of EVERY render function, after rows are in the DOM.
+  // This is what keeps headers aligned with rows after every sort.
+  // ══════════════════════════════════════════════════════════════
+  const colWidths = {};
+
+  function setW(el, w) {
+    el.style.width    = w + 'px';
+    el.style.minWidth = w + 'px';
+    el.style.maxWidth = w + 'px';
+    el.style.flex     = 'none';
+  }
+  function clearW(el) {
+    el.style.width = el.style.minWidth = el.style.maxWidth = el.style.flex = '';
+  }
+
+  // Re-stamp stored widths onto header + all row cells. Call after EVERY render.
+  function applyColWidths(panelId) {
+    const widths = colWidths[panelId];
+    if (!widths) return;
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const header = panel.querySelector('.table-header');
+    if (!header) return;
+    Object.entries(widths).forEach(([idxStr, w]) => {
+      const idx = parseInt(idxStr);
+      const th = header.children[idx];
+      if (th) setW(th, w);
+      panel.querySelectorAll('.table-body .row').forEach(row => {
+        const cell = row.children[idx];
+        if (cell) setW(cell, w);
+      });
+    });
+  }
+
+  // Measure content widths, store, apply. Call after first load.
+  function fitColumnsToContent(panelId) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const header = panel.querySelector('.table-header');
+    if (!header) return;
+    const count = header.children.length;
+    if (!colWidths[panelId]) colWidths[panelId] = {};
+
+    // Clear so scrollWidth reflects actual content
+    for (let i = 0; i < count; i++) {
+      const th = header.children[i];
+      if (th) clearW(th);
+      panel.querySelectorAll('.table-body .row').forEach(row => {
+        const c = row.children[i]; if (c) clearW(c);
+      });
+    }
+    // Measure each column
+    for (let i = 0; i < count; i++) {
+      const th = header.children[i];
+      if (!th) continue;
+      let maxW = th.scrollWidth + 10;
+      panel.querySelectorAll('.table-body .row').forEach(row => {
+        const c = row.children[i];
+        if (c) maxW = Math.max(maxW, c.scrollWidth + 10);
+      });
+      colWidths[panelId][i] = Math.max(maxW, 40);
+    }
+    applyColWidths(panelId);
+  }
+
+  function initResizable(panelId) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const header = panel.querySelector('.table-header');
+    if (!header) return;
+
+    [...header.children].forEach((th, colIdx) => {
+      th.querySelectorAll('.col-resize-handle').forEach(h => h.remove());
+      if (th.classList.contains('col-dot')) return;
+
+      const handle = document.createElement('div');
+      handle.className = 'col-resize-handle';
+      th.appendChild(handle);
+
+      // Double-click: fit this one column to content
+      handle.addEventListener('dblclick', e => {
+        e.preventDefault(); e.stopPropagation();
+        clearW(th);
+        panel.querySelectorAll('.table-body .row').forEach(row => {
+          const c = row.children[colIdx]; if (c) clearW(c);
+        });
+        let maxW = th.scrollWidth + 10;
+        panel.querySelectorAll('.table-body .row').forEach(row => {
+          const c = row.children[colIdx];
+          if (c) maxW = Math.max(maxW, c.scrollWidth + 10);
+        });
+        if (!colWidths[panelId]) colWidths[panelId] = {};
+        colWidths[panelId][colIdx] = Math.max(maxW, 40);
+        applyColWidths(panelId);
+      });
+
+      // Drag to resize
+      handle.addEventListener('mousedown', e => {
+        e.preventDefault(); e.stopPropagation();
+        handle.classList.add('resizing');
+        const startX = e.clientX;
+        const startW = th.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        const onMove = ev => {
+          const newW = Math.max(40, startW + ev.clientX - startX);
+          if (!colWidths[panelId]) colWidths[panelId] = {};
+          colWidths[panelId][colIdx] = newW;
+          applyColWidths(panelId);
+        };
+        const onUp = () => {
+          handle.classList.remove('resizing');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          // Block the next click so sort doesn't fire after drag
+          th.addEventListener('click', e2 => e2.stopPropagation(), { capture: true, once: true });
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  }
+
+  ['panel-files','panel-apps','panel-processes','panel-services'].forEach(initResizable);
+
+  // ── Navigation ─────────────────────────────────────────────────
+  document.querySelectorAll(".nav-item[data-panel]").forEach(item => {
+    item.addEventListener("click", () => {
+      document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      item.classList.add("active");
+      document.getElementById("panel-" + item.dataset.panel).classList.add("active");
+    });
+  });
+
+  $("#linkEerie").addEventListener("click",  e => { e.preventDefault(); window.api.openExternal("https://eeriegoesd.com"); });
+  $("#linkCoffee").addEventListener("click", e => { e.preventDefault(); window.api.openExternal("https://buymeacoffee.com/eeriegoesd"); });
+
+  // ── Export ─────────────────────────────────────────────────────
+  let activeMenu = null;
+  document.addEventListener("click", e => {
+    if (activeMenu && !e.target.closest(".export-wrap")) { activeMenu.classList.remove("open"); activeMenu = null; }
+  });
+  function toggleExport(btn) {
+    const menu = btn.parentElement.querySelector(".export-menu");
+    if (activeMenu && activeMenu !== menu) activeMenu.classList.remove("open");
+    menu.classList.toggle("open");
+    activeMenu = menu.classList.contains("open") ? menu : null;
+  }
+  async function runExport(format, getDataFn) {
+    const { filename, headers, rows } = getDataFn();
+    if (!rows.length) return;
+    const r = await window.api.exportData({ format, filename: filename + "." + format, headers, rows });
+    if (!r.ok && r.error) alert("Export failed:\n" + r.error);
+  }
+  function wireExport(btnId, menuId, getDataFn) {
+    const btn  = $("#" + btnId);
+    const menu = $("#" + menuId);
+    btn.addEventListener("click", () => toggleExport(btn));
+    menu.querySelectorAll("button[data-format]").forEach(b => {
+      b.addEventListener("click", () => {
+        menu.classList.remove("open"); activeMenu = null;
+        runExport(b.dataset.format, getDataFn);
+      });
+    });
+  }
+
+  // ── Sort helper ─────────────────────────────────────────────────
+  function makeSortable(panelSel, state, renderFn) {
+    document.querySelectorAll(panelSel + " .table-header [data-sort]").forEach(th => {
+      th.addEventListener("click", () => {
+        const col = th.dataset.sort;
+        if (state.col === col) {
+          state.dir = state.dir === "asc" ? "desc" : "asc";
+        } else {
+          state.col = col;
+          state.dir = (col === "size" || col === "mem" || col === "pid") ? "desc" : "asc";
+        }
+        document.querySelectorAll(panelSel + " .table-header .sort-ind").forEach(s => s.textContent = "");
+        th.querySelector(".sort-ind").textContent = state.dir === "asc" ? " ▲" : " ▼";
+        renderFn();
+      });
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // LARGE FILES
+  // ══════════════════════════════════════════════════════════════
   const countInput  = $("#count");
   const modeSelect  = $("#mode");
   const scanBtn     = $("#scanBtn");
   const pauseBtn    = $("#pauseBtn");
   const stopBtn     = $("#stopBtn");
-  const statusEl    = $("#status");
+  const filesStatus = $("#filesStatus");
   const progressBar = $("#progressBar");
-  const tableBody   = $("#tableBody");
-  const emptyState  = $("#emptyState");
+  const filesBody   = $("#filesBody");
+  const filesEmpty  = $("#filesEmpty");
   const deleteBtn   = $("#deleteBtn");
   const explorerBtn = $("#explorerBtn");
-  const footerInfo  = $("#footerInfo");
+  const filesFooter = $("#filesFooter");
 
-  let items = [];            // current result set [{size, path}]
-  let selected = new Set();  // indices of selected rows
+  let fileItems = [], fileSelected = new Set(), fileLastClick = null;
+  const filesSort = { col: "size", dir: "desc" };
 
-  // ── External links ────────────────────────────────────────────
-  $("#linkEerie").addEventListener("click", (e) => {
-    e.preventDefault();
-    window.api.openExternal("https://eeriegoesd.com");
-  });
-  $("#linkCoffee").addEventListener("click", (e) => {
-    e.preventDefault();
-    window.api.openExternal("https://buymeacoffee.com/eeriegoesd");
-  });
-
-  // ── Format helpers ────────────────────────────────────────────
-  function fmtSize(bytes) {
-    const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-    let i = 0;
-    let v = bytes;
-    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-    return i === 0 ? `${v} B` : `${v.toFixed(1)} ${units[i]}`;
+  function sortedFileItems() {
+    return [...fileItems].sort((a, b) => {
+      if (filesSort.col === "size") return filesSort.dir === "desc" ? b.size - a.size : a.size - b.size;
+      if (filesSort.col === "path") return filesSort.dir === "asc"  ? a.path.localeCompare(b.path) : b.path.localeCompare(a.path);
+      return 0;
+    });
   }
 
-  function fmtNum(n) {
-    return n.toLocaleString("en-US");
-  }
-
-  // ── Render table ──────────────────────────────────────────────
-  function renderTable() {
-    tableBody.innerHTML = "";
-    if (!items.length) {
-      tableBody.appendChild(emptyState);
-      emptyState.querySelector("p").innerHTML =
-        'Hit <strong>Scan All Drives</strong> to find the largest ' + modeSelect.value;
+  function renderFiles() {
+    filesBody.innerHTML = "";
+    if (!fileItems.length) {
+      filesBody.appendChild(filesEmpty);
+      filesEmpty.querySelector("p").innerHTML = 'Hit <strong>Scan All Drives</strong> to find the largest ' + modeSelect.value;
       return;
     }
-    items.forEach((item, i) => {
+    sortedFileItems().forEach((item, i) => {
+      const origIdx = fileItems.indexOf(item);
       const row = document.createElement("div");
-      row.className = "row" + (selected.has(i) ? " selected" : "");
+      row.className = "row" + (fileSelected.has(origIdx) ? " selected" : "");
       row.style.animationDelay = `${Math.min(i * 15, 400)}ms`;
-      row.dataset.index = i;
+      row.dataset.origidx = origIdx;
       row.innerHTML = `
         <span class="col-index">${i + 1}</span>
         <span class="col-size">${fmtSize(item.size)}</span>
-        <span class="col-path" title="${item.path}">${item.path}</span>
+        <span class="col-path" title="${esc(item.path)}">${esc(item.path)}</span>
       `;
-      row.addEventListener("click", (e) => onRowClick(i, e));
-      tableBody.appendChild(row);
+      row.addEventListener("click", e => {
+        if (e.ctrlKey || e.metaKey) {
+          fileSelected.has(origIdx) ? fileSelected.delete(origIdx) : fileSelected.add(origIdx);
+        } else if (e.shiftKey && fileLastClick !== null) {
+          const lo = Math.min(fileLastClick, origIdx), hi = Math.max(fileLastClick, origIdx);
+          for (let k = lo; k <= hi; k++) fileSelected.add(k);
+        } else { fileSelected.clear(); fileSelected.add(origIdx); }
+        fileLastClick = origIdx;
+        filesBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", fileSelected.has(parseInt(r.dataset.origidx))));
+      });
+      filesBody.appendChild(row);
     });
+    applyColWidths('panel-files'); // re-stamp after every render
   }
 
-  // ── Row selection ─────────────────────────────────────────────
-  let lastClickedIndex = null;
+  makeSortable("#panel-files", filesSort, renderFiles);
 
-  function onRowClick(index, e) {
-    if (e.ctrlKey || e.metaKey) {
-      selected.has(index) ? selected.delete(index) : selected.add(index);
-    } else if (e.shiftKey && lastClickedIndex !== null) {
-      const from = Math.min(lastClickedIndex, index);
-      const to = Math.max(lastClickedIndex, index);
-      for (let i = from; i <= to; i++) selected.add(i);
-    } else {
-      selected.clear();
-      selected.add(index);
-    }
-    lastClickedIndex = index;
-    updateRowStyles();
-  }
-
-  function updateRowStyles() {
-    tableBody.querySelectorAll(".row").forEach((row) => {
-      const i = parseInt(row.dataset.index);
-      row.classList.toggle("selected", selected.has(i));
-    });
-  }
-
-  // ── Scan ──────────────────────────────────────────────────────
-  let removeProgressListener = null;
+  let removeProgressListener = null, paused = false;
 
   scanBtn.addEventListener("click", async () => {
     const limit = parseInt(countInput.value) || 50;
-    const mode = modeSelect.value;
-
-    items = [];
-    selected.clear();
-    renderTable();
-
-    scanBtn.disabled = true;
-    pauseBtn.disabled = false;
-    stopBtn.disabled = false;
+    const mode  = modeSelect.value;
+    fileItems = []; fileSelected.clear(); renderFiles();
+    scanBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
     progressBar.classList.add("active");
-    statusEl.textContent = "Scanning…";
-    footerInfo.textContent = "";
-
+    filesStatus.textContent = "Scanning…"; filesFooter.textContent = "";
     removeProgressListener = window.api.onScanProgress(({ scanned, label }) => {
-      statusEl.textContent = `${fmtNum(scanned)} ${label} scanned…`;
+      filesStatus.textContent = `${fmtNum(scanned)} ${label} scanned…`;
     });
-
     try {
       const result = await window.api.startScan({ limit, mode });
-      items = result.items;
-      renderTable();
-      statusEl.textContent = `Done — ${fmtNum(result.scanned)} ${result.label} scanned`;
-      const totalSize = items.reduce((s, it) => s + it.size, 0);
-      footerInfo.textContent =
-        `${items.length} ${result.label}  ·  ${fmtSize(totalSize)} total`;
-    } catch (err) {
-      statusEl.textContent = "Scan failed";
-    }
-
+      fileItems = result.items;
+      renderFiles();
+      requestAnimationFrame(() => fitColumnsToContent('panel-files'));
+      filesStatus.textContent = `Done — ${fmtNum(result.scanned)} ${result.label} scanned`;
+      const totalSize = fileItems.reduce((s, it) => s + it.size, 0);
+      filesFooter.textContent = `${fileItems.length} ${result.label}  ·  ${fmtSize(totalSize)} total`;
+    } catch { filesStatus.textContent = "Scan failed"; }
     progressBar.classList.remove("active");
-    scanBtn.disabled = false;
-    pauseBtn.disabled = true;
-    pauseBtn.textContent = "Pause";
-    stopBtn.disabled = true;
+    scanBtn.disabled = false; pauseBtn.disabled = true; pauseBtn.textContent = "Pause"; stopBtn.disabled = true;
     if (removeProgressListener) { removeProgressListener(); removeProgressListener = null; }
   });
 
-  let paused = false;
+  pauseBtn.addEventListener("click", () => {
+    if (!paused) {
+      window.api.pauseScan(); paused = true; pauseBtn.textContent = "Resume";
+      progressBar.classList.remove("active");
+      filesStatus.textContent = filesStatus.textContent.replace("scanned…", "scanned (paused)");
+    } else {
+      window.api.resumeScan(); paused = false; pauseBtn.textContent = "Pause";
+      progressBar.classList.add("active");
+      filesStatus.textContent = filesStatus.textContent.replace(" (paused)", "…");
+    }
+  });
 
-    pauseBtn.addEventListener("click", () => {
-      if (!paused) {
-        window.api.pauseScan();
-        paused = true;
-        pauseBtn.textContent = "Resume";
-        progressBar.classList.remove("active");
-        statusEl.textContent = statusEl.textContent.replace("scanned…", "scanned (paused)");
-      } else {
-        window.api.resumeScan();
-        paused = false;
-        pauseBtn.textContent = "Pause";
-        progressBar.classList.add("active");
-        statusEl.textContent = statusEl.textContent.replace(" (paused)", "…");
-      }
-    });
+  stopBtn.addEventListener("click", () => {
+    window.api.stopScan(); stopBtn.disabled = true; pauseBtn.disabled = true;
+    paused = false; pauseBtn.textContent = "Pause"; filesStatus.textContent = "Stopping…";
+  });
 
-    stopBtn.addEventListener("click", () => {
-      window.api.stopScan();
-      stopBtn.disabled = true;
-      pauseBtn.disabled = true;
-      paused = false;
-      pauseBtn.textContent = "Pause";
-      statusEl.textContent = "Stopping…";
-    });
-
-  // ── Delete ────────────────────────────────────────────────────
   deleteBtn.addEventListener("click", async () => {
-    if (!selected.size) return;
-    const paths = [...selected].sort((a, b) => a - b).map((i) => items[i].path);
-    const label = modeSelect.value === "folders" ? "folder" : "file";
+    if (!fileSelected.size) return;
+    const paths = [...fileSelected].sort((a,b)=>a-b).map(i => fileItems[i].path);
+    const label  = modeSelect.value === "folders" ? "folder" : "file";
     const plural = paths.length > 1 ? label + "s" : label;
-    const ok = confirm(`Move ${paths.length} ${plural} to Recycle Bin?`);
-    if (!ok) return;
-
+    if (!await customConfirm(`Move ${paths.length} ${plural} to Recycle Bin?`)) return;
     const results = await window.api.deleteFiles(paths);
     let deleted = 0;
     for (const r of results) {
-      if (r.ok) {
-        const idx = items.findIndex((it) => it.path === r.path);
-        if (idx !== -1) { items.splice(idx, 1); deleted++; }
-      } else {
-        alert(`Could not delete:\n${r.path}\n\n${r.error}`);
-      }
+      if (r.ok) { const idx = fileItems.findIndex(it => it.path === r.path); if (idx !== -1) { fileItems.splice(idx,1); deleted++; } }
+      else alert(`Could not delete:\n${r.path}\n\n${r.error}`);
     }
-    selected.clear();
-    renderTable();
-    if (deleted) statusEl.textContent = `Moved ${deleted} ${plural} to Recycle Bin`;
+    fileSelected.clear(); renderFiles();
+    if (deleted) filesStatus.textContent = `Moved ${deleted} ${plural} to Recycle Bin`;
   });
 
-  // ── Show in Explorer ──────────────────────────────────────────
   explorerBtn.addEventListener("click", () => {
-    if (!selected.size) return;
-    const first = Math.min(...selected);
-    window.api.showInExplorer(items[first].path);
+    if (!fileSelected.size) return;
+    window.api.showInExplorer(fileItems[Math.min(...fileSelected)].path);
   });
+
+  wireExport("filesExportBtn", "filesExportMenu", () => ({
+    filename: "large-files",
+    headers:  ["#", "Size", "Path"],
+    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), f.path]),
+  }));
+
+  // ══════════════════════════════════════════════════════════════
+  // INSTALLED APPS
+  // ══════════════════════════════════════════════════════════════
+  const appsRefreshBtn   = $("#appsRefreshBtn");
+  const appsStatus       = $("#appsStatus");
+  const appsBody         = $("#appsBody");
+  const appsEmpty        = $("#appsEmpty");
+  const appsProgramsBtn  = $("#appsProgramsBtn");
+  const appsUninstallBtn = $("#appsUninstallBtn");
+  const appsSearchInput  = $("#appsSearch");
+  const appsSizeModeEl   = $("#appsSizeMode");
+  const appsCalcTrack    = $("#appsCalcTrack");
+  const appsCalcBar      = $("#appsCalcBar");
+  const appsFooter       = $("#appsFooter");
+
+  let appsData = [], appsSelected = null, appsSearchTerm = "", appsSizeMode = "total";
+  const appsSort = { col: "size", dir: "desc" };
+  let removeSizeListener = null;
+
+  function getAppSize(app) {
+    const a = app.appSizeBytes  || 0;
+    const d = app.dataSizeBytes || 0;
+    if (appsSizeMode === "app")  return a;
+    if (appsSizeMode === "data") return d;
+    return a + d;
+  }
+
+  function renderApps() {
+    appsBody.innerHTML = "";
+    const term = appsSearchTerm.toLowerCase();
+    let filtered = term
+      ? appsData.filter(a => a.name.toLowerCase().includes(term) || a.publisher.toLowerCase().includes(term))
+      : [...appsData];
+
+    filtered.sort((a, b) => {
+      let av, bv;
+      switch (appsSort.col) {
+        case "size":      av = getAppSize(a);             bv = getAppSize(b);             break;
+        case "name":      av = a.name.toLowerCase();      bv = b.name.toLowerCase();      break;
+        case "publisher": av = a.publisher.toLowerCase(); bv = b.publisher.toLowerCase(); break;
+        case "version":   av = a.version.toLowerCase();   bv = b.version.toLowerCase();   break;
+        default:          av = getAppSize(a);             bv = getAppSize(b);
+      }
+      if (av < bv) return appsSort.dir === "asc" ? -1 :  1;
+      if (av > bv) return appsSort.dir === "asc" ?  1 : -1;
+      return 0;
+    });
+
+    if (!filtered.length) { appsBody.appendChild(appsEmpty); return; }
+
+    filtered.forEach((app, displayIdx) => {
+      const origIdx = appsData.indexOf(app);
+      const row = document.createElement("div");
+      row.className = "row" + (appsSelected === app ? " selected" : "");
+      row.style.animationDelay = `${Math.min(displayIdx * 6, 250)}ms`;
+      row.dataset.appindex = origIdx;
+      row.innerHTML = `
+        <span class="col-index">${displayIdx + 1}</span>
+        <span class="col-app-name"  title="${esc(app.name)}">${esc(app.name)}</span>
+        <span class="col-app-size">${fmtSize(getAppSize(app))}</span>
+        <span class="col-version">${esc(app.version) || "—"}</span>
+        <span class="col-publisher" title="${esc(app.publisher)}">${esc(app.publisher) || "—"}</span>
+      `;
+      row.addEventListener("click", () => {
+        appsSelected = appsSelected === app ? null : app;
+        appsBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", appsData[parseInt(r.dataset.appindex)] === appsSelected));
+        appsUninstallBtn.disabled = !appsSelected || !appsSelected.uninstallString;
+      });
+      appsBody.appendChild(row);
+    });
+
+    applyColWidths('panel-apps'); // re-stamp after every render
+  }
+
+  function updateAppSizeCell(origIdx) {
+    const row = appsBody.querySelector(`[data-appindex="${origIdx}"]`);
+    if (!row) return;
+    const cell = row.querySelector(".col-app-size");
+    if (cell) cell.textContent = fmtSize(getAppSize(appsData[origIdx]));
+  }
+
+  async function loadApps() {
+    if (removeSizeListener) { removeSizeListener(); removeSizeListener = null; }
+    window.api.stopSizeCalc();
+    appsRefreshBtn.disabled = true;
+    appsSelected = null;
+    appsUninstallBtn.disabled = true;
+    appsStatus.textContent = "Scanning registry…";
+    appsBody.innerHTML = "";
+
+    try {
+      appsData = await window.api.getInstalledApps();
+      renderApps();
+      requestAnimationFrame(() => fitColumnsToContent('panel-apps'));
+
+      const jobs = [];
+      appsData.forEach((a, i) => {
+        if (a.installLocation) jobs.push({ index: i, path: a.installLocation, kind: "app"  });
+        if (a.dataLocation)    jobs.push({ index: i, path: a.dataLocation,    kind: "data" });
+      });
+
+      if (jobs.length) {
+        appsStatus.textContent = `${fmtNum(appsData.length)} apps found  ·  calculating sizes…`;
+        appsCalcTrack.style.display = "";
+        appsCalcBar.classList.add("active");
+
+        removeSizeListener = window.api.onAppSizeUpdate(({ index, kind, sizeBytes }) => {
+          if (!appsData[index]) return;
+          if (kind === "app")  appsData[index].appSizeBytes  = sizeBytes;
+          if (kind === "data") appsData[index].dataSizeBytes = sizeBytes;
+          updateAppSizeCell(index);
+        });
+
+        await window.api.startSizeCalc(jobs);
+
+        if (removeSizeListener) { removeSizeListener(); removeSizeListener = null; }
+        appsCalcTrack.style.display = "none";
+        appsCalcBar.classList.remove("active");
+      }
+
+      renderApps();
+      requestAnimationFrame(() => fitColumnsToContent('panel-apps'));
+
+      const total = appsData.reduce((s, a) => s + getAppSize(a), 0);
+      appsStatus.textContent = `${fmtNum(appsData.length)} apps found`;
+      appsFooter.textContent = `${appsData.length} apps  ·  ${fmtSize(total)} total`;
+
+    } catch (e) {
+      console.error(e);
+      appsStatus.textContent = "Failed to scan apps";
+    }
+    appsRefreshBtn.disabled = false;
+  }
+
+  makeSortable("#panel-apps", appsSort, renderApps);
+
+  appsSearchInput.addEventListener("input", () => {
+    appsSearchTerm = appsSearchInput.value;
+    appsSelected = null;
+    appsUninstallBtn.disabled = true;
+    renderApps();
+  });
+
+  appsSizeModeEl.addEventListener("change", () => {
+    appsSizeMode = appsSizeModeEl.value;
+    renderApps();
+    const total = appsData.reduce((s, a) => s + getAppSize(a), 0);
+    appsFooter.textContent = `${appsData.length} apps  ·  ${fmtSize(total)} total`;
+  });
+
+  appsRefreshBtn.addEventListener("click", loadApps);
+  appsProgramsBtn.addEventListener("click", () => window.api.openExternal("ms-settings:appsfeatures"));
+
+  appsUninstallBtn.addEventListener("click", async () => {
+    if (!appsSelected?.uninstallString) return;
+    if (!await customConfirm(`Uninstall "${appsSelected.name}"?`)) return;
+    appsUninstallBtn.disabled = true;
+    const r = await window.api.uninstallApp(appsSelected.uninstallString);
+    if (!r.ok) { alert(`Could not launch uninstaller:\n${r.error}`); appsUninstallBtn.disabled = false; }
+    else appsStatus.textContent = `Uninstaller launched for "${appsSelected.name}" — rescan when done`;
+  });
+
+  wireExport("appsExportBtn", "appsExportMenu", () => {
+    const term = appsSearchTerm.toLowerCase();
+    let items = term ? appsData.filter(a => a.name.toLowerCase().includes(term) || a.publisher.toLowerCase().includes(term)) : [...appsData];
+    items.sort((a, b) => getAppSize(b) - getAppSize(a));
+    return {
+      filename: "installed-apps",
+      headers:  ["#", "Application", "Size", "Version", "Publisher", "App Size", "Data Size", "Total"],
+      rows:     items.map((a, i) => [
+        i + 1, a.name, fmtSize(getAppSize(a)), a.version, a.publisher,
+        fmtSize(a.appSizeBytes), fmtSize(a.dataSizeBytes),
+        fmtSize((a.appSizeBytes||0) + (a.dataSizeBytes||0)),
+      ]),
+    };
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // PROCESSES
+  // ══════════════════════════════════════════════════════════════
+  const procRefreshBtn = $("#procRefreshBtn");
+  const procStatus     = $("#procStatus");
+  const procBody       = $("#procBody");
+  const procEmpty      = $("#procEmpty");
+  const killBtn        = $("#killBtn");
+  const procFooter     = $("#procFooter");
+  const procGroupSel   = $("#procGroupMode");
+  const procPidHeader  = $("#procPidHeader");
+
+  let procData = [], procSelectedPid = null, procGrouped = false, procSearchTerm = "";
+  const procSort = { col: "mem", dir: "desc" };
+
+  function renderProcesses() {
+    procBody.innerHTML = "";
+
+    if (procGrouped) {
+      procPidHeader.childNodes[0].textContent = "Instances";
+      const source = procSearchTerm
+        ? procData.filter(p => p.name.toLowerCase().includes(procSearchTerm) || (p.description||"").toLowerCase().includes(procSearchTerm))
+        : procData;
+      const map = new Map();
+      for (const p of source) {
+        const key = p.name.toLowerCase();
+        if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, instances: 0, description: p.description });
+        const g = map.get(key); g.memBytes += p.memBytes; g.instances++;
+      }
+      const groups = [...map.values()].sort((a, b) => b.memBytes - a.memBytes);
+      if (!groups.length) { procBody.appendChild(procEmpty); return; }
+      groups.forEach((g, i) => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.style.animationDelay = `${Math.min(i * 5, 200)}ms`;
+        row.innerHTML = `
+          <span class="col-index">${i + 1}</span>
+          <span class="col-pid">${g.instances}×</span>
+          <span class="col-mem">${fmtSize(g.memBytes)}</span>
+          <span class="col-proc-name" title="${esc(g.name)}">${esc(g.name)}</span>
+          <span class="col-proc-desc" title="${esc(g.description)}">${esc(g.description) || "—"}</span>
+        `;
+        row.addEventListener("click", () => {
+          procBody.querySelectorAll(".row").forEach(r => r.classList.remove("selected"));
+          row.classList.add("selected");
+          killBtn.disabled = false;
+        });
+        procBody.appendChild(row);
+      });
+      killBtn.textContent = "Kill Tree";
+      killBtn.disabled = true;
+
+    } else {
+      procPidHeader.childNodes[0].textContent = "PID";
+      killBtn.textContent = "Kill Process";
+      killBtn.disabled = procSelectedPid === null;
+
+      let items = procSearchTerm
+        ? procData.filter(p => p.name.toLowerCase().includes(procSearchTerm) || (p.description||"").toLowerCase().includes(procSearchTerm))
+        : [...procData];
+      items.sort((a, b) => {
+        if (procSort.col === "mem")  return procSort.dir === "desc" ? b.memBytes - a.memBytes : a.memBytes - b.memBytes;
+        if (procSort.col === "name") return procSort.dir === "asc"  ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+        if (procSort.col === "pid")  return procSort.dir === "asc"  ? a.pid - b.pid : b.pid - a.pid;
+        return 0;
+      });
+      if (!items.length) { procBody.appendChild(procEmpty); return; }
+      items.forEach((proc, i) => {
+        const row = document.createElement("div");
+        row.className = "row" + (proc.pid === procSelectedPid ? " selected" : "");
+        row.style.animationDelay = `${Math.min(i * 5, 200)}ms`;
+        row.dataset.pid = proc.pid;
+        row.innerHTML = `
+          <span class="col-index">${i + 1}</span>
+          <span class="col-pid">${proc.pid}</span>
+          <span class="col-mem">${fmtSize(proc.memBytes)}</span>
+          <span class="col-proc-name" title="${esc(proc.name)}">${esc(proc.name)}</span>
+          <span class="col-proc-desc" title="${esc(proc.description)}">${esc(proc.description) || "—"}</span>
+        `;
+        row.addEventListener("click", () => {
+          procSelectedPid = procSelectedPid === proc.pid ? null : proc.pid;
+          procBody.querySelectorAll(".row").forEach(r =>
+            r.classList.toggle("selected", parseInt(r.dataset.pid) === procSelectedPid));
+          killBtn.disabled = procSelectedPid === null;
+        });
+        procBody.appendChild(row);
+      });
+    }
+
+    applyColWidths('panel-processes'); // re-stamp after every render
+  }
+
+  async function loadProcesses() {
+    procRefreshBtn.disabled = true; killBtn.disabled = true; procSelectedPid = null;
+    procStatus.textContent = "Loading…";
+    try {
+      procData = await window.api.getProcesses();
+      renderProcesses();
+      requestAnimationFrame(() => fitColumnsToContent('panel-processes'));
+      procStatus.textContent = `${fmtNum(procData.length)} processes`;
+      procFooter.textContent = `${procData.length} processes running`;
+    } catch { procStatus.textContent = "Failed"; }
+    procRefreshBtn.disabled = false;
+  }
+
+  $("#procSearch").addEventListener("input", e => {
+    procSearchTerm = e.target.value.toLowerCase();
+    procSelectedPid = null;
+    killBtn.disabled = true;
+    renderProcesses();
+  });
+
+  makeSortable("#panel-processes", procSort, () => { if (!procGrouped) renderProcesses(); });
+
+  procGroupSel.addEventListener("change", () => {
+    procGrouped = procGroupSel.value === "grouped";
+    procSelectedPid = null;
+    killBtn.disabled = true;
+    renderProcesses();
+  });
+
+  procRefreshBtn.addEventListener("click", loadProcesses);
+
+  killBtn.addEventListener("click", async () => {
+    if (procGrouped) {
+      const selected = procBody.querySelector(".row.selected");
+      if (!selected) return;
+      const name = selected.querySelector(".col-proc-name").textContent.trim();
+      const pids = procData.filter(p => p.name.toLowerCase() === name.toLowerCase()).map(p => p.pid);
+      if (!pids.length) return;
+      if (!await customConfirm(`Kill all ${pids.length} instance(s) of "${name}"?`)) return;
+      let failed = 0;
+      for (const pid of pids) { const r = await window.api.killProcess(pid); if (!r.ok) failed++; }
+      if (failed) alert(`${failed} process(es) could not be killed.`);
+      await loadProcesses();
+    } else {
+      if (!procSelectedPid) return;
+      const proc = procData.find(p => p.pid === procSelectedPid);
+      if (!proc || !await customConfirm(`Kill "${proc.name}" (PID ${proc.pid})?`)) return;
+      const r = await window.api.killProcess(proc.pid);
+      if (r.ok) { procSelectedPid = null; await loadProcesses(); }
+      else alert(`Could not kill:\n${r.error}`);
+    }
+  });
+
+  wireExport("procExportBtn", "procExportMenu", () => {
+    if (procGrouped) {
+      const map = new Map();
+      for (const p of procData) {
+        const key = p.name.toLowerCase();
+        if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, instances: 0, description: p.description });
+        const g = map.get(key); g.memBytes += p.memBytes; g.instances++;
+      }
+      const rows = [...map.values()].sort((a,b) => b.memBytes - a.memBytes)
+        .map((g, i) => [i+1, `${g.instances}×`, fmtSize(g.memBytes), g.name, g.description || ""]);
+      return { filename: "processes", headers: ["#","Instances","Memory","Application","Description"], rows };
+    }
+    return {
+      filename: "processes",
+      headers:  ["#","PID","Memory","Process","Description"],
+      rows:     [...procData].sort((a,b) => b.memBytes - a.memBytes).map((p,i) => [i+1, p.pid, fmtSize(p.memBytes), p.name, p.description||""]),
+    };
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // SERVICES
+  // ══════════════════════════════════════════════════════════════
+  const svcRefreshBtn = $("#svcRefreshBtn");
+  const svcStatus     = $("#svcStatus");
+  const svcBody       = $("#svcBody");
+  const svcEmpty      = $("#svcEmpty");
+  const startSvcBtn   = $("#startSvcBtn");
+  const stopSvcBtn    = $("#stopSvcBtn");
+  const svcFooter     = $("#svcFooter");
+
+  let svcData = [], svcSelected = null, svcSearchTerm = "";
+  const svcSort = { col: "displayName", dir: "asc" };
+
+  function svcDotClass(s) {
+    const v = s.toLowerCase();
+    if (v === "running") return "dot-running";
+    if (v === "stopped") return "dot-stopped";
+    if (v.includes("pending") || v.includes("continue")) return "dot-pending";
+    if (v.includes("pause")) return "dot-paused";
+    return "dot-unknown";
+  }
+  function svcColor(s) {
+    const v = s.toLowerCase();
+    if (v === "running") return "var(--success)";
+    if (v === "stopped") return "var(--danger)";
+    if (v.includes("pending") || v.includes("continue")) return "var(--warning)";
+    if (v.includes("pause")) return "var(--orange)";
+    return "var(--text-dim)";
+  }
+
+  function renderServices() {
+    svcBody.innerHTML = "";
+    let items = svcSearchTerm
+      ? svcData.filter(s => s.name.toLowerCase().includes(svcSearchTerm) || s.displayName.toLowerCase().includes(svcSearchTerm))
+      : [...svcData];
+    items.sort((a, b) => {
+      let av, bv;
+      if (svcSort.col === "status")    { av = a.status;      bv = b.status; }
+      else if (svcSort.col === "name") { av = a.name;        bv = b.name; }
+      else                             { av = a.displayName; bv = b.displayName; }
+      return svcSort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+    if (!items.length) { svcBody.appendChild(svcEmpty); return; }
+
+    items.forEach((svc, i) => {
+      const origIdx = svcData.indexOf(svc);
+      const row = document.createElement("div");
+      row.className = "row" + (svcSelected === origIdx ? " selected" : "");
+      row.style.animationDelay = `${Math.min(i * 4, 250)}ms`;
+      row.dataset.origidx = origIdx;
+      row.innerHTML = `
+        <span class="col-dot"><span class="dot ${svcDotClass(svc.status)}"></span></span>
+        <span class="col-svc-status" style="color:${svcColor(svc.status)}">${esc(svc.status)}</span>
+        <span class="col-svc-name"   title="${esc(svc.name)}">${esc(svc.name)}</span>
+        <span class="col-svc-dname"  title="${esc(svc.displayName)}">${esc(svc.displayName)}</span>
+      `;
+      row.addEventListener("click", () => {
+        svcSelected = svcSelected === origIdx ? null : origIdx;
+        svcBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", parseInt(r.dataset.origidx) === svcSelected));
+        updateSvcButtons();
+      });
+      svcBody.appendChild(row);
+    });
+
+    applyColWidths('panel-services'); // re-stamp after every render
+  }
+
+  function updateSvcButtons() {
+    if (svcSelected === null) { startSvcBtn.disabled = true; stopSvcBtn.disabled = true; return; }
+    const s = svcData[svcSelected].status.toLowerCase();
+    startSvcBtn.disabled = s === "running";
+    stopSvcBtn.disabled  = s === "stopped";
+  }
+
+  async function loadServices() {
+    svcRefreshBtn.disabled = true; startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
+    svcSelected = null; svcStatus.textContent = "Loading…";
+    try {
+      svcData = await window.api.getServices();
+      renderServices();
+      requestAnimationFrame(() => fitColumnsToContent('panel-services'));
+      const running = svcData.filter(s => s.status.toLowerCase() === "running").length;
+      svcStatus.textContent = `${fmtNum(svcData.length)} services`;
+      svcFooter.textContent = `${svcData.length} services  ·  ${running} running`;
+    } catch { svcStatus.textContent = "Failed"; }
+    svcRefreshBtn.disabled = false;
+  }
+
+  $("#svcSearch").addEventListener("input", e => {
+    svcSearchTerm = e.target.value.toLowerCase();
+    svcSelected = null;
+    startSvcBtn.disabled = true;
+    stopSvcBtn.disabled  = true;
+    renderServices();
+  });
+
+  makeSortable("#panel-services", svcSort, renderServices);
+  svcRefreshBtn.addEventListener("click", loadServices);
+
+  startSvcBtn.addEventListener("click", async () => {
+    if (svcSelected === null) return;
+    const svc = svcData[svcSelected];
+    svcStatus.textContent = `Starting "${svc.name}"…`;
+    startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
+    const r = await window.api.controlService(svc.name, "start");
+    if (!r.ok) alert(`Could not start:\n${r.error}`);
+    await loadServices();
+  });
+
+  stopSvcBtn.addEventListener("click", async () => {
+    if (svcSelected === null) return;
+    const svc = svcData[svcSelected];
+    if (!await customConfirm(`Stop "${svc.displayName}"?`)) return;
+    svcStatus.textContent = `Stopping "${svc.name}"…`;
+    startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
+    const r = await window.api.controlService(svc.name, "stop");
+    if (!r.ok) alert(`Could not stop:\n${r.error}`);
+    await loadServices();
+  });
+
+  wireExport("svcExportBtn", "svcExportMenu", () => ({
+    filename: "services",
+    headers:  ["Status", "Service Name", "Display Name"],
+    rows:     [...svcData].sort((a,b) => a.displayName.localeCompare(b.displayName))
+                          .map(s => [s.status, s.name, s.displayName]),
+  }));
+
 })();
 </script>
 </body>

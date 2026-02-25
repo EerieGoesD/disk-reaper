@@ -3,6 +3,10 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { Worker } = require("worker_threads");
+require("./processes");
+require("./services");
+require("./installed_apps");
+require("./export");
 
 let mainWindow;
 
@@ -29,7 +33,31 @@ function createWindow() {
   mainWindow.loadFile("index.html");
 }
 
-app.whenReady().then(createWindow);
+function isAdmin() {
+  try { require("child_process").execSync("net session", { stdio: "ignore" }); return true; }
+  catch { return false; }
+}
+
+app.whenReady().then(() => {
+  if (process.platform === "win32" && !isAdmin()) {
+    const { execFile } = require("child_process");
+    const appPath = path.join(__dirname);
+    execFile("powershell", [
+      "-NoProfile", "-Command",
+      `Start-Process -FilePath '${process.execPath}' -ArgumentList '"${appPath}"' -Verb RunAs -WorkingDirectory '${appPath}'`
+    ], (err) => {
+      if (err) {
+        // elevation failed or was cancelled — just open without admin
+        createWindow();
+      }
+    });
+    // don't quit immediately — wait to see if elevation worked
+    setTimeout(() => app.quit(), 3000);
+    return;
+  }
+  createWindow();
+});
+
 app.on("window-all-closed", () => app.quit());
 
 // ── Drive detection ──────────────────────────────────────────────

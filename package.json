@@ -1,6 +1,6 @@
 {
-  "name": "large-file-finder",
-  "version": "1.0.0",
+  "name": "disk-reaper",
+  "version": "1.2.0",
   "description": "Find and delete the largest files and folders on your PC",
   "main": "main.js",
   "author": "EERIE",
