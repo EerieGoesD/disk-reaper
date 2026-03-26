@@ -39,7 +39,7 @@ function isAdmin() {
 }
 
 app.whenReady().then(() => {
-  if (process.platform === "win32" && !isAdmin()) {
+  if (process.platform === "win32" && !process.windowsStore && !isAdmin()) {
     const { execFile } = require("child_process");
     const appPath = path.join(__dirname);
     execFile("powershell", [
