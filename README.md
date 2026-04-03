@@ -15,4 +15,4 @@ Windows system cleanup and monitoring tool built with Electron. Requires admin p
 
 ---
 
-Made by [EERIE](https://eeriegoesd.com) | [Buy Me a Coffee](https://buymeacoffee.com/eeriegoesd) | [Report Issue](https://github.com/EerieGoesD/disk-reaper/issues) | [Feedback](https://github.com/EerieGoesD/disk-reaper/discussions) | [Feature Request](https://github.com/EerieGoesD/disk-reaper/discussions/categories/ideas)
+Made by [EERIE](https://eeriegoesd.com) | [Buy Me a Coffee](https://buymeacoffee.com/eeriegoesd) | [Report Issue](https://github.com/EerieGoesD/disk-reaper/issues/new?template=bug-report.md) | [Feedback](https://github.com/EerieGoesD/disk-reaper/discussions) | [Feature Request](https://github.com/EerieGoesD/disk-reaper/issues/new?template=feature-request.md)
