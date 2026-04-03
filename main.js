@@ -7,6 +7,9 @@ require("./processes");
 require("./services");
 require("./installed_apps");
 require("./export");
+require("./startup");
+require("./sysinfo");
+require("./cleaner");
 
 let mainWindow;
 

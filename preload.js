@@ -26,9 +26,19 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on("app-size-update", listener);
     return () => ipcRenderer.removeListener("app-size-update", listener);
   },
+  // System Info
+  getSysInfo:   () => ipcRenderer.invoke("get-sysinfo"),
+  getLiveStats: () => ipcRenderer.invoke("get-live-stats"),
+  // Startup
+  getStartupItems:   ()     => ipcRenderer.invoke("get-startup-items"),
+  setStartupEnabled: (opts) => ipcRenderer.invoke("set-startup-enabled", opts),
   // Processes
   getProcesses: ()    => ipcRenderer.invoke("get-processes"),
   killProcess:  (pid) => ipcRenderer.invoke("kill-process", pid),
+  // Cleaner
+  getBloatwareList:    ()      => ipcRenderer.invoke("get-bloatware-list"),
+  killBloatware:       (pids)  => ipcRenderer.invoke("kill-bloatware", pids),
+  stopDisableServices: (names) => ipcRenderer.invoke("stop-disable-services", names),
   // Services
   getServices:     ()              => ipcRenderer.invoke("get-services"),
   controlService:  (name, action)  => ipcRenderer.invoke("control-service", { name, action }),

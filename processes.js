@@ -47,5 +47,5 @@ function killProcess(pid) {
   });
 }
 
-ipcMain.handle("get-processes",  () => getProcesses());
-ipcMain.handle("kill-process",   (_, pid) => killProcess(pid));
+ipcMain.handle("get-processes", () => getProcesses());
+ipcMain.handle("kill-process",  (_, pid) => killProcess(pid));

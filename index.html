@@ -193,6 +193,10 @@
   .col-svc-status { width: 110px; flex-shrink: 0; }
   .col-svc-name   { width: 220px; flex-shrink: 0; }
   .col-svc-dname  { width: 320px; flex-shrink: 0; }
+  .col-su-status  { width: 90px;  flex-shrink: 0; }
+  .col-su-name    { width: 200px; flex-shrink: 0; }
+  .col-su-command { width: 360px; flex-shrink: 0; }
+  .col-su-source  { width: 110px; flex-shrink: 0; }
   .col-app-name   { width: 260px; flex-shrink: 0; }
   .col-app-size   { width: 110px; flex-shrink: 0; }
   .col-version    { width: 100px; flex-shrink: 0; }
@@ -212,6 +216,9 @@
   .row .col-pid       { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
   .row .col-proc-desc { color: var(--text-dim); font-size: 12px; }
   .row .col-svc-status{ font-size: 12px; font-weight: 500; }
+  .row .col-su-status { font-size: 12px; font-weight: 500; }
+  .row .col-su-command{ color: var(--text-dim); font-size: 12px; }
+  .row .col-su-source { color: var(--text-dim); font-size: 12px; }
   .row .col-version   { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
   .row .col-publisher { color: var(--text-dim); font-size: 12px; }
   .row .col-app-size  { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
@@ -240,8 +247,10 @@
   .footer-links a { text-decoration: none; transition: color 0.15s; cursor: pointer; font-weight: 600; }
   .footer-links a#linkEerie { color: var(--accent-h); }
   .footer-links a#linkEerie:hover { color: #fff; }
-  .footer-links a#linkCoffee { color: var(--warning); }
+  .footer-links a#linkCoffee { color: #facc15; }
   .footer-links a#linkCoffee:hover { color: #f0d060; }
+  .footer-links a#linkReport, .footer-links a#linkFeedback { color: var(--text-dim); }
+  .footer-links a#linkReport:hover, .footer-links a#linkFeedback:hover { color: var(--text); }
   .footer-links .sep { color: var(--border); }
 
   /* ── Context Menu ── */
@@ -252,7 +261,65 @@
   .context-menu .ctx-item svg { width: 14px; height: 14px; flex-shrink: 0; }
   .context-menu .ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
 
+  /* ── System Info ── */
+  .sysinfo-content { padding: 0 20px 20px; overflow-y: auto; flex: 1; }
+  .sysinfo-content::-webkit-scrollbar { width: 6px; }
+  .sysinfo-content::-webkit-scrollbar-track { background: var(--surface2); }
+  .sysinfo-content::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .sysinfo-content::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  .sysinfo-actions { display: flex; gap: 10px; padding: 14px 20px 10px; flex-shrink: 0; }
+  .si-section { font-size: 11px; font-weight: 700; color: var(--accent-h); text-transform: uppercase; letter-spacing: 0.06em; padding: 12px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
+  .si-section:first-child { padding-top: 4px; }
+  .si-row { display: flex; align-items: center; padding: 4px 0; font-size: 12.5px; }
+  .si-row .si-label { width: 160px; flex-shrink: 0; color: var(--text-dim); }
+  .si-row .si-value { color: var(--text); font-family: var(--mono); font-weight: 500; }
+  .si-bar-wrap { display: inline-flex; width: 80px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-left: 10px; vertical-align: middle; }
+  .si-bar { height: 100%; border-radius: 2px; transition: width 0.4s; }
+  .si-live { transition: color 0.3s; }
+  .si-loading { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--text-dim); font-size: 13px; }
+
   /* ── Cleaner ── */
+  .cleaner-content { padding: 20px; overflow-y: auto; flex: 1; }
+  .cleaner-content::-webkit-scrollbar { width: 6px; }
+  .cleaner-content::-webkit-scrollbar-track { background: var(--surface2); }
+  .cleaner-content::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .cleaner-content::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  .cleaner-section { margin-bottom: 24px; }
+  .cleaner-section h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .cleaner-section p  { font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
+  .cleaner-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .log-actions { display: flex; gap: 6px; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--text-dim); min-height: 180px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; user-select: text; cursor: text; }
+  .log-box .log-time { color: #555; }
+  .log-box .log-info { color: var(--accent-h); }
+  .log-box .log-ok   { color: var(--success); }
+  .log-box .log-warn { color: var(--warning); }
+  .log-box .log-err  { color: var(--danger); }
+
+  /* Bloatware dialog */
+  .bloat-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; min-width: 520px; max-width: 640px; max-height: 80vh; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 14px; }
+  .bloat-dialog h3 { font-size: 14px; font-weight: 600; color: var(--text); text-align: center; }
+  .bloat-dialog .bloat-controls { display: flex; align-items: center; gap: 10px; }
+  .bloat-dialog .bloat-controls label { font-size: 12px; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; gap: 5px; }
+  .bloat-dialog .bloat-controls input[type="checkbox"] { accent-color: var(--accent); }
+  .bloat-table { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex: 1; min-height: 0; }
+  .bloat-table-header { display: flex; align-items: center; padding: 8px 12px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .bloat-table-body { overflow-y: auto; max-height: 360px; }
+  .bloat-row { display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--border); font-size: 12.5px; transition: background 0.1s; }
+  .bloat-row:last-child { border-bottom: none; }
+  .bloat-row:hover { background: var(--surface2); }
+  .bloat-row input[type="checkbox"] { accent-color: var(--accent); margin-right: 10px; flex-shrink: 0; }
+  .bloat-row .br-name { width: 180px; flex-shrink: 0; color: var(--text); font-weight: 500; }
+  .bloat-row .br-cat  { width: 80px; flex-shrink: 0; color: var(--text-dim); font-size: 11px; }
+  .bloat-row .br-mem  { width: 80px; flex-shrink: 0; color: var(--warning); font-family: var(--mono); font-size: 12px; text-align: right; }
+  .bloat-row .br-inst { width: 40px; flex-shrink: 0; color: var(--text-dim); font-family: var(--mono); font-size: 12px; text-align: right; margin-right: 10px; }
+  .bloat-row .br-desc { flex: 1; color: var(--text-dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bloat-summary { font-size: 12px; color: var(--text-dim); font-family: var(--mono); text-align: center; }
+  .bloat-actions { display: flex; justify-content: center; gap: 8px; }
+  .bloat-empty { text-align: center; padding: 30px; color: var(--text-dim); font-size: 13px; }
+
   .coming-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 10px; }
   .coming-soon .cs-icon { font-size: 36px; opacity: 0.1; margin-bottom: 6px; }
   .coming-soon h3 { font-size: 15px; font-weight: 500; color: var(--text); opacity: 0.3; }
@@ -299,6 +366,14 @@
       <div class="nav-item" data-panel="services">
         <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>
         Services
+      </div>
+      <div class="nav-item" data-panel="startup">
+        <svg viewBox="0 0 16 16"><path d="M6 2v5.5L3.5 5 2 6.5 8 13l6-6.5L12.5 5 10 7.5V2z"/></svg>
+        Startup
+      </div>
+      <div class="nav-item" data-panel="sysinfo">
+        <svg viewBox="0 0 16 16"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5h0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        System Info
       </div>
       <div class="nav-item" data-panel="cleaner">
         <svg viewBox="0 0 16 16"><path d="M8 1l1.5 3.2L13 5l-2.5 2.4.6 3.6L8 9.3 4.9 11l.6-3.6L3 5l3.5-.8z"/></svg>
@@ -492,12 +567,92 @@
         </div>
       </div>
 
+      <!-- Startup -->
+      <div id="panel-startup" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="suRefreshBtn">Refresh</button>
+          <input class="search-input" type="text" id="suSearch" placeholder="Search startup items..." />
+          <div class="spacer"></div>
+          <span class="status-text" id="suStatus">Ready</span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-dot"></span>
+                <span class="col-su-status sortable" data-sort="status">Status<span class="sort-ind"></span></span>
+                <span class="col-su-name   sortable" data-sort="name">Name<span class="sort-ind"> ▲</span></span>
+                <span class="col-su-command sortable" data-sort="command">Command<span class="sort-ind"></span></span>
+                <span class="col-su-source  sortable" data-sort="source">Source<span class="sort-ind"></span></span>
+              </div>
+              <div class="table-body" id="suBody">
+                <div class="empty-state" id="suEmpty">
+                  <div class="icon">⚡</div>
+                  <p>Hit <strong>Refresh</strong> to list startup items</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-success" id="suEnableBtn" disabled>Enable</button>
+          <button class="btn btn-danger"  id="suDisableBtn" disabled>Disable</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="suFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="suExportBtn">Export ↑</button>
+            <div class="export-menu" id="suExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Info -->
+      <div id="panel-sysinfo" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="siRefreshBtn">Refresh</button>
+          <div class="spacer"></div>
+          <span class="status-text" id="siStatus">Ready</span>
+        </div>
+        <div class="progress-track"><div class="progress-bar" id="siProgressBar"></div></div>
+        <div class="sysinfo-content" id="siContent">
+          <div class="si-loading">Click <strong>System Info</strong> in the sidebar to load</div>
+        </div>
+        <div class="panel-actions">
+          <div class="spacer"></div>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="siExportBtn">Export ↑</button>
+            <div class="export-menu" id="siExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Cleaner -->
       <div id="panel-cleaner" class="panel">
-        <div class="coming-soon">
-          <div class="cs-icon">✦</div>
-          <h3>Cleaner</h3>
-          <p>Coming soon</p>
+        <div class="cleaner-content">
+          <div class="cleaner-section">
+            <h3>Bloatware</h3>
+            <p>Scan for known bloatware processes running on your system and kill them to free up memory.</p>
+            <div class="cleaner-actions">
+              <button class="btn btn-danger" id="bloatKillBtn">Kill Bloatware</button>
+            </div>
+          </div>
+          <div class="cleaner-section">
+            <div class="log-header">
+              <h3>Debug Log</h3>
+              <div class="log-actions">
+                <button class="btn btn-ghost btn-sm" id="logCopyBtn">Copy All</button>
+                <button class="btn btn-ghost btn-sm" id="logExportBtn">Export</button>
+                <button class="btn btn-ghost btn-sm" id="logClearBtn">Clear</button>
+              </div>
+            </div>
+            <div class="log-box" id="cleanerLog"></div>
+          </div>
         </div>
       </div>
 
@@ -506,10 +661,56 @@
 
   <div class="global-footer">
     <div class="footer-links">
+      <a id="linkCoffee" href="#">Buy Me a Coffee</a>
+      <span class="sep">|</span>
       <span>Made by</span>
       <a id="linkEerie" href="#">EERIE</a>
-      <span class="sep">·</span>
-      <a id="linkCoffee" href="#">Buy Me a Coffee</a>
+      <span class="sep">|</span>
+      <a id="linkReport" href="#">Report Issue</a>
+      <span class="sep">|</span>
+      <a id="linkFeedback" href="#">Feedback</a>
+    </div>
+  </div>
+
+  <!-- File Context Menu -->
+  <div class="context-menu" id="fileContextMenu" style="display:none">
+    <div class="ctx-item" id="ctxFileCopyPath">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
+      Copy Path
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" id="ctxFileOpenExplorer">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12"/><path d="M2 3h5l2 2h5v8H2z"/></svg>
+      Open in Explorer
+    </div>
+  </div>
+
+  <!-- Log Context Menu -->
+  <div class="context-menu" id="logContextMenu" style="display:none">
+    <div class="ctx-item" id="ctxLogCopy">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
+      Copy
+    </div>
+  </div>
+
+  <!-- Startup Context Menu -->
+  <div class="context-menu" id="suContextMenu" style="display:none">
+    <div class="ctx-item" data-su-copy="name">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
+      Copy Name
+    </div>
+    <div class="ctx-item" data-su-copy="command">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
+      Copy Command
+    </div>
+    <div class="ctx-item" data-su-copy="source">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
+      Copy Source
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-su-copy="row">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
+      Copy Entire Row
     </div>
   </div>
 
@@ -530,6 +731,10 @@
 <script>
 (() => {
   const $ = s => document.querySelector(s);
+
+  function hideAllContextMenus() {
+    document.querySelectorAll(".context-menu").forEach(m => m.style.display = "none");
+  }
 
   // ── Custom confirm dialog (replaces native browser confirm()) ──
     function customConfirm(message) {
@@ -695,20 +900,25 @@
     });
   }
 
-  ['panel-files','panel-apps','panel-processes','panel-services'].forEach(initResizable);
+  ['panel-files','panel-apps','panel-processes','panel-services','panel-startup'].forEach(initResizable);
 
   // ── Navigation ─────────────────────────────────────────────────
+  const autoLoadPanels = {};
   document.querySelectorAll(".nav-item[data-panel]").forEach(item => {
     item.addEventListener("click", () => {
       document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
       document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
       item.classList.add("active");
       document.getElementById("panel-" + item.dataset.panel).classList.add("active");
+      const panel = item.dataset.panel;
+      if (autoLoadPanels[panel]) autoLoadPanels[panel]();
     });
   });
 
-  $("#linkEerie").addEventListener("click",  e => { e.preventDefault(); window.api.openExternal("https://eeriegoesd.com"); });
-  $("#linkCoffee").addEventListener("click", e => { e.preventDefault(); window.api.openExternal("https://buymeacoffee.com/eeriegoesd"); });
+  $("#linkEerie").addEventListener("click",    e => { e.preventDefault(); window.api.openExternal("https://eeriegoesd.com"); });
+  $("#linkCoffee").addEventListener("click",    e => { e.preventDefault(); window.api.openExternal("https://buymeacoffee.com/eeriegoesd"); });
+  $("#linkReport").addEventListener("click",    e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/issues"); });
+  $("#linkFeedback").addEventListener("click",  e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/discussions"); });
 
   // ── Export ─────────────────────────────────────────────────────
   let activeMenu = null;
@@ -812,6 +1022,14 @@
         fileLastClick = origIdx;
         filesBody.querySelectorAll(".row").forEach(r =>
           r.classList.toggle("selected", fileSelected.has(parseInt(r.dataset.origidx))));
+      });
+      row.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        fileSelected.clear(); fileSelected.add(origIdx);
+        fileLastClick = origIdx;
+        filesBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", fileSelected.has(parseInt(r.dataset.origidx))));
+        showFileContextMenu(e, item.path);
       });
       filesBody.appendChild(row);
     });
@@ -973,6 +1191,43 @@
     applyColWidths('panel-apps'); // re-stamp after every render
   }
 
+  // ── File Context Menu ──
+  const fileCtxMenu       = $("#fileContextMenu");
+  const ctxFileCopyPath   = $("#ctxFileCopyPath");
+  const ctxFileOpenExplorer = $("#ctxFileOpenExplorer");
+  let fileCtxPath = null;
+
+  function hideFileContextMenu() { fileCtxMenu.style.display = "none"; }
+
+  function showFileContextMenu(e, path) {
+    hideAllContextMenus();
+    fileCtxPath = path;
+    fileCtxMenu.style.display = "block";
+    const mx = e.clientX, my = e.clientY;
+    const mw = fileCtxMenu.offsetWidth, mh = fileCtxMenu.offsetHeight;
+    const ww = window.innerWidth, wh = window.innerHeight;
+    fileCtxMenu.style.left = (mx + mw > ww ? mx - mw : mx) + "px";
+    fileCtxMenu.style.top  = (my + mh > wh ? my - mh : my) + "px";
+  }
+
+  ctxFileCopyPath.addEventListener("click", () => {
+    hideFileContextMenu();
+    if (fileCtxPath) navigator.clipboard.writeText(fileCtxPath);
+  });
+
+  ctxFileOpenExplorer.addEventListener("click", () => {
+    hideFileContextMenu();
+    if (fileCtxPath) window.api.showInExplorer(fileCtxPath);
+  });
+
+  document.addEventListener("click", e => {
+    if (!fileCtxMenu.contains(e.target)) hideFileContextMenu();
+  });
+  document.addEventListener("contextmenu", e => {
+    if (!fileCtxMenu.contains(e.target) && !e.target.closest("#filesBody .row")) hideFileContextMenu();
+  });
+  window.addEventListener("blur", hideFileContextMenu);
+
   // ── App Context Menu ──
   const appCtxMenu     = $("#appContextMenu");
   const ctxOpenLocation = $("#ctxOpenLocation");
@@ -981,6 +1236,7 @@
   function hideAppContextMenu() { appCtxMenu.style.display = "none"; }
 
   function showAppContextMenu(e, app) {
+    hideAllContextMenus();
     ctxOpenLocation.classList.toggle("disabled", !app.installLocation);
     ctxUninstall.classList.toggle("disabled", !app.uninstallString);
 
@@ -1410,6 +1666,673 @@
     rows:     [...svcData].sort((a,b) => a.displayName.localeCompare(b.displayName))
                           .map(s => [s.status, s.name, s.displayName]),
   }));
+
+  // ── Startup ─────────────────────────────────────────────────────
+  const suRefreshBtn = $("#suRefreshBtn");
+  const suEnableBtn  = $("#suEnableBtn");
+  const suDisableBtn = $("#suDisableBtn");
+  const suStatus     = $("#suStatus");
+  const suBody       = $("#suBody");
+  const suEmpty      = $("#suEmpty");
+  const suFooter     = $("#suFooter");
+
+  let suData = [], suSelected = null, suSearchTerm = "";
+  const suSort = { col: "name", dir: "asc" };
+
+  function suDotClass(enabled) { return enabled ? "dot-running" : "dot-stopped"; }
+  function suStatusColor(enabled) { return enabled ? "var(--success)" : "var(--danger)"; }
+  function suStatusText(enabled) { return enabled ? "Enabled" : "Disabled"; }
+
+  function renderStartup() {
+    suBody.innerHTML = "";
+    let items = suSearchTerm
+      ? suData.filter(s => s.name.toLowerCase().includes(suSearchTerm) || s.command.toLowerCase().includes(suSearchTerm))
+      : [...suData];
+    items.sort((a, b) => {
+      let av, bv;
+      if (suSort.col === "status")       { av = a.enabled ? "a" : "b"; bv = b.enabled ? "a" : "b"; }
+      else if (suSort.col === "name")    { av = a.name;    bv = b.name; }
+      else if (suSort.col === "command") { av = a.command; bv = b.command; }
+      else if (suSort.col === "source")  { av = a.source;  bv = b.source; }
+      else                               { av = a.name;    bv = b.name; }
+      return suSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+    });
+
+    if (!items.length) { suBody.appendChild(suEmpty); return; }
+
+    items.forEach((item, i) => {
+      const origIdx = suData.indexOf(item);
+      const row = document.createElement("div");
+      row.className = "row" + (suSelected === origIdx ? " selected" : "");
+      row.style.animationDelay = `${Math.min(i * 4, 250)}ms`;
+      row.dataset.origidx = origIdx;
+      row.innerHTML = `
+        <span class="col-dot"><span class="dot ${suDotClass(item.enabled)}"></span></span>
+        <span class="col-su-status" style="color:${suStatusColor(item.enabled)}">${suStatusText(item.enabled)}</span>
+        <span class="col-su-name"    title="${esc(item.name)}">${esc(item.name)}</span>
+        <span class="col-su-command" title="${esc(item.command)}">${esc(item.command)}</span>
+        <span class="col-su-source">${esc(item.source)}</span>
+      `;
+      row.addEventListener("click", () => {
+        suSelected = suSelected === origIdx ? null : origIdx;
+        suBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", parseInt(r.dataset.origidx) === suSelected));
+        updateSuButtons();
+      });
+      row.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        suSelected = origIdx;
+        suBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", parseInt(r.dataset.origidx) === suSelected));
+        updateSuButtons();
+        showSuContextMenu(e, item);
+      });
+      suBody.appendChild(row);
+    });
+
+    applyColWidths('panel-startup');
+  }
+
+  function updateSuButtons() {
+    if (suSelected === null) { suEnableBtn.disabled = true; suDisableBtn.disabled = true; return; }
+    const item = suData[suSelected];
+    suEnableBtn.disabled  = item.enabled;
+    suDisableBtn.disabled = !item.enabled;
+  }
+
+  async function loadStartup() {
+    suRefreshBtn.disabled = true; suEnableBtn.disabled = true; suDisableBtn.disabled = true;
+    suSelected = null; suStatus.textContent = "Loading...";
+    try {
+      suData = await window.api.getStartupItems();
+      renderStartup();
+      requestAnimationFrame(() => fitColumnsToContent('panel-startup'));
+      const enabled = suData.filter(s => s.enabled).length;
+      suStatus.textContent = `${fmtNum(suData.length)} startup items`;
+      suFooter.textContent = `${suData.length} items  ·  ${enabled} enabled  ·  ${suData.length - enabled} disabled`;
+    } catch { suStatus.textContent = "Failed"; }
+    suRefreshBtn.disabled = false;
+  }
+
+  $("#suSearch").addEventListener("input", e => {
+    suSearchTerm = e.target.value.toLowerCase();
+    suSelected = null;
+    suEnableBtn.disabled = true;
+    suDisableBtn.disabled = true;
+    renderStartup();
+  });
+
+  makeSortable("#panel-startup", suSort, renderStartup);
+  suRefreshBtn.addEventListener("click", loadStartup);
+  let suLoaded = false;
+  autoLoadPanels["startup"] = () => { if (!suLoaded) { suLoaded = true; loadStartup(); } };
+
+  suEnableBtn.addEventListener("click", async () => {
+    if (suSelected === null) return;
+    const item = suData[suSelected];
+    suStatus.textContent = `Enabling "${item.name}"...`;
+    suEnableBtn.disabled = true; suDisableBtn.disabled = true;
+    const r = await window.api.setStartupEnabled({ name: item.name, source: item.source, enabled: true, uwpPath: item.uwpPath || "" });
+    if (!r.ok) alert(`Could not enable:\n${r.error}`);
+    await loadStartup();
+  });
+
+  suDisableBtn.addEventListener("click", async () => {
+    if (suSelected === null) return;
+    const item = suData[suSelected];
+    if (!await customConfirm(`Disable "${item.name}" from startup?`)) return;
+    suStatus.textContent = `Disabling "${item.name}"...`;
+    suEnableBtn.disabled = true; suDisableBtn.disabled = true;
+    const r = await window.api.setStartupEnabled({ name: item.name, source: item.source, enabled: false, uwpPath: item.uwpPath || "" });
+    if (!r.ok) alert(`Could not disable:\n${r.error}`);
+    await loadStartup();
+  });
+
+  wireExport("suExportBtn", "suExportMenu", () => ({
+    filename: "startup",
+    headers:  ["Status", "Name", "Command", "Source"],
+    rows:     [...suData].sort((a,b) => a.name.localeCompare(b.name))
+                          .map(s => [s.enabled ? "Enabled" : "Disabled", s.name, s.command, s.source]),
+  }));
+
+  // ── Startup Context Menu ──
+  const suCtxMenu = $("#suContextMenu");
+  let suCtxItem = null;
+
+  function hideSuContextMenu() { suCtxMenu.style.display = "none"; }
+
+  function showSuContextMenu(e, item) {
+    hideAllContextMenus();
+    suCtxItem = item;
+    suCtxMenu.style.display = "block";
+    const mx = e.clientX, my = e.clientY;
+    const mw = suCtxMenu.offsetWidth, mh = suCtxMenu.offsetHeight;
+    const ww = window.innerWidth, wh = window.innerHeight;
+    suCtxMenu.style.left = (mx + mw > ww ? mx - mw : mx) + "px";
+    suCtxMenu.style.top  = (my + mh > wh ? my - mh : my) + "px";
+  }
+
+  suCtxMenu.querySelectorAll("[data-su-copy]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      hideSuContextMenu();
+      if (!suCtxItem) return;
+      const field = btn.dataset.suCopy;
+      let text;
+      if (field === "name")    text = suCtxItem.name;
+      else if (field === "command") text = suCtxItem.command;
+      else if (field === "source")  text = suCtxItem.source;
+      else if (field === "row")     text = [suCtxItem.enabled ? "Enabled" : "Disabled", suCtxItem.name, suCtxItem.command, suCtxItem.source].join(" | ");
+      if (text) navigator.clipboard.writeText(text);
+    });
+  });
+
+  document.addEventListener("click", e => {
+    if (!suCtxMenu.contains(e.target)) hideSuContextMenu();
+  });
+  document.addEventListener("contextmenu", e => {
+    if (!suCtxMenu.contains(e.target) && !e.target.closest("#suBody .row")) hideSuContextMenu();
+  });
+  window.addEventListener("blur", hideSuContextMenu);
+
+  // ── System Info ──────────────────────────────────────────────
+  const siContent  = $("#siContent");
+  const siStatus   = $("#siStatus");
+  let siData = null;
+  let siLiveTimer = null;
+
+  function siSec(title) { return `<div class="si-section">${esc(title)}</div>`; }
+  function siRow(label, value, id) {
+    return `<div class="si-row"><span class="si-label">${esc(label)}</span><span class="si-value${id ? " si-live" : ""}"${id ? ` id="${id}"` : ""}>${esc(String(value || "N/A"))}</span></div>`;
+  }
+  function siBarInline(pct, color, id) {
+    return `<div class="si-bar-wrap"><div class="si-bar" style="width:${pct}%;background:${color}"${id ? ` id="${id}"` : ""}></div></div>`;
+  }
+  function barColor(pct, invert) {
+    if (invert) return pct < 20 ? "var(--danger)" : pct < 50 ? "var(--warning)" : "var(--success)";
+    return pct > 80 ? "var(--danger)" : pct > 50 ? "var(--warning)" : "var(--accent)";
+  }
+
+  function renderSysInfo(d) {
+    const usedMemKB = d.os.totalMemKB - d.os.freeMemKB;
+    const memPct = Math.round((usedMemKB / d.os.totalMemKB) * 100);
+    const totalMemGB = (d.os.totalMemKB / 1048576).toFixed(1);
+    const usedMemGB = (usedMemKB / 1048576).toFixed(1);
+    const freeMemGB = (d.os.freeMemKB / 1048576).toFixed(1);
+
+    const bootDate = new Date(d.os.bootTime);
+    const upMs = Date.now() - bootDate.getTime();
+    const upDays = Math.floor(upMs / 86400000);
+    const upHours = Math.floor((upMs % 86400000) / 3600000);
+    const upMins = Math.floor((upMs % 3600000) / 60000);
+    const uptime = (upDays > 0 ? upDays + "d " : "") + upHours + "h " + upMins + "m";
+    const batLabels = { 1: "Discharging", 2: "AC Power", 3: "Fully Charged", 4: "Low", 5: "Critical", 6: "Charging" };
+
+    let h = "";
+
+    // Computer
+    h += siSec("Computer");
+    h += siRow("Name", d.computerName);
+    h += siRow("Model", d.manufacturer + " " + d.model);
+    h += siRow("System Type", d.systemType);
+    h += siRow("Power Plan", d.powerPlan);
+
+    // OS
+    h += siSec("Operating System");
+    h += siRow("OS", d.os.name);
+    h += siRow("Version", d.os.version + " (Build " + d.os.build + ")");
+    h += siRow("Architecture", d.os.arch);
+    h += siRow("Boot Time", d.os.bootTime);
+    h += siRow("Uptime", uptime);
+
+    // CPU
+    h += siSec("Processor");
+    h += siRow("Name", d.cpu.name);
+    h += siRow("Cores / Threads", d.cpu.cores + " / " + d.cpu.threads);
+    h += siRow("Max Clock", d.cpu.maxClock + " MHz");
+    h += siRow("Current Clock", d.cpu.currentClock + " MHz", "siCpuClock");
+    h += `<div class="si-row"><span class="si-label">Load</span><span class="si-value si-live" id="siCpuLoad">${d.cpu.load}%</span>${siBarInline(d.cpu.load, barColor(d.cpu.load), "siCpuBar")}</div>`;
+
+    // Memory
+    h += siSec("Memory");
+    h += `<div class="si-row"><span class="si-label">Usage</span><span class="si-value si-live" id="siMemUsage">${usedMemGB} / ${totalMemGB} GB (${memPct}%)</span>${siBarInline(memPct, barColor(memPct), "siMemBar")}</div>`;
+    h += siRow("Free", freeMemGB + " GB", "siMemFree");
+    if (d.ram && d.ram.length) {
+      d.ram.forEach((stick, i) => {
+        h += siRow("Stick " + (i + 1), stick.manufacturer + " " + stick.partNumber + " - " + fmtSize(stick.capacity) + " @ " + stick.speed + " MHz");
+      });
+    }
+
+    // GPU(s)
+    if (d.gpus && d.gpus.length) {
+      d.gpus.forEach((gpu, i) => {
+        h += siSec(d.gpus.length > 1 ? "GPU " + (i + 1) : "Graphics");
+        h += siRow("Name", gpu.name);
+        h += siRow("VRAM", fmtSize(gpu.vram));
+        h += siRow("Driver", gpu.driver);
+        h += siRow("Resolution", gpu.resX + " x " + gpu.resY + " @ " + gpu.refresh + " Hz");
+      });
+    }
+
+    // Storage
+    if (d.disks && d.disks.length) {
+      h += siSec("Storage");
+      d.disks.forEach(disk => {
+        h += siRow("Drive", disk.model);
+        h += siRow("Capacity", fmtSize(disk.size) + " (" + disk.interface + ")");
+      });
+    }
+
+    // Motherboard + BIOS
+    h += siSec("Motherboard / BIOS");
+    h += siRow("Board", d.motherboard.manufacturer + " " + d.motherboard.product);
+    h += siRow("Serial", d.motherboard.serial);
+    h += siRow("BIOS", d.bios.manufacturer + " " + d.bios.version + " (" + d.bios.releaseDate + ")");
+
+    // Battery
+    if (d.battery) {
+      const charge = d.battery.charge || 0;
+      h += siSec("Battery");
+      h += `<div class="si-row"><span class="si-label">Charge</span><span class="si-value si-live" id="siBatCharge">${charge}%</span>${siBarInline(charge, barColor(charge, true), "siBatBar")}</div>`;
+      h += siRow("Status", batLabels[d.battery.status] || "Unknown", "siBatStatus");
+    }
+
+    // Network
+    if (d.network && d.network.length) {
+      h += siSec("Network");
+      d.network.forEach(net => {
+        h += siRow("Adapter", net.name);
+        if (net.mac) h += siRow("MAC", net.mac);
+      });
+    }
+
+    siContent.innerHTML = h;
+  }
+
+  function updateLiveStats(stats) {
+    if (!stats) return;
+    const cpuLoad = document.getElementById("siCpuLoad");
+    const cpuBar = document.getElementById("siCpuBar");
+    const cpuClock = document.getElementById("siCpuClock");
+    const memUsage = document.getElementById("siMemUsage");
+    const memBar = document.getElementById("siMemBar");
+    const memFree = document.getElementById("siMemFree");
+    const batCharge = document.getElementById("siBatCharge");
+    const batBar = document.getElementById("siBatBar");
+    const batStatus = document.getElementById("siBatStatus");
+    const batLabels = { 1: "Discharging", 2: "AC Power", 3: "Fully Charged", 4: "Low", 5: "Critical", 6: "Charging" };
+
+    if (cpuLoad) {
+      const load = stats.cpuLoad || 0;
+      cpuLoad.textContent = load + "%";
+      if (cpuBar) { cpuBar.style.width = load + "%"; cpuBar.style.background = barColor(load); }
+    }
+    if (cpuClock && stats.cpuClock) cpuClock.textContent = stats.cpuClock + " MHz";
+
+    if (memUsage && stats.totalMemKB) {
+      const usedKB = stats.totalMemKB - stats.freeMemKB;
+      const pct = Math.round((usedKB / stats.totalMemKB) * 100);
+      const usedGB = (usedKB / 1048576).toFixed(1);
+      const totalGB = (stats.totalMemKB / 1048576).toFixed(1);
+      const freeGB = (stats.freeMemKB / 1048576).toFixed(1);
+      memUsage.textContent = usedGB + " / " + totalGB + " GB (" + pct + "%)";
+      if (memBar) { memBar.style.width = pct + "%"; memBar.style.background = barColor(pct); }
+      if (memFree) memFree.textContent = freeGB + " GB";
+    }
+
+    if (batCharge && stats.batteryCharge !== undefined) {
+      const charge = stats.batteryCharge;
+      batCharge.textContent = charge + "%";
+      if (batBar) { batBar.style.width = charge + "%"; batBar.style.background = barColor(charge, true); }
+      if (batStatus && stats.batteryStatus) batStatus.textContent = batLabels[stats.batteryStatus] || "Unknown";
+    }
+  }
+
+  function startLivePolling() {
+    stopLivePolling();
+    siLiveTimer = setInterval(async () => {
+      // Only poll when sysinfo panel is visible
+      if (!document.getElementById("panel-sysinfo").classList.contains("active")) return;
+      const stats = await window.api.getLiveStats();
+      updateLiveStats(stats);
+    }, 2000);
+  }
+
+  function stopLivePolling() {
+    if (siLiveTimer) { clearInterval(siLiveTimer); siLiveTimer = null; }
+  }
+
+  const siProgressBar = $("#siProgressBar");
+
+  async function loadSysInfo() {
+    siStatus.textContent = "Loading...";
+    $("#siRefreshBtn").disabled = true;
+    siProgressBar.classList.add("active");
+    try {
+      siData = await window.api.getSysInfo();
+      if (siData) {
+        renderSysInfo(siData);
+        siStatus.textContent = "Live";
+        startLivePolling();
+      } else {
+        siContent.innerHTML = '<div class="si-loading">Failed to load system info.</div>';
+        siStatus.textContent = "Failed";
+      }
+    } catch {
+      siContent.innerHTML = '<div class="si-loading">Failed to load system info.</div>';
+      siStatus.textContent = "Failed";
+    }
+    siProgressBar.classList.remove("active");
+    $("#siRefreshBtn").disabled = false;
+  }
+
+  $("#siRefreshBtn").addEventListener("click", loadSysInfo);
+  let siLoaded = false;
+  autoLoadPanels["sysinfo"] = () => { if (!siLoaded) { siLoaded = true; loadSysInfo(); } };
+
+  function getSysInfoExportData() {
+    if (!siData) return { filename: "system-info", headers: ["Section", "Property", "Value"], rows: [] };
+    const rows = [];
+    const r = (section, prop, val) => rows.push([section, prop, String(val || "")]);
+    r("Computer", "Name", siData.computerName);
+    r("Computer", "Manufacturer", siData.manufacturer);
+    r("Computer", "Model", siData.model);
+    r("Computer", "System Type", siData.systemType);
+    r("Computer", "Power Plan", siData.powerPlan);
+    r("OS", "Name", siData.os.name);
+    r("OS", "Version", siData.os.version + " (Build " + siData.os.build + ")");
+    r("OS", "Architecture", siData.os.arch);
+    r("OS", "Boot Time", siData.os.bootTime);
+    r("CPU", "Name", siData.cpu.name);
+    r("CPU", "Cores / Threads", siData.cpu.cores + " / " + siData.cpu.threads);
+    r("CPU", "Max Clock", siData.cpu.maxClock + " MHz");
+    r("CPU", "Load", siData.cpu.load + "%");
+    r("Memory", "Total", (siData.os.totalMemKB / 1048576).toFixed(1) + " GB");
+    r("Memory", "Free", (siData.os.freeMemKB / 1048576).toFixed(1) + " GB");
+    if (siData.ram) siData.ram.forEach((s, i) => r("Memory", "Stick " + (i+1), s.manufacturer + " " + s.partNumber + " " + fmtSize(s.capacity) + " @ " + s.speed + " MHz"));
+    if (siData.gpus) siData.gpus.forEach((g, i) => {
+      const label = siData.gpus.length > 1 ? "GPU " + (i+1) : "GPU";
+      r(label, "Name", g.name);
+      r(label, "VRAM", fmtSize(g.vram));
+      r(label, "Driver", g.driver);
+      r(label, "Resolution", g.resX + "x" + g.resY + " @ " + g.refresh + "Hz");
+    });
+    if (siData.disks) siData.disks.forEach(d => r("Storage", d.model, fmtSize(d.size) + " (" + d.interface + ")"));
+    r("Motherboard", "Board", siData.motherboard.manufacturer + " " + siData.motherboard.product);
+    r("Motherboard", "Serial", siData.motherboard.serial);
+    r("BIOS", "Version", siData.bios.manufacturer + " " + siData.bios.version + " (" + siData.bios.releaseDate + ")");
+    if (siData.battery) r("Battery", "Charge", siData.battery.charge + "%");
+    if (siData.network) siData.network.forEach(n => r("Network", n.name, n.mac || ""));
+    return { filename: "system-info", headers: ["Section", "Property", "Value"], rows };
+  }
+
+  wireExport("siExportBtn", "siExportMenu", getSysInfoExportData);
+
+  // ── Cleaner: Debug Log ────────────────────────────────────────
+  const cleanerLog = $("#cleanerLog");
+  let logText = "";
+
+  function clog(msg, level) {
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
+    const cls = level === "ok" ? "log-ok" : level === "warn" ? "log-warn" : level === "err" ? "log-err" : level === "info" ? "log-info" : "";
+    const plain = `[${ts}] ${msg}`;
+    logText += plain + "\n";
+    const line = document.createElement("div");
+    line.innerHTML = `<span class="log-time">[${ts}]</span> <span class="${cls}">${esc(msg)}</span>`;
+    cleanerLog.appendChild(line);
+    cleanerLog.scrollTop = cleanerLog.scrollHeight;
+  }
+
+  $("#logCopyBtn").addEventListener("click", () => {
+    navigator.clipboard.writeText(logText.trim());
+    clog("Log copied to clipboard.", "info");
+  });
+
+  $("#logExportBtn").addEventListener("click", async () => {
+    const ts = new Date().toISOString().slice(0, 10);
+    const result = await window.api.exportData({
+      filename: "cleaner-log-" + ts,
+      format: "txt",
+      headers: ["Log"],
+      rows: logText.trim().split("\n").map(l => [l]),
+    });
+    if (result && result.ok) clog("Log exported.", "info");
+    else clog("Export cancelled.", "warn");
+  });
+
+  $("#logClearBtn").addEventListener("click", () => {
+    cleanerLog.innerHTML = "";
+    logText = "";
+    clog("Log cleared.", "info");
+  });
+
+  clog("Cleaner initialized. Ready.", "info");
+
+  // ── Log Context Menu ──
+  const logCtxMenu = $("#logContextMenu");
+
+  cleanerLog.addEventListener("contextmenu", e => {
+    e.preventDefault();
+    const sel = window.getSelection().toString();
+    if (!sel) return;
+    hideAllContextMenus();
+    logCtxMenu.style.display = "block";
+    const mx = e.clientX, my = e.clientY;
+    const mw = logCtxMenu.offsetWidth, mh = logCtxMenu.offsetHeight;
+    const ww = window.innerWidth, wh = window.innerHeight;
+    logCtxMenu.style.left = (mx + mw > ww ? mx - mw : mx) + "px";
+    logCtxMenu.style.top  = (my + mh > wh ? my - mh : my) + "px";
+  });
+
+  $("#ctxLogCopy").addEventListener("click", () => {
+    const sel = window.getSelection().toString();
+    if (sel) navigator.clipboard.writeText(sel);
+    logCtxMenu.style.display = "none";
+  });
+
+  document.addEventListener("click", e => {
+    if (!logCtxMenu.contains(e.target)) logCtxMenu.style.display = "none";
+  });
+  window.addEventListener("blur", () => logCtxMenu.style.display = "none");
+
+  // ── Cleaner: Bloatware ──────────────────────────────────────────
+  // Bloatware list is now in cleaner.js (modularized)
+
+  $("#bloatKillBtn").addEventListener("click", async () => {
+    clog("Kill Bloatware clicked. Loading bloatware signatures...", "info");
+    const BLOATWARE = await window.api.getBloatwareList();
+    clog("Loaded " + BLOATWARE.length + " bloatware signatures. Scanning running processes...", "info");
+
+    // Show dialog immediately with loading state
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `
+      <div class="bloat-dialog">
+        <h3>Kill Bloatware</h3>
+        <div class="bloat-empty">Scanning processes...</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+    // Fetch live process list
+    const allProcs = await window.api.getProcesses();
+    clog("Process scan complete. " + allProcs.length + " total processes found.", "info");
+    clog("Matching against " + BLOATWARE.length + " known bloatware signatures...", "info");
+
+    // Match bloatware against running processes
+    const found = [];
+    for (const bw of BLOATWARE) {
+      const matches = allProcs.filter(p => p.name.toLowerCase() === bw.process.toLowerCase());
+      if (matches.length > 0) {
+        const totalMem = matches.reduce((s, p) => s + p.memBytes, 0);
+        found.push({
+          ...bw,
+          pids: matches.map(p => p.pid),
+          instances: matches.length,
+          memBytes: totalMem,
+          checked: true,
+        });
+        clog("  FOUND: " + bw.label + " (" + bw.process + ") - " + matches.length + " instance(s), " + fmtSize(totalMem) + ", PIDs: [" + matches.map(p => p.pid).join(", ") + "]" + (bw.service ? ", service: " + bw.service : ""), "warn");
+      }
+    }
+
+    const notFound = BLOATWARE.filter(bw => !found.some(f => f.process === bw.process));
+    if (notFound.length > 0) {
+      clog("  Not running: " + notFound.map(b => b.process).join(", "), "ok");
+    }
+
+    // Update dialog with results
+    if (found.length === 0) {
+      clog("No known bloatware processes found running. System is clean.", "ok");
+      overlay.innerHTML = `
+        <div class="bloat-dialog">
+          <h3>Kill Bloatware</h3>
+          <div class="bloat-empty">No known bloatware processes found running.</div>
+          <div class="bloat-actions">
+            <button class="btn btn-ghost" id="bloatClose">Close</button>
+          </div>
+        </div>
+      `;
+      overlay.querySelector("#bloatClose").addEventListener("click", () => overlay.remove());
+      return;
+    }
+
+    const totalMemAll = found.reduce((s, f) => s + f.memBytes, 0);
+    clog("Bloatware scan result: " + found.length + " bloatware groups detected, " + found.reduce((s, f) => s + f.instances, 0) + " total processes, " + fmtSize(totalMemAll) + " memory usage.", "warn");
+
+    const tableRows = found.map((f, i) => `
+      <div class="bloat-row">
+        <input type="checkbox" data-bloat-idx="${i}" checked />
+        <span class="br-name" title="${esc(f.process)}">${esc(f.label)}</span>
+        <span class="br-cat">${esc(f.cat)}</span>
+        <span class="br-inst">${f.instances}x</span>
+        <span class="br-mem">${fmtSize(f.memBytes)}</span>
+        <span class="br-desc">${esc(f.process)}</span>
+      </div>
+    `).join("");
+
+    const totalMem = found.reduce((s, f) => s + f.memBytes, 0);
+
+    overlay.innerHTML = `
+      <div class="bloat-dialog">
+        <h3>Kill Bloatware</h3>
+        <div class="bloat-controls">
+          <label><input type="checkbox" id="bloatSelectAll" checked /> Select All</label>
+          <div class="spacer"></div>
+          <span class="bloat-summary" id="bloatSummary">${found.length} processes - ${fmtSize(totalMem)}</span>
+        </div>
+        <div class="bloat-table">
+          <div class="bloat-table-header">
+            <span style="width:28px"></span>
+            <span style="width:180px">Name</span>
+            <span style="width:80px">Category</span>
+            <span style="width:40px;text-align:right">Qty</span>
+            <span style="width:80px;text-align:right">Memory</span>
+            <span style="flex:1;padding-left:10px">Process</span>
+          </div>
+          <div class="bloat-table-body">${tableRows}</div>
+        </div>
+        <div class="bloat-actions">
+          <button class="btn btn-ghost" id="bloatCancel">Cancel</button>
+          <button class="btn btn-danger" id="bloatConfirm">Kill Selected</button>
+        </div>
+      </div>
+    `;
+
+    const selectAll = overlay.querySelector("#bloatSelectAll");
+    const checkboxes = overlay.querySelectorAll("[data-bloat-idx]");
+    const summary = overlay.querySelector("#bloatSummary");
+
+    function updateSummary() {
+      let count = 0, mem = 0;
+      checkboxes.forEach(cb => {
+        const idx = parseInt(cb.dataset.bloatIdx);
+        found[idx].checked = cb.checked;
+        if (cb.checked) { count++; mem += found[idx].memBytes; }
+      });
+      summary.textContent = `${count} processes - ${fmtSize(mem)}`;
+      selectAll.checked = count === found.length;
+      selectAll.indeterminate = count > 0 && count < found.length;
+    }
+
+    selectAll.addEventListener("change", () => {
+      checkboxes.forEach(cb => cb.checked = selectAll.checked);
+      updateSummary();
+    });
+    checkboxes.forEach(cb => cb.addEventListener("change", updateSummary));
+
+    overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector("#bloatCancel").addEventListener("click", () => {
+      clog("Kill Bloatware cancelled by user.", "info");
+      overlay.remove();
+    });
+
+    overlay.querySelector("#bloatConfirm").addEventListener("click", async () => {
+      const selected = found.filter(f => f.checked);
+      if (selected.length === 0) { overlay.remove(); return; }
+
+      clog("User confirmed kill for " + selected.length + " bloatware group(s).", "info");
+      selected.forEach(f => clog("  Target: " + f.label + " (" + f.process + ") - " + f.instances + " instance(s), PIDs: [" + f.pids.join(", ") + "]" + (f.service ? ", service: " + f.service : " (no service)"), "info"));
+
+      const confirmBtn = overlay.querySelector("#bloatConfirm");
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "Stopping services...";
+
+      // 1. Stop and disable underlying services so they don't respawn
+      const serviceNames = selected.map(f => f.service).filter(Boolean);
+      let svcStopped = 0, svcFailed = 0;
+      if (serviceNames.length > 0) {
+        clog("Phase 1: Stopping and disabling " + serviceNames.length + " service(s): [" + serviceNames.join(", ") + "]", "info");
+        clog("  Requesting UAC elevation...", "info");
+        const svcResults = await window.api.stopDisableServices(serviceNames);
+        for (const r of svcResults) {
+          if (r.ok) {
+            clog("  Service '" + r.name + "' stopped and set to Disabled.", "ok");
+            svcStopped++;
+          } else {
+            clog("  Service '" + r.name + "' FAILED: " + r.error, "err");
+            svcFailed++;
+          }
+        }
+        clog("Phase 1 complete: " + svcStopped + " stopped, " + svcFailed + " failed.", svcFailed > 0 ? "warn" : "ok");
+      } else {
+        clog("Phase 1: No backing services to stop. Skipping.", "info");
+      }
+
+      // 2. Kill any remaining processes (those without a service, or service stop failed)
+      confirmBtn.textContent = "Killing processes...";
+      const pidsToKill = [];
+      selected.forEach(f => pidsToKill.push(...f.pids));
+      clog("Phase 2: Killing " + pidsToKill.length + " process(es) by PID: [" + pidsToKill.join(", ") + "]", "info");
+      const killResults = await window.api.killBloatware(pidsToKill);
+      let killed = 0, killFailed = 0;
+      for (const r of killResults) {
+        if (r.ok) {
+          clog("  PID " + r.pid + " killed.", "ok");
+          killed++;
+        } else if (r.error && r.error.includes("not found")) {
+          clog("  PID " + r.pid + " already terminated (service stop handled it).", "ok");
+          killed++;
+        } else {
+          clog("  PID " + r.pid + " FAILED: " + (r.error || "unknown error"), "err");
+          killFailed++;
+        }
+      }
+      clog("Phase 2 complete: " + killed + " killed, " + killFailed + " failed.", killFailed > 0 ? "warn" : "ok");
+
+      const totalFreed = selected.reduce((s, f) => s + f.memBytes, 0);
+      clog("Bloatware kill complete. Estimated memory freed: " + fmtSize(totalFreed) + ".", svcFailed + killFailed > 0 ? "warn" : "ok");
+
+      overlay.remove();
+
+      const lines = [];
+      if (svcStopped > 0) lines.push(svcStopped + " services stopped and disabled");
+      if (killed > 0) lines.push(killed + " processes killed");
+      if (svcFailed > 0 || killFailed > 0) lines.push((svcFailed + killFailed) + " failed (may need admin)");
+      await customConfirm(lines.join("\n") || "No changes made.");
+    });
+  });
 
 })();
 </script>
