@@ -4,7 +4,7 @@
   "description": "Find and delete the largest files and folders on your PC",
   "main": "main.js",
   "author": "EERIE",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",

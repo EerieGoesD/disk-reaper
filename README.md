@@ -13,19 +13,6 @@ Windows system cleanup and monitoring tool built with Electron. Requires admin p
 - **Cleaner** - scan and kill known bloatware processes (HP, McAfee, Brave, Edge, IObit) with service stop and disable.
 - All panels support CSV and TXT export.
 
-## Run
-
-```bash
-npm install
-npm start
-```
-
-## Build
-
-```bash
-npm run dist
-```
-
 ---
 
 Made by [EERIE](https://eeriegoesd.com) | [Buy Me a Coffee](https://buymeacoffee.com/eeriegoesd) | [Report Issue](https://github.com/EerieGoesD/disk-reaper/issues) | [Feedback](https://github.com/EerieGoesD/disk-reaper/discussions) | [Feature Request](https://github.com/EerieGoesD/disk-reaper/discussions/categories/ideas)
