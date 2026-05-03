@@ -249,8 +249,8 @@
   .footer-links a#linkEerie:hover { color: #fff; }
   .footer-links a#linkCoffee { color: #facc15; }
   .footer-links a#linkCoffee:hover { color: #f0d060; }
-  .footer-links a#linkReport, .footer-links a#linkFeedback { color: var(--text-dim); }
-  .footer-links a#linkReport:hover, .footer-links a#linkFeedback:hover { color: var(--text); }
+  .footer-links a#linkReport, .footer-links a#linkFeedback, .footer-links a#linkFeature { color: var(--text-dim); }
+  .footer-links a#linkReport:hover, .footer-links a#linkFeedback:hover, .footer-links a#linkFeature:hover { color: var(--text); }
   .footer-links .sep { color: var(--border); }
 
   /* ── Context Menu ── */
@@ -320,6 +320,19 @@
   .bloat-actions { display: flex; justify-content: center; gap: 8px; }
   .bloat-empty { text-align: center; padding: 30px; color: var(--text-dim); font-size: 13px; }
 
+  /* ── Networking ── */
+  .net-diag { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+  .net-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .net-card .nc-label { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 6px; }
+  .net-card .nc-value { font-size: 13px; font-family: var(--mono); color: var(--text); word-break: break-all; }
+  .net-card .nc-sub   { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+  .net-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--text-dim); }
+  .net-dot.ok   { background: var(--success); box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+  .net-dot.warn { background: var(--warning); }
+  .net-dot.err  { background: var(--danger); }
+  .net-empty { color: var(--text-dim); font-size: 12.5px; padding: 14px; background: var(--bg); border: 1px dashed var(--border); border-radius: 8px; text-align: center; }
+  .net-running { color: var(--accent-h); font-size: 12.5px; padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; text-align: center; }
+
   .coming-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 10px; }
   .coming-soon .cs-icon { font-size: 36px; opacity: 0.1; margin-bottom: 6px; }
   .coming-soon h3 { font-size: 15px; font-weight: 500; color: var(--text); opacity: 0.3; }
@@ -378,6 +391,10 @@
       <div class="nav-item" data-panel="cleaner">
         <svg viewBox="0 0 16 16"><path d="M8 1l1.5 3.2L13 5l-2.5 2.4.6 3.6L8 9.3 4.9 11l.6-3.6L3 5l3.5-.8z"/></svg>
         Cleaner
+      </div>
+      <div class="nav-item" data-panel="network">
+        <svg viewBox="0 0 16 16"><path d="M1.5 6.5a9 9 0 0113 0"/><path d="M3.8 9a6 6 0 018.4 0"/><path d="M6 11.3a3 3 0 014 0"/><circle cx="8" cy="13.2" r="0.7" fill="currentColor" stroke="none"/></svg>
+        Networking
       </div>
     </nav>
 
@@ -656,6 +673,47 @@
         </div>
       </div>
 
+      <!-- Networking -->
+      <div id="panel-network" class="panel">
+        <div class="cleaner-content">
+          <div class="cleaner-section">
+            <div class="log-header">
+              <h3>Connection Status</h3>
+              <div class="log-actions">
+                <button class="btn btn-accent btn-sm" id="netRunDiagBtn">Run Diagnostics</button>
+              </div>
+            </div>
+            <div class="net-diag" id="netDiag">
+              <div class="net-empty">Click <strong>Run Diagnostics</strong> to check your connection.</div>
+            </div>
+          </div>
+
+          <div class="cleaner-section">
+            <h3>Fixes</h3>
+            <p>Apply common network fixes. Administrator rights are required for most of these.</p>
+            <div class="cleaner-actions">
+              <button class="btn btn-accent" id="netFixDnsBtn">Use Google + Cloudflare DNS</button>
+              <button class="btn btn-ghost"  id="netResetDnsBtn">Reset DNS to Automatic</button>
+              <button class="btn btn-ghost"  id="netFlushDnsBtn">Flush DNS Cache</button>
+              <button class="btn btn-ghost"  id="netRenewIpBtn">Renew IP Address</button>
+              <button class="btn btn-danger" id="netResetWinsockBtn">Reset Winsock</button>
+              <button class="btn btn-danger" id="netResetIpStackBtn">Reset IP Stack</button>
+            </div>
+          </div>
+
+          <div class="cleaner-section">
+            <div class="log-header">
+              <h3>Log</h3>
+              <div class="log-actions">
+                <button class="btn btn-ghost btn-sm" id="netLogCopyBtn">Copy All</button>
+                <button class="btn btn-ghost btn-sm" id="netLogClearBtn">Clear</button>
+              </div>
+            </div>
+            <div class="log-box" id="netLog"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -669,6 +727,8 @@
       <a id="linkReport" href="#">Report Issue</a>
       <span class="sep">|</span>
       <a id="linkFeedback" href="#">Feedback</a>
+      <span class="sep">|</span>
+      <a id="linkFeature" href="#">Feature Request</a>
     </div>
   </div>
 
@@ -919,6 +979,7 @@
   $("#linkCoffee").addEventListener("click",    e => { e.preventDefault(); window.api.openExternal("https://buymeacoffee.com/eeriegoesd"); });
   $("#linkReport").addEventListener("click",    e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/issues/new?template=bug-report.md"); });
   $("#linkFeedback").addEventListener("click",  e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/discussions"); });
+  $("#linkFeature").addEventListener("click",   e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/issues/new?template=feature-request.md"); });
 
   // ── Export ─────────────────────────────────────────────────────
   let activeMenu = null;
@@ -2333,6 +2394,199 @@
       await customConfirm(lines.join("\n") || "No changes made.");
     });
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // NETWORKING
+  // ══════════════════════════════════════════════════════════════
+  const netDiag   = $("#netDiag");
+  const netLog    = $("#netLog");
+  let netLogText  = "";
+  let netPrimaryAdapter = null;
+
+  function nlog(msg, level) {
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
+    const cls = level === "ok" ? "log-ok" : level === "warn" ? "log-warn" : level === "err" ? "log-err" : level === "info" ? "log-info" : "";
+    netLogText += `[${ts}] ${msg}\n`;
+    const line = document.createElement("div");
+    line.innerHTML = `<span class="log-time">[${ts}]</span> <span class="${cls}">${esc(msg)}</span>`;
+    netLog.appendChild(line);
+    netLog.scrollTop = netLog.scrollHeight;
+  }
+
+  function renderDiag(data) {
+    if (!data) {
+      netDiag.innerHTML = `<div class="net-empty">Diagnostics failed to run.</div>`;
+      return;
+    }
+    const { primary, gateway, publicIp, publicDns } = data;
+    const adapterOk = !!primary;
+    const gwOk      = gateway && gateway.ok;
+    const ipOk      = publicIp && publicIp.ok;
+    const dnsOk     = publicDns && publicDns.ok;
+
+    const adapterCard = `
+      <div class="net-card">
+        <div class="nc-label"><span class="net-dot ${adapterOk ? "ok" : "err"}"></span> Active Adapter</div>
+        <div class="nc-value">${primary ? esc(primary.InterfaceAlias) : "None detected"}</div>
+        ${primary ? `<div class="nc-sub">IP ${esc(primary.IPv4Address || "?")} | GW ${esc(primary.IPv4Gateway || "?")}</div>` : ""}
+        ${primary && primary.DnsServers && primary.DnsServers.length ? `<div class="nc-sub">DNS ${primary.DnsServers.map(esc).join(", ")}</div>` : ""}
+      </div>`;
+
+    const gwCard = `
+      <div class="net-card">
+        <div class="nc-label"><span class="net-dot ${gwOk ? "ok" : "err"}"></span> Gateway Reachable</div>
+        <div class="nc-value">${gateway ? (gwOk ? `Yes, ${gateway.avgMs ?? "?"} ms avg` : "No reply") : "Skipped"}</div>
+        ${gateway ? `<div class="nc-sub">${gateway.received}/${gateway.sent} replies from ${esc(gateway.host || "")}</div>` : ""}
+      </div>`;
+
+    const ipCard = `
+      <div class="net-card">
+        <div class="nc-label"><span class="net-dot ${ipOk ? "ok" : "err"}"></span> Internet (8.8.8.8)</div>
+        <div class="nc-value">${ipOk ? `Yes, ${publicIp.avgMs ?? "?"} ms avg` : "No reply"}</div>
+        <div class="nc-sub">${publicIp.received}/${publicIp.sent} replies, ${publicIp.lossPct}% loss</div>
+      </div>`;
+
+    const dnsCard = `
+      <div class="net-card">
+        <div class="nc-label"><span class="net-dot ${dnsOk ? "ok" : (ipOk ? "err" : "warn")}"></span> DNS Resolution</div>
+        <div class="nc-value">${dnsOk ? `Working, ${publicDns.avgMs ?? "?"} ms avg` : "Failed"}</div>
+        <div class="nc-sub">${publicDns.received}/${publicDns.sent} replies to google.com</div>
+      </div>`;
+
+    netDiag.innerHTML = adapterCard + gwCard + ipCard + dnsCard;
+
+    // Verdict
+    if (!adapterOk)      nlog("No active network adapter with a gateway found.", "err");
+    else if (!gwOk)      nlog("Your router is not responding. Check Wi-Fi/Ethernet or reboot the router.", "err");
+    else if (!ipOk)      nlog("No route to the internet. Connection is local only.", "err");
+    else if (!dnsOk)     nlog("Internet works but DNS is broken. Try 'Use Google + Cloudflare DNS'.", "warn");
+    else                 nlog("All checks passed. Network looks healthy.", "ok");
+  }
+
+  async function runNetDiagnostics() {
+    netDiag.innerHTML = `<div class="net-running">Running diagnostics... this takes a few seconds.</div>`;
+    nlog("Running diagnostics: adapter detection + ping 8.8.8.8 + ping google.com...", "info");
+    try {
+      const data = await window.api.netDiagnostics();
+      netPrimaryAdapter = data && data.primary ? data.primary.InterfaceAlias : null;
+      if (netPrimaryAdapter) nlog("Primary adapter detected: " + netPrimaryAdapter, "info");
+      renderDiag(data);
+    } catch (e) {
+      nlog("Diagnostics failed: " + e.message, "err");
+      netDiag.innerHTML = `<div class="net-empty">Diagnostics failed to run.</div>`;
+    }
+  }
+
+  async function ensureAdapter() {
+    if (netPrimaryAdapter) return netPrimaryAdapter;
+    nlog("Detecting active adapter...", "info");
+    const adapters = await window.api.netGetAdapters();
+    if (adapters && adapters.length) {
+      netPrimaryAdapter = adapters[0].InterfaceAlias;
+      nlog("Using adapter: " + netPrimaryAdapter, "info");
+      return netPrimaryAdapter;
+    }
+    nlog("No active adapter with a default gateway found.", "err");
+    return null;
+  }
+
+  function logSteps(result) {
+    if (!result) { nlog("No result returned.", "err"); return; }
+    if (result.error) { nlog(result.error, "err"); return; }
+    const steps = result.steps || [];
+    for (const s of steps) {
+      if (s.ok) {
+        nlog("  " + s.cmd + " - OK", "ok");
+        if (s.out) s.out.split(/\r?\n/).filter(Boolean).slice(0, 6).forEach(l => nlog("    " + l, "info"));
+      } else {
+        nlog("  " + s.cmd + " - FAILED", "err");
+        if (s.err) s.err.split(/\r?\n/).filter(Boolean).slice(0, 4).forEach(l => nlog("    " + l, "err"));
+        if (s.out) s.out.split(/\r?\n/).filter(Boolean).slice(0, 4).forEach(l => nlog("    " + l, "warn"));
+      }
+    }
+  }
+
+  function wireNetBtn(id, fn) {
+    const btn = $("#" + id);
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try { await fn(); } finally { btn.disabled = false; }
+    });
+  }
+
+  wireNetBtn("netRunDiagBtn", runNetDiagnostics);
+
+  wireNetBtn("netFixDnsBtn", async () => {
+    const adapter = await ensureAdapter();
+    if (!adapter) return;
+    nlog("Setting static DNS on '" + adapter + "' to 8.8.8.8 + 1.1.1.1...", "info");
+    const r = await window.api.netFixDns({ adapter, primary: "8.8.8.8", secondary: "1.1.1.1" });
+    logSteps(r);
+    nlog(r.ok ? "DNS updated. Try your browser now." : "DNS change failed. Run the app as administrator and retry.", r.ok ? "ok" : "err");
+  });
+
+  wireNetBtn("netResetDnsBtn", async () => {
+    const adapter = await ensureAdapter();
+    if (!adapter) return;
+    nlog("Resetting DNS on '" + adapter + "' to automatic (DHCP)...", "info");
+    const r = await window.api.netResetDns({ adapter });
+    logSteps(r);
+    nlog(r.ok ? "DNS reset to automatic." : "Reset failed. Administrator rights required.", r.ok ? "ok" : "err");
+  });
+
+  wireNetBtn("netFlushDnsBtn", async () => {
+    nlog("Flushing DNS resolver cache...", "info");
+    const r = await window.api.netFlushDns();
+    logSteps(r);
+    nlog(r.ok ? "DNS cache flushed." : "Flush failed.", r.ok ? "ok" : "err");
+  });
+
+  wireNetBtn("netRenewIpBtn", async () => {
+    const ok = await customConfirm("Release and renew your IP address?\nThis will briefly disconnect your network.");
+    if (!ok) return;
+    nlog("Releasing and renewing IP address...", "info");
+    const r = await window.api.netRenewIp();
+    logSteps(r);
+    nlog(r.ok ? "IP renewed." : "Renew failed.", r.ok ? "ok" : "err");
+  });
+
+  wireNetBtn("netResetWinsockBtn", async () => {
+    const ok = await customConfirm("Reset Winsock?\nThis clears the Windows socket catalog and requires a RESTART to take effect.");
+    if (!ok) return;
+    nlog("Running netsh winsock reset...", "info");
+    const r = await window.api.netResetWinsock();
+    logSteps(r);
+    nlog(r.ok ? "Winsock reset. Restart your PC for the change to apply." : "Reset failed. Administrator rights required.", r.ok ? "warn" : "err");
+  });
+
+  wireNetBtn("netResetIpStackBtn", async () => {
+    const ok = await customConfirm("Reset the Windows IP stack?\nThis rewrites TCP/IP settings and requires a RESTART.");
+    if (!ok) return;
+    nlog("Running netsh int ip reset...", "info");
+    const r = await window.api.netResetIpStack();
+    logSteps(r);
+    nlog(r.ok ? "IP stack reset. Restart your PC for the change to apply." : "Reset failed. Administrator rights required.", r.ok ? "warn" : "err");
+  });
+
+  $("#netLogCopyBtn").addEventListener("click", () => {
+    navigator.clipboard.writeText(netLogText.trim());
+    nlog("Log copied to clipboard.", "info");
+  });
+  $("#netLogClearBtn").addEventListener("click", () => {
+    netLog.innerHTML = "";
+    netLogText = "";
+    nlog("Log cleared.", "info");
+  });
+
+  // Auto-run diagnostics the first time the Networking tab is opened
+  let netDiagRan = false;
+  autoLoadPanels.network = () => {
+    if (netDiagRan) return;
+    netDiagRan = true;
+    runNetDiagnostics();
+  };
+
+  nlog("Networking module initialized. Ready.", "info");
 
 })();
 </script>

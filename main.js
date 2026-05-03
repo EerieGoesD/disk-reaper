@@ -10,6 +10,7 @@ require("./export");
 require("./startup");
 require("./sysinfo");
 require("./cleaner");
+require("./networking");
 
 let mainWindow;
 

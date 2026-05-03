@@ -42,4 +42,13 @@ contextBridge.exposeInMainWorld("api", {
   // Services
   getServices:     ()              => ipcRenderer.invoke("get-services"),
   controlService:  (name, action)  => ipcRenderer.invoke("control-service", { name, action }),
+  // Networking
+  netDiagnostics:   ()         => ipcRenderer.invoke("net-diagnostics"),
+  netGetAdapters:   ()         => ipcRenderer.invoke("net-get-adapters"),
+  netFixDns:        (opts)     => ipcRenderer.invoke("net-fix-dns", opts),
+  netResetDns:      (opts)     => ipcRenderer.invoke("net-reset-dns", opts),
+  netFlushDns:      ()         => ipcRenderer.invoke("net-flush-dns"),
+  netRenewIp:       ()         => ipcRenderer.invoke("net-renew-ip"),
+  netResetWinsock:  ()         => ipcRenderer.invoke("net-reset-winsock"),
+  netResetIpStack:  ()         => ipcRenderer.invoke("net-reset-ip-stack"),
 });

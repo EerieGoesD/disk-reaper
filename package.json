@@ -28,6 +28,7 @@
       "startup.js",
       "sysinfo.js",
       "cleaner.js",
+      "networking.js",
       "export.js",
       "scripts/**/*",
       "build/**/*",
