@@ -30,7 +30,7 @@ If applicable, add screenshots to help explain your problem.
 *Tip: You can export your system info from the System Info tab in Disk Reaper and attach it here.*
 
 **Debug Log**
-If this is related to the Cleaner, paste the debug log from the Cleaner tab here.
+If this is related to the Performance/Cleaner, paste the debug log from that tab here.
 
 **Additional context**
 Add any other context about the problem here.

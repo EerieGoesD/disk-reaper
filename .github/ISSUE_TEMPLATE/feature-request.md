@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Which tab is this related to?**
-[e.g. Large Files, Installed Apps, Processes, Services, Startup, System Info, Cleaner, or New]
+[e.g. Large Files, Installed Apps, Processes, Services, Startup, System Info, Performance/Cleaner, Networking, Drivers, or New]
 
 **Describe the feature you'd like**
 A clear and concise description of what you want to happen.

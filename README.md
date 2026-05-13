@@ -10,9 +10,9 @@ Windows system cleanup and monitoring tool built with Electron. Requires admin p
 - **Services** - browse, start, and stop Windows services.
 - **Startup** - view and enable/disable startup apps (registry, startup folder, and UWP store apps).
 - **System Info** - live CPU/memory monitoring, GPU, storage, motherboard, BIOS, battery, and network details.
-- **Cleaner** - scan and kill known bloatware processes (HP, McAfee, Brave, Edge, IObit) with service stop and disable.
+- **Performance/Cleaner** - scan and kill known bloatware processes (HP, McAfee, Brave, Edge, IObit) with service stop and disable, plus clear temp folders and remove Windows.old.
 - All panels support CSV and TXT export.
 
 ---
 
-Made by [EERIE](https://eeriegoesd.com) | [Buy Me a Coffee](https://buymeacoffee.com/eeriegoesd) | [Report Issue](https://github.com/EerieGoesD/disk-reaper/issues/new?template=bug-report.md) | [Feedback](https://github.com/EerieGoesD/disk-reaper/discussions) | [Feature Request](https://github.com/EerieGoesD/disk-reaper/issues/new?template=feature-request.md)
+Made by [EERIE](https://eeriegoesd.com) | [Support This Project](https://buymeacoffee.com/eeriegoesd) | [Report Issue](https://github.com/EerieGoesD/disk-reaper/issues/new?template=bug-report.md) | [Feedback](https://github.com/EerieGoesD/disk-reaper/discussions) | [Feature Request](https://github.com/EerieGoesD/disk-reaper/issues/new?template=feature-request.md)

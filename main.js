@@ -10,7 +10,9 @@ require("./export");
 require("./startup");
 require("./sysinfo");
 require("./cleaner");
+require("./debloat");
 require("./networking");
+require("./drivers");
 
 let mainWindow;
 
@@ -21,11 +23,12 @@ function createWindow() {
     minWidth: 740,
     minHeight: 440,
     backgroundColor: "#0a0a0c",
+    icon: path.join(__dirname, "build", "icon.ico"),
     titleBarStyle: "hidden",
     titleBarOverlay: {
       color: "#0a0a0c",
       symbolColor: "#777",
-      height: 38,
+      height: 32,
     },
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -35,6 +38,23 @@ function createWindow() {
   });
 
   mainWindow.loadFile("index.html");
+
+  // Allow renderer window.open() calls (used by the Activity Log "Pop out"
+  // feature). The popout windows have no Node integration and can only
+  // display content the parent renderer writes into them.
+  mainWindow.webContents.setWindowOpenHandler(() => ({
+    action: "allow",
+    overrideBrowserWindowOptions: {
+      width: 720,
+      height: 520,
+      autoHideMenuBar: true,
+      backgroundColor: "#0a0a0c",
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    },
+  }));
 }
 
 function isAdmin() {

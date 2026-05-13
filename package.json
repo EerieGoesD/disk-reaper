@@ -1,7 +1,7 @@
 {
   "name": "disk-reaper",
   "version": "1.3.0",
-  "description": "Find and delete the largest files and folders on your PC",
+  "description": "All-in-one Windows system utility for cleaning disk space, tuning performance, managing installed apps, services and processes, fixing networking, and applying privacy and system tweaks.",
   "main": "main.js",
   "author": "EERIE",
   "license": "UNLICENSED",
@@ -28,7 +28,9 @@
       "startup.js",
       "sysinfo.js",
       "cleaner.js",
+      "debloat.js",
       "networking.js",
+      "drivers.js",
       "export.js",
       "scripts/**/*",
       "build/**/*",

@@ -23,6 +23,49 @@ $regPaths = @(
   'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall'
 )
 
+$winDir = [Environment]::GetFolderPath('Windows')
+
+function Resolve-AppFolder {
+  param($p)
+  if ($p.InstallLocation) {
+    $cand = $p.InstallLocation.Trim().TrimEnd('\\')
+    if ($cand -and (Test-Path -LiteralPath $cand -PathType Container -ErrorAction SilentlyContinue)) {
+      return $cand
+    }
+  }
+  if ($p.DisplayIcon) {
+    $icon = $p.DisplayIcon.Trim().Trim('"')
+    $icon = ($icon -split ',')[0]
+    if ($icon) {
+      try {
+        $dir = [System.IO.Path]::GetDirectoryName($icon)
+        if ($dir -and (Test-Path -LiteralPath $dir -PathType Container -ErrorAction SilentlyContinue)) {
+          if (-not $dir.StartsWith($script:winDir, [StringComparison]::OrdinalIgnoreCase)) {
+            return $dir.TrimEnd('\\')
+          }
+        }
+      } catch {}
+    }
+  }
+  if ($p.UninstallString) {
+    $u = $p.UninstallString.Trim()
+    $exe = ''
+    if ($u -match '^"([^"]+)"') { $exe = $matches[1] }
+    elseif ($u -match '^([A-Za-z]:\\\\[^\\s]+\\.exe)') { $exe = $matches[1] }
+    if ($exe -and (Test-Path -LiteralPath $exe -PathType Leaf -ErrorAction SilentlyContinue)) {
+      try {
+        $dir = [System.IO.Path]::GetDirectoryName($exe)
+        if ($dir -and (Test-Path -LiteralPath $dir -PathType Container -ErrorAction SilentlyContinue)) {
+          if (-not $dir.StartsWith($script:winDir, [StringComparison]::OrdinalIgnoreCase)) {
+            return $dir.TrimEnd('\\')
+          }
+        }
+      } catch {}
+    }
+  }
+  return ''
+}
+
 foreach ($regPath in $regPaths) {
   try {
     $keys = Get-ChildItem $regPath -ErrorAction SilentlyContinue
@@ -35,7 +78,7 @@ foreach ($regPath in $regPaths) {
         $lower = $name.ToLower()
         if ($seen.ContainsKey($lower)) { continue }
         $seen[$lower] = $true
-        $loc = if ($p.InstallLocation) { $p.InstallLocation.TrimEnd('\\') } else { '' }
+        $loc = Resolve-AppFolder $p
         $result.Add([PSCustomObject]@{
           name            = $name
           publisher       = if ($p.Publisher)      { $p.Publisher.Trim() }      else { '' }
