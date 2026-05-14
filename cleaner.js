@@ -39,9 +39,6 @@ const BLOATWARE = [
   { process: "HPSystemEventUtilityBackground", service: "", label: "HP System Event Utility BG", cat: "HP" },
   { process: "HPSystemEventUtilityHost", service: "", label: "HP System Event Utility Host", cat: "HP" },
   { process: "HPAudioSwitch", service: "", label: "HP Audio Switch", cat: "HP" },
-  // McAfee
-  { process: "mcafee-security", service: "", label: "McAfee Security", cat: "McAfee" },
-  { process: "mcafee-security-ft", service: "", label: "McAfee Security FT", cat: "McAfee" },
   // Brave
   { process: "BraveCrashHandler", service: "brave", label: "Brave Crash Handler", cat: "Brave" },
   { process: "BraveCrashHandler64", service: "bravem", label: "Brave Crash Handler 64", cat: "Brave" },
@@ -280,20 +277,12 @@ const PERF_SERVICES = {
   SysMain: { display: "SysMain (Superfetch)" },
   MSiSCSI: { display: "Microsoft iSCSI Initiator" },
   AxInstSV: { display: "ActiveX Installer" },
-  AppMgmt: { display: "Application Management" },
   CscService: { display: "Offline Files" },
   RemoteRegistry: { display: "Remote Registry" },
   WebClient: { display: "WebClient (WebDAV)" },
   WinRM: { display: "Windows Remote Management" },
   WerSvc: { display: "Windows Error Reporting" },
-  DiagTrack: { display: "Connected User Experiences and Telemetry" },
-  TrkWks: { display: "Distributed Link Tracking Client" },
-  dmwappushservice: { display: "Device Management WAP Push Routing" },
   SstpSvc: { display: "Secure Socket Tunneling Protocol (SSTP)" },
-  InventorySvc: { display: "Inventory and Compatibility Appraisal" },
-  wuqisvc: { display: "Microsoft Usage and Quality Insights" },
-  CDPSvc: { display: "Connected Devices Platform Service" },
-  ADPSvc: { display: "Aggregated Data Platform Service" },
 };
 
 function cleanPsError(err, stderr) {

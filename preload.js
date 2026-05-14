@@ -85,29 +85,16 @@ contextBridge.exposeInMainWorld("api", {
   checkDriverUpdates:        () => ipcRenderer.invoke("check-driver-updates"),
   enableMicrosoftUpdate:     () => ipcRenderer.invoke("enable-microsoft-update"),
   getUpdateServicesStatus:   () => ipcRenderer.invoke("get-update-services-status"),
-  // Debloat: UWP preinstalled apps
-  getUwpBloatList:           ()        => ipcRenderer.invoke("get-uwp-bloat-list"),
-  removeUwpPackages:         (keys)    => ipcRenderer.invoke("remove-uwp-packages", keys),
-  // Debloat: privacy tweaks
+  // Debloat: privacy tweaks (HKCU only)
   getPrivacyTweakState:      (key)               => ipcRenderer.invoke("get-privacy-tweak-state", key),
   setPrivacyTweak:           (key, disable)      => ipcRenderer.invoke("set-privacy-tweak", { key, disable }),
   getAllDebloatStates:       ()                  => ipcRenderer.invoke("get-all-debloat-states"),
-  // Debloat: taskbar/explorer tweaks
+  // Debloat: taskbar/explorer tweaks (HKCU only)
   getExplorerTweakState:     (key)               => ipcRenderer.invoke("get-explorer-tweak-state", key),
   setExplorerTweak:          (key, disable)      => ipcRenderer.invoke("set-explorer-tweak", { key, disable }),
   restartExplorer:           ()                  => ipcRenderer.invoke("restart-explorer"),
-  // Debloat: Edge tweaks
-  getEdgeTweakState:         (key)               => ipcRenderer.invoke("get-edge-tweak-state", key),
-  setEdgeTweak:              (key, disable)      => ipcRenderer.invoke("set-edge-tweak", { key, disable }),
-  // Debloat: telemetry scheduled tasks
-  getTelemetryTasksState:    ()                  => ipcRenderer.invoke("get-telemetry-tasks-state"),
-  setTelemetryTasksState:    (disable)           => ipcRenderer.invoke("set-telemetry-tasks-state", disable),
-  // Debloat: OneDrive
-  getOneDriveInstalled:      ()                  => ipcRenderer.invoke("get-onedrive-installed"),
-  uninstallOneDrive:         ()                  => ipcRenderer.invoke("uninstall-onedrive"),
-  // Debloat: System Restore Point
+  // Debloat: System Restore Point (create only)
   createRestorePoint:        (desc)              => ipcRenderer.invoke("create-restore-point", desc),
-  deleteAllRestorePoints:    ()                  => ipcRenderer.invoke("delete-all-restore-points"),
   // Debloat: hibernation
   getHibernationState:       ()                  => ipcRenderer.invoke("get-hibernation-state"),
   setHibernationState:       (disable)           => ipcRenderer.invoke("set-hibernation-state", { disable }),

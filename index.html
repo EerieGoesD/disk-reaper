@@ -965,7 +965,6 @@
               <a href="#sec-services">Background Services</a>
               <a href="#sec-privacy">Privacy &amp; Telemetry</a>
               <a href="#sec-ui">Windows UI</a>
-              <a href="#sec-edge">Microsoft Edge</a>
               <a href="#sec-health">System Health</a>
               <a href="#sec-tools">System Tools</a>
               <a href="#sec-perf">Performance Tweaks</a>
@@ -995,20 +994,6 @@
               </div>
             </div>
 
-            <div class="cleaner-card">
-              <div class="cleaner-card-head">
-                <div class="cleaner-card-icon">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                </div>
-                <div class="cleaner-card-text">
-                  <h3>Preinstalled Windows Apps</h3>
-                  <p>Microsoft pre-installs a long list of Store apps on Windows 11: Candy Crush, Solitaire, Xbox apps, Teams (personal), Cortana, Bing News/Weather, Disney+ stub, Spotify stub, and more. This scans for the ones present on your account and lets you uninstall them in bulk. It also removes their provisioned image so new user accounts won't get them back.</p>
-                </div>
-              </div>
-              <div class="cleaner-card-action align-left">
-                <button class="btn btn-danger" id="uwpScanBtn">Scan and Remove Microsoft Bloatware</button>
-              </div>
-            </div>
               </div>
             </details>
 
@@ -1146,17 +1131,6 @@
                   <button class="btn btn-accent" id="svcToggle-AxInstSV" disabled>...</button>
                 </div>
 
-                <div class="cleaner-row" id="srow-AppMgmt">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Application Management</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-AppMgmt">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-AppMgmt" disabled>...</button>
-                </div>
-
                 <div class="cleaner-row" id="srow-CscService">
                   <div class="cleaner-row-icon">
                     <svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
@@ -1212,39 +1186,6 @@
                   <button class="btn btn-accent" id="svcToggle-WerSvc" disabled>...</button>
                 </div>
 
-                <div class="cleaner-row" id="srow-DiagTrack">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Connected User Experiences & Telemetry (DiagTrack)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-DiagTrack">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-DiagTrack" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-TrkWks">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Distributed Link Tracking Client (TrkWks)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-TrkWks">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-TrkWks" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-dmwappushservice">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Device Management WAP Push (dmwappushservice)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-dmwappushservice">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-dmwappushservice" disabled>...</button>
-                </div>
-
                 <div class="cleaner-row" id="srow-SstpSvc">
                   <div class="cleaner-row-icon">
                     <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
@@ -1254,50 +1195,6 @@
                     <div class="cleaner-row-meta is-busy" id="smeta-SstpSvc">Checking state...</div>
                   </div>
                   <button class="btn btn-accent" id="svcToggle-SstpSvc" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-InventorySvc">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Inventory and Compatibility Appraisal (InventorySvc)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-InventorySvc">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-InventorySvc" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-wuqisvc">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Microsoft Usage and Quality Insights (wuqisvc)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-wuqisvc">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-wuqisvc" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-CDPSvc">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Connected Devices Platform Service (CDPSvc)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-CDPSvc">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-CDPSvc" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-ADPSvc">
-                  <div class="cleaner-row-icon">
-                    <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                  </div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Aggregated Data Platform Service (ADPSvc)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-ADPSvc">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-ADPSvc" disabled>...</button>
                 </div>
 
               </div>
@@ -1334,15 +1231,6 @@
                   <button class="btn btn-accent" id="svcToggle-advertisingId" disabled>...</button>
                 </div>
 
-                <div class="cleaner-row" id="srow-activityHistory">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Activity History Upload</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-activityHistory">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-activityHistory" disabled>...</button>
-                </div>
-
                 <div class="cleaner-row" id="srow-suggestedContent">
                   <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
                   <div class="cleaner-row-main">
@@ -1368,15 +1256,6 @@
                     <div class="cleaner-row-meta is-busy" id="smeta-lockScreenTips">Checking state...</div>
                   </div>
                   <button class="btn btn-accent" id="svcToggle-lockScreenTips" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-findMyDevice">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Find My Device</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-findMyDevice">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-findMyDevice" disabled>...</button>
                 </div>
 
                 <div class="cleaner-row" id="srow-inkingTyping">
@@ -1418,27 +1297,6 @@
               </div>
             </div>
 
-            <div class="cleaner-card">
-              <div class="cleaner-card-head">
-                <div class="cleaner-card-icon">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
-                </div>
-                <div class="cleaner-card-text">
-                  <h3>Telemetry Scheduled Tasks</h3>
-                  <p>Windows ships with a set of background tasks that periodically upload usage stats and customer experience data: Microsoft Compatibility Appraiser, CEIP Consolidator, Disk Diagnostic Data Collector, Feedback Hub uploaders, etc. Disabling them stops these tasks from ever running again. Safe to revert.</p>
-                </div>
-              </div>
-              <div class="cleaner-rows">
-                <div class="cleaner-row" id="srow-telemetryTasks">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Telemetry & CEIP Scheduled Tasks</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-telemetryTasks">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-telemetryTasks" disabled>...</button>
-                </div>
-              </div>
-            </div>
               </div>
             </details>
 
@@ -1469,15 +1327,6 @@
                     <div class="cleaner-row-meta is-busy" id="smeta-oldContextMenu">Checking state...</div>
                   </div>
                   <button class="btn btn-accent" id="svcToggle-oldContextMenu" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-hideWidgets">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Hide Widgets Button</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-hideWidgets">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-hideWidgets" disabled>...</button>
                 </div>
 
                 <div class="cleaner-row" id="srow-hideChat">
@@ -1543,70 +1392,9 @@
                   <button class="btn btn-accent" id="svcToggle-hideRecentQuickAccess" disabled>...</button>
                 </div>
 
-                <div class="cleaner-row" id="srow-disableBingInStart">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><line x1="6" y1="11" x2="16" y2="11"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Disable Bing Search in Start Menu</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-disableBingInStart">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-disableBingInStart" disabled>...</button>
-                </div>
-
               </div>
               <div class="cleaner-card-action align-left">
                 <button class="btn btn-ghost" id="restartExplorerBtn">Restart Explorer</button>
-              </div>
-            </div>
-              </div>
-            </details>
-
-            <details class="cleaner-section" id="sec-edge">
-              <summary>
-                <div class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20"/></svg></div>
-                <div class="section-title">Microsoft Edge</div>
-                <span class="section-hint">Startup boost, sleeping tabs, Copilot sidebar</span>
-                <svg class="section-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </summary>
-              <div class="section-body">
-            <div class="cleaner-card">
-              <div class="cleaner-card-head">
-                <div class="cleaner-card-icon">
-                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20"/></svg>
-                </div>
-                <div class="cleaner-card-text">
-                  <h3>Microsoft Edge Debloat</h3>
-                  <p>Edge has several "convenience" features that run in the background even when Edge isn't open: Startup Boost keeps Edge running after close, Sleeping Tabs preloads tabs in the background, and the Hubs Sidebar hosts Copilot + Bing AI. These rows set the corresponding enterprise policy keys, which Edge respects on Home/Pro.</p>
-                </div>
-              </div>
-              <div class="cleaner-rows">
-
-                <div class="cleaner-row" id="srow-edgeStartupBoost">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><path d="M9 1L3 9h4l-1 6 6-8H8z" fill="currentColor" stroke="none"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Edge Startup Boost</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-edgeStartupBoost">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-edgeStartupBoost" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-edgeSleepingTabs">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Edge Sleeping Tabs</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-edgeSleepingTabs">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-edgeSleepingTabs" disabled>...</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-edgeHubsSidebar">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Edge Hubs Sidebar (Copilot/Bing AI)</div>
-                    <div class="cleaner-row-meta is-busy" id="smeta-edgeHubsSidebar">Checking state...</div>
-                  </div>
-                  <button class="btn btn-accent" id="svcToggle-edgeHubsSidebar" disabled>...</button>
-                </div>
-
               </div>
             </div>
               </div>
@@ -2027,15 +1815,6 @@
                     <div class="cleaner-row-meta">Creates a manual checkpoint you can roll back to via Settings -> System -> About -> System Protection. System Protection is enabled on C: if not already on.</div>
                   </div>
                   <button class="btn btn-success" id="createRestorePointBtn">Create</button>
-                </div>
-
-                <div class="cleaner-row" id="srow-deleteRestorePoints">
-                  <div class="cleaner-row-icon"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg></div>
-                  <div class="cleaner-row-main">
-                    <div class="cleaner-row-title">Delete All System Restore Points</div>
-                    <div class="cleaner-row-meta">Runs vssadmin delete shadows /for=C: /all on the system drive. Frees the disk space reserved by every existing restore point. You will no longer be able to roll the system back to a previous state until you create a new one.</div>
-                  </div>
-                  <button class="btn btn-danger" id="deleteRestorePointsBtn">Delete</button>
                 </div>
 
                 <div class="cleaner-row" id="srow-hibernation">
@@ -4480,13 +4259,7 @@
         if (typeof refreshAllPerfServiceStates === "function") refreshAllPerfServiceStates();
         break;
       case "sec-privacy":
-        if (!debloatBatchLoaded && typeof refreshAllDebloatTweaks === "function") {
-          refreshAllDebloatTweaks(); debloatBatchLoaded = true;
-        }
-        if (typeof refreshTelemetryTasksState === "function") refreshTelemetryTasksState();
-        break;
       case "sec-ui":
-      case "sec-edge":
         if (!debloatBatchLoaded && typeof refreshAllDebloatTweaks === "function") {
           refreshAllDebloatTweaks(); debloatBatchLoaded = true;
         }
@@ -4559,18 +4332,15 @@
   const ROW_DESCRIPTIONS = {
     // Privacy & Telemetry
     advertisingId: "Unique per-user ID Microsoft hands to apps for targeted advertising. Disabling makes ads less personalized.",
-    activityHistory: "Uploads your app launches and document history to Microsoft Timeline. Disabling stops the upload.",
     suggestedContent: "Microsoft promo cards inside the Settings app ('Try these features', 'Get more out of Windows'). Hides them.",
     tailoredExperiences: "Microsoft uses your diagnostic data to personalize tips, ads, and Start menu recommendations.",
     lockScreenTips: "'Fun facts, tips and tricks' overlay shown on the lock screen.",
-    findMyDevice: "Periodically reports this PC's location to your Microsoft account so you can find it if lost.",
     inkingTyping: "Collects your handwriting and typing patterns to personalize autocorrect / suggestions.",
     speechOnline: "Apps using cloud speech recognition send your voice clips to Microsoft. Offline speech still works.",
     appLaunchTracking: "Windows counts which apps you open to populate Start menu's Recommended section.",
     startRecommendations: "Hides the Recommended cards section in the Start menu (Microsoft-pushed Iris content).",
     // Taskbar & Explorer
     oldContextMenu: "Restores Windows 10's full right-click menu instead of Win11's compact 'Show more options'. Needs Explorer restart.",
-    hideWidgets: "Removes the Widgets icon (weather/news panel) from the taskbar via Group Policy.",
     hideChat: "Removes the Chat (Microsoft Teams personal) icon from the taskbar.",
     hideTaskView: "Removes the Task View icon. Win+Tab shortcut still works.",
     hideSearch: "Removes the search box from the taskbar. Win+S still opens search.",
@@ -4578,11 +4348,6 @@
     showFileExt: "Always shows file extensions in File Explorer (e.g. document.pdf instead of document). Important security signal.",
     showHiddenFiles: "Shows hidden files and folders (e.g. AppData) in File Explorer. Does not reveal protected OS files.",
     hideRecentQuickAccess: "Hides recently opened files and frequent folders from File Explorer's Quick Access.",
-    disableBingInStart: "Stops Start menu search from sending queries to Bing. Returns only local results. Faster and quieter.",
-    // Microsoft Edge
-    edgeStartupBoost: "Edge normally keeps a hidden process running so it launches faster. Disabling frees ~150MB RAM.",
-    edgeSleepingTabs: "Edge auto-suspends background tabs after a period to save memory. Disabling keeps all tabs always loaded.",
-    edgeHubsSidebar: "Right-side panel hosting Copilot, Bing AI, Discover, etc.",
     // Optional Service Tweaks
     WSearch: "Indexes file content so File Explorer / Outlook / Start search finds results instantly. Disabling slows search.",
     SysMain: "Preloads frequently-used apps into RAM at startup. Useful on slow HDDs, marginal on SSDs.",
@@ -4590,20 +4355,12 @@
     // Disable Unused Windows Services
     MSiSCSI: "Microsoft iSCSI Initiator: connects to enterprise iSCSI storage arrays. Home users almost never use it.",
     AxInstSV: "ActiveX Installer: handles ActiveX installs for legacy IE / enterprise web apps. Modern browsers don't use it.",
-    AppMgmt: "Application Management: processes Group Policy software installs on domain-joined PCs. Unused at home.",
     CscService: "Offline Files: caches network shares for offline use. Mostly used in corporate environments.",
     RemoteRegistry: "Allows other machines to edit this PC's registry over the network. Closes a remote-attack surface.",
     WebClient: "WebDAV protocol support (mount HTTP shares as drive letters). Rarely used; targeted by CVEs.",
     WinRM: "PowerShell remoting and remote admin. Safe to disable unless you manage other PCs from this one.",
     WerSvc: "Collects crash dumps and 'app stopped responding' reports for Microsoft. Crash dialogs still appear.",
-    DiagTrack: "Connected User Experiences and Telemetry: main Windows telemetry pipeline.",
-    TrkWks: "Distributed Link Tracking: keeps NTFS shortcut targets in sync when files are renamed/moved. Rarely needed.",
-    dmwappushservice: "WAP Push routing: used by Intune/MDM to push messages to managed devices. Unused on home PCs.",
     SstpSvc: "SSTP VPN: only invoked when dialing an SSTP VPN connection (mostly Windows Server RRAS).",
-    InventorySvc: "Enumerates installed apps and uploads the inventory to Microsoft for compatibility telemetry.",
-    wuqisvc: "Win11 24H2 telemetry tracking app launches and usage quality signals.",
-    CDPSvc: "Connected Devices Platform: backs Phone Link, Continue on PC, Nearby Sharing.",
-    ADPSvc: "Aggregates Windows diagnostic data and forwards it to DiagTrack (main telemetry pipeline). Also feeds Windows Error Reporting and Defender telemetry.",
     // Performance Tweaks (gaming / responsiveness)
     gameDvr: "Background gameplay buffer that continuously records the last few minutes of every game. Heavy on GPU/disk.",
     gameBar: "Xbox Game Bar overlay (Win+G). Disabling stops it from hooking into games.",
@@ -4619,7 +4376,6 @@
     "8dot3": "Stops Windows from creating legacy DOS-style 'PROGRA~1' filenames for new files. Small NTFS write speedup.",
     autochk: "Sets the 'press any key to skip disk check' boot countdown to 0 seconds.",
     // Telemetry Scheduled Tasks
-    telemetryTasks: "Disables 9 well-known telemetry & CEIP scheduled tasks (Compatibility Appraiser, ProgramDataUpdater, Feedback DmClient, etc.).",
     // System Maintenance
     hibernation: "Disables hiberfil.sys (typically 40-75% of installed RAM in disk space) and turns off hibernate / fast startup.",
     bgApps: "Blocks all Store (AppX) apps from running in the background. Saves RAM but stops live tile updates / push notifications.",
@@ -4729,7 +4485,7 @@
     }
   }
 
-  const UNUSED_SERVICE_NAMES = ["MSiSCSI", "AxInstSV", "AppMgmt", "CscService", "RemoteRegistry", "WebClient", "WinRM", "WerSvc", "DiagTrack", "TrkWks", "dmwappushservice", "SstpSvc", "InventorySvc", "wuqisvc", "CDPSvc", "ADPSvc"];
+  const UNUSED_SERVICE_NAMES = ["MSiSCSI", "AxInstSV", "CscService", "RemoteRegistry", "WebClient", "WinRM", "WerSvc", "SstpSvc"];
 
   function refreshAllPerfServiceStates() {
     refreshServiceState("WSearch");
@@ -4749,20 +4505,12 @@
       else if (svcName === "SysMain") msg = "Disable SysMain (Superfetch)?\n\nThis stops the SysMain service and sets its startup type to Disabled. May help if you see disk thrashing on a slow drive. Modern SSDs usually do not benefit from disabling it.";
       else if (svcName === "MSiSCSI") msg = "Disable Microsoft iSCSI Initiator?\n\nUsed to connect to enterprise iSCSI storage arrays. Home users almost never need it. Safe to disable unless you mount remote iSCSI volumes.";
       else if (svcName === "AxInstSV") msg = "Disable ActiveX Installer (AxInstSV)?\n\nHandles ActiveX control installs in Internet Explorer / legacy enterprise web apps. Not used by modern browsers. Safe to disable on consumer machines.";
-      else if (svcName === "AppMgmt") msg = "Disable Application Management?\n\nProcesses software installs delivered via Group Policy on domain-joined machines. Home PCs don't use this service.";
       else if (svcName === "CscService") msg = "Disable Offline Files (CscService)?\n\nCaches network shares for offline use. Mostly used in corporate environments with redirected folders. Safe to disable if you don't sync files from a corporate file server.";
       else if (svcName === "RemoteRegistry") msg = "Disable Remote Registry?\n\nLets other machines edit this PC's registry over the network. Disabling it closes a remote-attack surface. Microsoft already sets this to Manual by default, so it usually isn't running anyway.";
       else if (svcName === "WebClient") msg = "Disable WebClient (WebDAV)?\n\nLets you mount HTTP shares as drive letters via WebDAV. Rarely used on home PCs. Disabling it also reduces attack surface (CVEs target this service).";
       else if (svcName === "WinRM") msg = "Disable Windows Remote Management?\n\nUsed for PowerShell remoting (Invoke-Command, Enter-PSSession) and remote admin. Safe to disable unless you remotely manage other Windows boxes from this PC.";
       else if (svcName === "WerSvc") msg = "Disable Windows Error Reporting?\n\nStops the service that collects crash dumps and sends 'A program has stopped responding' reports to Microsoft. You will still see crash dialogs, but they won't be uploaded.";
-      else if (svcName === "DiagTrack") msg = "Disable Connected User Experiences and Telemetry?\n\nThis is the main Windows telemetry channel. Disabling stops the diagnostic data uploads to Microsoft (usage stats, system events, feedback). Apps that explicitly opt into telemetry events will still try to use it, but the upload pipeline is off.";
-      else if (svcName === "TrkWks") msg = "Disable Distributed Link Tracking Client?\n\nThis service keeps NTFS shortcut targets in sync when files are renamed or moved across volumes on the same machine or network. Almost nobody relies on it. Safe to disable.";
-      else if (svcName === "dmwappushservice") msg = "Disable Device Management WAP Push Routing?\n\nUsed by Intune and other MDM systems to deliver management push messages. Unmanaged home PCs have no use for it.";
       else if (svcName === "SstpSvc") msg = "Disable Secure Socket Tunneling Protocol (SSTP)?\n\nOnly invoked when establishing an SSTP VPN connection (mostly used by corporate VPNs running on Windows Server RRAS). If you don't dial an SSTP VPN, it just sits idle.";
-      else if (svcName === "InventorySvc") msg = "Disable Inventory and Compatibility Appraisal?\n\nWindows uses this service to enumerate every installed app and upload the inventory to Microsoft for telemetry / update compatibility checks. Disabling it stops the uploads. Windows Update still works; you just won't get personalized 'this app may break' warnings.";
-      else if (svcName === "wuqisvc") msg = "Disable Microsoft Usage and Quality Insights?\n\nNewer telemetry service introduced in Windows 11 24H2 that reports app launch counts and usage quality signals to Microsoft. Safe privacy disable.";
-      else if (svcName === "CDPSvc") msg = "Disable Connected Devices Platform Service?\n\nUsed by Phone Link, Continue on PC, and Nearby Sharing. If you don't sync notifications/clipboards across devices, it's idle background work. Phone Link will stop receiving texts/calls if disabled.";
-      else if (svcName === "ADPSvc") msg = "Disable Aggregated Data Platform Service?\n\nAggregates Windows diagnostic data into a unified format and forwards it to DiagTrack (the main telemetry pipeline). Also feeds Windows Error Reporting and Defender telemetry. Disabling pairs well with DiagTrack being disabled.";
       else msg = `Disable the ${svcName} service?`;
       if (!await customConfirm(msg)) return;
     }
@@ -4819,23 +4567,20 @@
   }
 
   // ── Debloat: generic registry-toggle rows (Privacy, Taskbar/Explorer, Edge) ──
-  const PRIVACY_KEYS = ["advertisingId", "activityHistory", "suggestedContent", "tailoredExperiences", "lockScreenTips", "findMyDevice", "inkingTyping", "speechOnline", "appLaunchTracking", "startRecommendations"];
-  const EXPLORER_KEYS = ["oldContextMenu", "hideWidgets", "hideChat", "hideTaskView", "hideSearch", "alignTaskbarLeft", "showFileExt", "showHiddenFiles", "hideRecentQuickAccess", "disableBingInStart"];
-  const EDGE_KEYS = ["edgeStartupBoost", "edgeSleepingTabs", "edgeHubsSidebar"];
+  const PRIVACY_KEYS = ["advertisingId", "suggestedContent", "tailoredExperiences", "lockScreenTips", "inkingTyping", "speechOnline", "appLaunchTracking", "startRecommendations"];
+  const EXPLORER_KEYS = ["oldContextMenu", "hideChat", "hideTaskView", "hideSearch", "alignTaskbarLeft", "showFileExt", "showHiddenFiles", "hideRecentQuickAccess"];
+  const EDGE_KEYS = [];
 
   const DEBLOAT_LABELS = {
     advertisingId:         { name: "Advertising ID",                       disableMsg: "Disable the Advertising ID?\n\nApps stop receiving a per-user ID they can correlate ad targeting against." },
-    activityHistory:       { name: "Activity History Upload",              disableMsg: "Disable Activity History upload to Microsoft?\n\nWindows stops sending app launch and document history to your Microsoft account's Timeline." },
     suggestedContent:      { name: "Suggested Content in Settings",        disableMsg: "Hide suggested content inside the Settings app?\n\nRemoves the rotating Microsoft promotions across Settings pages." },
     tailoredExperiences:   { name: "Tailored Experiences",                 disableMsg: "Turn off Tailored Experiences?\n\nMicrosoft stops using your diagnostic data to personalize tips, ads, and recommendations." },
     lockScreenTips:        { name: "Lock-screen Spotlight Tips",           disableMsg: "Hide Windows Spotlight tips on the lock screen?\n\nStops 'Get fun facts, tips and more from Windows' overlay on the lock screen." },
-    findMyDevice:          { name: "Find My Device",                       disableMsg: "Disable Find My Device?\n\nWindows stops periodically reporting this PC's location to your Microsoft account. You will not be able to locate the device remotely." },
     inkingTyping:          { name: "Inking & Typing Personalization",      disableMsg: "Disable Inking & Typing personalization?\n\nStops Windows from collecting your handwriting and typing patterns to improve suggestions." },
     speechOnline:          { name: "Online Speech Recognition",            disableMsg: "Disable online speech recognition?\n\nApps stop using Microsoft's cloud speech service. Offline speech recognition still works." },
     appLaunchTracking:     { name: "App-Launch Tracking",                  disableMsg: "Disable app-launch tracking?\n\nWindows stops counting which apps you use to populate Start menu suggestions." },
     startRecommendations:  { name: "Start Menu Recommendations",           disableMsg: "Hide the Start menu Recommended section content?\n\nDisables Iris recommendations (Microsoft-pushed cards) in Start menu." },
     oldContextMenu:        { name: "Windows 10 Right-Click Menu",          disableMsg: "Restore the Windows 10 right-click menu?\n\nAdds the registry shim that Win11 reads to bypass the new compact menu. Requires an Explorer restart." },
-    hideWidgets:           { name: "Hide Widgets Button",                  disableMsg: "Hide the Widgets button on the taskbar?\n\nTakes effect immediately. The button can be re-shown anytime via Settings > Personalization > Taskbar." },
     hideChat:              { name: "Hide Chat Button",                     disableMsg: "Hide the Chat (Microsoft Teams) button on the taskbar?\n\nTakes effect immediately." },
     hideTaskView:          { name: "Hide Task View Button",                disableMsg: "Hide the Task View button on the taskbar?\n\nWin+Tab still works as the keyboard shortcut." },
     hideSearch:            { name: "Hide Taskbar Search",                  disableMsg: "Hide the search box on the taskbar?\n\nWin+S still opens search." },
@@ -4843,10 +4588,6 @@
     showFileExt:           { name: "Show File Extensions",                 disableMsg: "Show file extensions in Explorer?\n\nMakes it easier to spot disguised .exe attachments. Restoring re-enables the Windows default of hiding extensions." },
     showHiddenFiles:       { name: "Show Hidden Files",                    disableMsg: "Show hidden files in Explorer?\n\nReveals folders like AppData, ProgramData, etc. Does NOT reveal Windows protected OS files." },
     hideRecentQuickAccess: { name: "Hide Recent/Frequent in Quick Access", disableMsg: "Hide Recent files and Frequent folders in Quick Access?\n\nQuick Access becomes empty except for pins." },
-    disableBingInStart:    { name: "Disable Bing in Start Menu",           disableMsg: "Disable Bing web suggestions in the Start menu search?\n\nStart menu search will only show local results. Faster, less noisy." },
-    edgeStartupBoost:      { name: "Edge Startup Boost",                   disableMsg: "Disable Edge Startup Boost?\n\nEdge stops keeping a process running in the background after you close it. Frees ~150 MB of RAM but adds a second to next launch." },
-    edgeSleepingTabs:      { name: "Edge Sleeping Tabs",                   disableMsg: "Disable Edge Sleeping Tabs?\n\nEdge stops automatically suspending background tabs. Useful if you've seen flaky tab restore behavior." },
-    edgeHubsSidebar:       { name: "Edge Hubs Sidebar",                    disableMsg: "Disable the Edge Hubs Sidebar?\n\nRemoves the Copilot / Bing AI / Discover panel on the right side of Edge." },
   };
 
   async function refreshDebloatTweak(group, key) {
@@ -4856,7 +4597,6 @@
       let r;
       if (group === "privacy")  r = await window.api.getPrivacyTweakState(key);
       if (group === "explorer") r = await window.api.getExplorerTweakState(key);
-      if (group === "edge")     r = await window.api.getEdgeTweakState(key);
       if (!r || !r.ok) {
         setServiceMeta(key, "Error: " + ((r && r.error) || "unknown"), false);
         setServiceButton(key, "Retry", false);
@@ -4897,7 +4637,6 @@
       let r;
       if (group === "privacy")  r = await window.api.setPrivacyTweak(key, wantDisable);
       if (group === "explorer") r = await window.api.setExplorerTweak(key, wantDisable);
-      if (group === "edge")     r = await window.api.setEdgeTweak(key, wantDisable);
       markLastRun("debloat." + key);
       if (!r || !r.ok) clog(`${meta.name}: failed - ${(r && r.error) || "unknown"}`, "err");
       else clog(`${meta.name}: ${wantDisable ? "disabled" : "restored"}.`, "ok");
@@ -4920,34 +4659,28 @@
   }
 
   async function refreshAllDebloatTweaks() {
-    // Single batched PS read for all privacy/explorer/edge rows.
-    // Avoids spawning 20+ powershell.exe processes in parallel.
+    // Single batched PS read for all privacy/explorer rows.
     for (const k of PRIVACY_KEYS)  { setServiceMeta(k, "Checking state...", true); setServiceButton(k, "...", true); }
     for (const k of EXPLORER_KEYS) { setServiceMeta(k, "Checking state...", true); setServiceButton(k, "...", true); }
-    for (const k of EDGE_KEYS)     { setServiceMeta(k, "Checking state...", true); setServiceButton(k, "...", true); }
     try {
       const r = await window.api.getAllDebloatStates();
       if (!r || !r.ok) {
         const err = "Error: " + ((r && r.error) || "unknown");
         for (const k of PRIVACY_KEYS)  { setServiceMeta(k, err, false); setServiceButton(k, "Retry", false); }
         for (const k of EXPLORER_KEYS) { setServiceMeta(k, err, false); setServiceButton(k, "Retry", false); }
-        for (const k of EDGE_KEYS)     { setServiceMeta(k, err, false); setServiceButton(k, "Retry", false); }
         return;
       }
       for (const k of PRIVACY_KEYS)  applyDebloatStateToRow("privacy",  k, !!(r.privacy[k]  && r.privacy[k].disabled));
       for (const k of EXPLORER_KEYS) applyDebloatStateToRow("explorer", k, !!(r.explorer[k] && r.explorer[k].disabled));
-      for (const k of EDGE_KEYS)     applyDebloatStateToRow("edge",     k, !!(r.edge[k]     && r.edge[k].disabled));
     } catch (e) {
       const err = "Error: " + (e.message || e);
       for (const k of PRIVACY_KEYS)  { setServiceMeta(k, err, false); setServiceButton(k, "Retry", false); }
       for (const k of EXPLORER_KEYS) { setServiceMeta(k, err, false); setServiceButton(k, "Retry", false); }
-      for (const k of EDGE_KEYS)     { setServiceMeta(k, err, false); setServiceButton(k, "Retry", false); }
     }
   }
 
   PRIVACY_KEYS.forEach(k => document.getElementById("svcToggle-" + k)?.addEventListener("click", () => handleDebloatTweakToggle("privacy", k)));
   EXPLORER_KEYS.forEach(k => document.getElementById("svcToggle-" + k)?.addEventListener("click", () => handleDebloatTweakToggle("explorer", k)));
-  EDGE_KEYS.forEach(k => document.getElementById("svcToggle-" + k)?.addEventListener("click", () => handleDebloatTweakToggle("edge", k)));
 
   document.getElementById("restartExplorerBtn")?.addEventListener("click", async () => {
     const btn = document.getElementById("restartExplorerBtn");
@@ -4961,54 +4694,6 @@
       else clog("Explorer restart returned non-OK.", "warn");
     } catch (e) { clog("Explorer restart error: " + (e.message || e), "err"); }
     btn.disabled = false; btn.textContent = orig;
-  });
-
-  // ── Debloat: Telemetry Scheduled Tasks (all-or-nothing) ──
-  async function refreshTelemetryTasksState() {
-    setServiceMeta("telemetryTasks", "Checking state...", true);
-    setServiceButton("telemetryTasks", "...", true);
-    try {
-      const r = await window.api.getTelemetryTasksState();
-      if (!r || !r.ok) {
-        setServiceMeta("telemetryTasks", "Error: " + ((r && r.error) || "unknown"), false);
-        setServiceButton("telemetryTasks", "Retry", false);
-        return;
-      }
-      const tasks = r.tasks || [];
-      const present = tasks.filter(t => t.State !== "NotFound");
-      const disabled = present.filter(t => String(t.State) === "Disabled").length;
-      const total = present.length;
-      const allDisabled = total > 0 && disabled === total;
-      if (allDisabled) {
-        setServiceMeta("telemetryTasks", `All ${total} telemetry tasks disabled. Click Restore to re-enable them.`, false);
-        setServiceButton("telemetryTasks", "Restore", false);
-      } else {
-        setServiceMeta("telemetryTasks", `${disabled} of ${total} disabled. Optimize disables the rest so they never run again.`, false);
-        setServiceButton("telemetryTasks", "Optimize", false);
-      }
-    } catch (e) {
-      setServiceMeta("telemetryTasks", "Error: " + (e.message || e), false);
-      setServiceButton("telemetryTasks", "Retry", false);
-    }
-  }
-
-  document.getElementById("svcToggle-telemetryTasks")?.addEventListener("click", async () => {
-    const btn = document.getElementById("svcToggle-telemetryTasks");
-    if (!btn || btn.disabled) return;
-    const wantDisable = btn.textContent.trim().toLowerCase() !== "restore";
-    if (wantDisable && !await customConfirm("Disable Windows telemetry scheduled tasks?\n\nDisables: Microsoft Compatibility Appraiser, ProgramDataUpdater, StartupAppTask, Autochk Proxy (CEIP), CEIP Consolidator, USB CEIP, Disk Diagnostic Data Collector, Feedback DmClient (x2).\n\nThese tasks normally run in the background and upload usage data to Microsoft. Disabling them is safe and reversible.")) return;
-    btn.disabled = true;
-    setServiceMeta("telemetryTasks", wantDisable ? "Disabling tasks..." : "Re-enabling tasks...", true);
-    setLogJobRunning("panel-cleaner", true);
-    clog(`Telemetry tasks: ${wantDisable ? "disable" : "restore"} requested...`, "info");
-    try {
-      const r = await window.api.setTelemetryTasksState(wantDisable);
-      if (!r || !r.ok) clog(`Telemetry tasks: failed - ${(r && r.error) || "unknown"}`, "err");
-      else clog(`Telemetry tasks: ${r.succeeded} succeeded, ${r.failed} failed.`, r.failed ? "warn" : "ok");
-      markLastRun("debloat.telemetryTasks");
-    } catch (e) { clog("Telemetry tasks error: " + (e.message || e), "err"); }
-    finally { setLogJobRunning("panel-cleaner", false); }
-    await refreshTelemetryTasksState();
   });
 
   // ── Debloat: Hibernation toggle ──
@@ -5111,129 +4796,6 @@
     btn.disabled = false; btn.textContent = orig;
   });
 
-  document.getElementById("deleteRestorePointsBtn")?.addEventListener("click", async () => {
-    const btn = document.getElementById("deleteRestorePointsBtn");
-    if (!btn || btn.disabled) return;
-    if (!await customConfirm("Delete ALL System Restore Points?\n\nRuns vssadmin delete shadows /all on the system drive. Frees the disk space reserved by existing restore points. You will lose the ability to roll back to any of those checkpoints until you create new ones.\n\nThis cannot be undone.")) return;
-    btn.disabled = true; const orig = btn.textContent; btn.textContent = "Deleting...";
-    setLogJobRunning("panel-cleaner", true);
-    clog("Delete all restore points: requested...", "info");
-    try {
-      const r = await window.api.deleteAllRestorePoints();
-      if (r && r.ok) clog("Restore points deleted. " + (r.output || ""), "ok");
-      else clog("Delete restore points failed: " + ((r && r.error) || "unknown"), "err");
-    } catch (e) { clog("Delete restore points error: " + (e.message || e), "err"); }
-    finally { setLogJobRunning("panel-cleaner", false); }
-    btn.disabled = false; btn.textContent = orig;
-  });
-
-  // ── Debloat: Preinstalled Microsoft UWP bloat removal ──
-  document.getElementById("uwpScanBtn")?.addEventListener("click", async () => {
-    const overlay = document.createElement("div");
-    overlay.className = "dialog-overlay";
-    overlay.innerHTML = `<div class="bloat-dialog"><h3>Preinstalled Microsoft Apps</h3><div class="bloat-empty">Scanning installed apps...</div></div>`;
-    document.body.appendChild(overlay);
-    overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
-
-    clog("UWP scan: enumerating installed Appx packages + OneDrive...", "info");
-    const [r, odRes] = await Promise.all([
-      window.api.getUwpBloatList(),
-      window.api.getOneDriveInstalled().catch(() => ({ ok: false }))
-    ]);
-    if (!r || !r.ok) {
-      overlay.querySelector(".bloat-dialog").innerHTML =
-        `<h3>Preinstalled Microsoft Apps</h3><div class="bloat-empty">Scan failed: ${esc(r && r.error || "unknown")}</div>
-         <div class="bloat-actions"><button class="btn btn-ghost" id="uwpClose">Close</button></div>`;
-      overlay.querySelector("#uwpClose").addEventListener("click", () => overlay.remove());
-      clog("UWP scan failed: " + ((r && r.error) || "unknown"), "err");
-      return;
-    }
-    const installed = (r.items || []).filter(i => i.installed);
-    const oneDriveInstalled = !!(odRes && odRes.ok && odRes.installed);
-    const totalFound = installed.length + (oneDriveInstalled ? 1 : 0);
-    if (!totalFound) {
-      overlay.querySelector(".bloat-dialog").innerHTML =
-        `<h3>Preinstalled Microsoft Apps</h3><div class="bloat-empty">None of the curated bloat apps are installed on this account. Nothing to remove.</div>
-         <div class="bloat-actions"><button class="btn btn-ghost" id="uwpClose">Close</button></div>`;
-      overlay.querySelector("#uwpClose").addEventListener("click", () => overlay.remove());
-      clog("UWP scan: no curated bloat apps detected.", "ok");
-      return;
-    }
-    clog(`UWP scan: ${totalFound} preinstalled app(s) detected.`, "warn");
-    if (oneDriveInstalled) clog(`  FOUND: OneDrive (Win32, OneDriveSetup.exe)`, "warn");
-    for (const it of installed) clog(`  FOUND: ${it.label} (${it.match})`, "warn");
-    const notInstalled = (r.items || []).filter(i => !i.installed);
-    if (notInstalled.length) clog(`  Not installed: ${notInstalled.map(i => i.match).join(", ")}`, "ok");
-
-    const oneDriveRow = oneDriveInstalled ? `
-      <div class="bloat-row">
-        <input type="checkbox" data-onedrive="1" checked />
-        <span class="br-name" title="OneDriveSetup.exe /uninstall">OneDrive</span>
-        <span class="br-desc" style="color:var(--warning)">Win32 (uses OneDriveSetup.exe /uninstall)</span>
-      </div>` : "";
-    const uwpRows = installed.map((it, i) => `
-      <div class="bloat-row">
-        <input type="checkbox" data-uwp-key="${esc(it.key)}" checked />
-        <span class="br-name" title="${esc(it.match)}">${esc(it.label)}</span>
-        <span class="br-desc">${esc(it.match)}</span>
-      </div>`).join("");
-    overlay.querySelector(".bloat-dialog").innerHTML = `
-      <h3>Preinstalled Microsoft Apps</h3>
-      <p style="font-size:12.5px;color:#c4c4cd;line-height:1.5;margin:0 0 8px;">${totalFound} preinstalled app(s) are installed for this user. Unchecking an app skips it. UWP apps are removed via Remove-AppxPackage + Remove-AppxProvisionedPackage. OneDrive (if listed) is removed via Microsoft's own uninstaller and your local OneDrive folder files are NOT touched.</p>
-      <div class="bloat-controls">
-        <button class="btn btn-ghost btn-sm" id="uwpSelectAll">Select all</button>
-        <button class="btn btn-ghost btn-sm" id="uwpSelectNone">Select none</button>
-        <div class="spacer"></div>
-        <span class="bloat-summary" id="uwpSummary">${totalFound} selected</span>
-      </div>
-      <div class="bloat-table"><div class="bloat-table-body" id="uwpList">${oneDriveRow}${uwpRows}</div></div>
-      <div class="bloat-actions">
-        <button class="btn btn-ghost" id="uwpCancel">Cancel</button>
-        <button class="btn btn-danger" id="uwpRemove">Remove Selected</button>
-      </div>`;
-    const summary = overlay.querySelector("#uwpSummary");
-    const list = overlay.querySelector("#uwpList");
-    const update = () => {
-      const sel = list.querySelectorAll("input[type=checkbox]:checked").length;
-      summary.textContent = `${sel} selected`;
-      overlay.querySelector("#uwpRemove").disabled = sel === 0;
-    };
-    list.addEventListener("change", update);
-    overlay.querySelector("#uwpSelectAll").addEventListener("click", () => { list.querySelectorAll("input").forEach(c => c.checked = true); update(); });
-    overlay.querySelector("#uwpSelectNone").addEventListener("click", () => { list.querySelectorAll("input").forEach(c => c.checked = false); update(); });
-    overlay.querySelector("#uwpCancel").addEventListener("click", () => overlay.remove());
-    overlay.querySelector("#uwpRemove").addEventListener("click", async () => {
-      const checked = Array.from(list.querySelectorAll("input[type=checkbox]:checked"));
-      const keys = checked.filter(c => c.dataset.uwpKey).map(c => c.dataset.uwpKey);
-      const wantOneDrive = checked.some(c => c.dataset.onedrive === "1");
-      if (!keys.length && !wantOneDrive) return;
-      const remBtn = overlay.querySelector("#uwpRemove");
-      remBtn.disabled = true; remBtn.textContent = "Removing...";
-      setLogJobRunning("panel-cleaner", true);
-      clog(`Preinstalled apps remove: ${keys.length} UWP package(s)${wantOneDrive ? " + OneDrive" : ""} requested...`, "info");
-      try {
-        if (keys.length) {
-          const rr = await window.api.removeUwpPackages(keys);
-          if (rr && rr.ok) {
-            const ok = (rr.results || []).filter(x => x.Removed).length;
-            const fail = (rr.results || []).filter(x => !x.Removed && x.Error).length;
-            clog(`UWP remove: ${ok} removed, ${fail} failed.`, fail ? "warn" : "ok");
-          } else {
-            clog("UWP remove failed: " + ((rr && rr.error) || "unknown"), "err");
-          }
-        }
-        if (wantOneDrive) {
-          clog("OneDrive: running Microsoft uninstaller...", "info");
-          const od = await window.api.uninstallOneDrive();
-          if (od && od.ok) clog("OneDrive: uninstaller finished.", "ok");
-          else clog("OneDrive: uninstall failed - " + ((od && od.error) || "unknown"), "err");
-        }
-        markLastRun("debloat.uwp");
-      } catch (e) { clog("Preinstalled apps remove error: " + (e.message || e), "err"); }
-      finally { setLogJobRunning("panel-cleaner", false); }
-      overlay.remove();
-    });
-  });
 
   // ── Gaming + Responsiveness + File System cards (registry & cli toggles) ──
   const GAMING_REG_KEYS = ["gameDvr", "gameBar", "gameMode", "fgLockTimeout", "menuShowDelay", "shutdownTimeouts", "priorityScheduling", "autoPlay", "lowDiskSpace", "maxCachedIcons"];
@@ -5530,9 +5092,6 @@
     { key: "svcAxInstSV",       recommended: false, label: "Disable ActiveX Installer (AxInstSV)",
       desc: "Handles ActiveX installs for IE / legacy enterprise web apps. Not used by modern browsers.",
       run: () => window.api.setServiceState("AxInstSV", "disable") },
-    { key: "svcAppMgmt",        recommended: false, label: "Disable Application Management",
-      desc: "Processes software installs delivered via Group Policy on domain-joined PCs. Unused at home.",
-      run: () => window.api.setServiceState("AppMgmt", "disable") },
     { key: "svcCscService",     recommended: false, label: "Disable Offline Files (CscService)",
       desc: "Caches network shares for offline use. Mostly used in corporate environments.",
       run: () => window.api.setServiceState("CscService", "disable") },
@@ -5548,30 +5107,9 @@
     { key: "svcWerSvc",         recommended: false, label: "Disable Windows Error Reporting",
       desc: "Stops collecting crash dumps and 'app stopped responding' reports for Microsoft.",
       run: () => window.api.setServiceState("WerSvc", "disable") },
-    { key: "svcDiagTrack",      recommended: false, label: "Disable Connected User Experiences & Telemetry (DiagTrack)",
-      desc: "Main Windows telemetry pipeline. Disabling stops diagnostic data uploads to Microsoft.",
-      run: () => window.api.setServiceState("DiagTrack", "disable") },
-    { key: "svcTrkWks",         recommended: false, label: "Disable Distributed Link Tracking Client",
-      desc: "Tracks NTFS shortcut targets across file moves. Almost nobody uses this feature.",
-      run: () => window.api.setServiceState("TrkWks", "disable") },
-    { key: "svcdmwappush",      recommended: false, label: "Disable Device Management WAP Push Routing",
-      desc: "Routes Intune/MDM push messages. Unused on unmanaged home PCs.",
-      run: () => window.api.setServiceState("dmwappushservice", "disable") },
     { key: "svcSstpSvc",        recommended: false, label: "Disable SSTP VPN Service",
       desc: "Only invoked by SSTP VPN connections. Idle on machines that don't dial corporate VPNs.",
       run: () => window.api.setServiceState("SstpSvc", "disable") },
-    { key: "svcInventorySvc",   recommended: false, label: "Disable Inventory and Compatibility Appraisal",
-      desc: "Stops Windows from enumerating installed apps and uploading the inventory for telemetry.",
-      run: () => window.api.setServiceState("InventorySvc", "disable") },
-    { key: "svcwuqisvc",        recommended: false, label: "Disable Microsoft Usage and Quality Insights",
-      desc: "Win11 24H2 telemetry service tracking app launches and usage signals.",
-      run: () => window.api.setServiceState("wuqisvc", "disable") },
-    { key: "svcCDPSvc",         recommended: false, label: "Disable Connected Devices Platform Service",
-      desc: "Backs Phone Link, Continue on PC, Nearby Sharing. Safe if you don't sync across devices.",
-      run: () => window.api.setServiceState("CDPSvc", "disable") },
-    { key: "svcADPSvc",         recommended: false, label: "Disable Aggregated Data Platform Service",
-      desc: "Telemetry aggregator that forwards diagnostic data to DiagTrack. Pairs with disabling DiagTrack.",
-      run: () => window.api.setServiceState("ADPSvc", "disable") },
     { key: "killAllBloatware",  recommended: false, label: "Kill All Detected OEM Bloatware Processes",
       desc: "Same scan + kill as the Bloatware card, but applied silently (no dialog). Stops/disables linked services then kills any leftover process PIDs.",
       run: async () => {
@@ -5617,12 +5155,6 @@
     { key: "privStartRecommendations", recommended: false, label: "Hide Start Menu Recommendations",
       desc: "Disables the Iris recommendation cards in Start menu.",
       run: () => window.api.setPrivacyTweak("startRecommendations", true) },
-    { key: "privActivityHistory", recommended: false, label: "Disable Activity History Upload",
-      desc: "Windows stops sending Timeline data to your Microsoft account.",
-      run: () => window.api.setPrivacyTweak("activityHistory", true) },
-    { key: "privFindMyDevice",   recommended: false, label: "Disable Find My Device",
-      desc: "Windows stops reporting this PC's location to Microsoft.",
-      run: () => window.api.setPrivacyTweak("findMyDevice", true) },
     { key: "privInkingTyping",   recommended: false, label: "Disable Inking & Typing Personalization",
       desc: "Stops collecting your handwriting/typing patterns.",
       run: () => window.api.setPrivacyTweak("inkingTyping", true) },
@@ -5634,9 +5166,6 @@
     { key: "expOldContextMenu",  recommended: false, label: "Restore Windows 10 Right-Click Menu",
       desc: "Adds the registry shim so Win11 returns to the classic compact menu. Needs Explorer restart.",
       run: () => window.api.setExplorerTweak("oldContextMenu", true) },
-    { key: "expHideWidgets",     recommended: false, label: "Hide Widgets Button",
-      desc: "Removes the Widgets icon from the taskbar.",
-      run: () => window.api.setExplorerTweak("hideWidgets", true) },
     { key: "expHideChat",        recommended: false, label: "Hide Chat (Teams) Button",
       desc: "Removes the Chat icon from the taskbar.",
       run: () => window.api.setExplorerTweak("hideChat", true) },
@@ -5655,33 +5184,11 @@
     { key: "expShowHidden",      recommended: false, label: "Show Hidden Files",
       desc: "Reveals AppData, ProgramData, and other hidden folders.",
       run: () => window.api.setExplorerTweak("showHiddenFiles", true) },
-    { key: "expBingInStart",     recommended: true,  label: "Disable Bing in Start Menu Search",
-      desc: "Start menu search returns local results only. Faster.",
-      run: () => window.api.setExplorerTweak("disableBingInStart", true) },
     { key: "expHideRecent",      recommended: false, label: "Hide Recent/Frequent in Quick Access",
       desc: "Quick Access stops showing recent files and frequent folders.",
       run: () => window.api.setExplorerTweak("hideRecentQuickAccess", true) },
 
-    // Edge debloat
-    { key: "edgeStartupBoost",   recommended: true,  label: "Disable Edge Startup Boost",
-      desc: "Stops Edge from keeping a process alive after close.",
-      run: () => window.api.setEdgeTweak("edgeStartupBoost", true) },
-    { key: "edgeSleepingTabs",   recommended: false, label: "Disable Edge Sleeping Tabs",
-      desc: "Edge stops auto-suspending background tabs.",
-      run: () => window.api.setEdgeTweak("edgeSleepingTabs", true) },
-    { key: "edgeHubsSidebar",    recommended: false, label: "Disable Edge Hubs Sidebar (Copilot/Bing)",
-      desc: "Removes the right-hand Copilot/Bing AI panel in Edge.",
-      run: () => window.api.setEdgeTweak("edgeHubsSidebar", true) },
-
-    // Telemetry scheduled tasks
-    { key: "telemetryTasks",     recommended: true,  label: "Disable Telemetry & CEIP Scheduled Tasks",
-      desc: "Disables Compatibility Appraiser, CEIP, Feedback DmClient and similar background uploaders.",
-      run: () => window.api.setTelemetryTasksState(true) },
-
     // System maintenance
-    { key: "uninstallOneDrive",  recommended: false, label: "Uninstall OneDrive",
-      desc: "Runs OneDriveSetup.exe /uninstall. Your local OneDrive folder files are not touched. Destructive; opt-in only.",
-      run: () => window.api.uninstallOneDrive() },
     { key: "hibernation",        recommended: false, label: "Disable Hibernation (reclaim disk space)",
       desc: "Runs powercfg /hibernate off and removes hiberfil.sys (typically several GB).",
       run: () => window.api.setHibernationState(true) },
