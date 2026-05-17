@@ -909,6 +909,7 @@
             </div>
           </div>
         </div>
+        <div id="startupLog" class="log-store" hidden></div>
         <div class="panel-actions">
           <button class="btn btn-success" id="suEnableBtn" disabled>Enable</button>
           <button class="btn btn-danger"  id="suDisableBtn" disabled>Disable</button>
@@ -935,6 +936,7 @@
         <div class="sysinfo-content" id="siContent">
           <div class="si-loading"><span>Click <strong>System Info</strong> in the sidebar to load</span></div>
         </div>
+        <div id="sysinfoLog" class="log-store" hidden></div>
         <div class="panel-actions">
           <div class="spacer"></div>
           <div class="export-wrap">
@@ -2565,7 +2567,7 @@
   // Opens a separate Electron window with the same look as the inline log,
   // plus a header carrying Copy / Export / Clear / Auto-scroll. Future log
   // lines are appended live into the popout's #popout-log via DOM access.
-  const popouts = { cleaner: [], network: [] };
+  const popouts = { cleaner: [], network: [], sysinfo: [], startup: [] };
   function buildPopoutHtml(title) {
     return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + title + "</title>" +
       "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');</style>" +
@@ -2616,13 +2618,18 @@
       "</body></html>";
   }
   function popoutLog(panelKey) {
-    const sourceLog = panelKey === "cleaner"
-      ? document.getElementById("cleanerLog")
-      : document.getElementById("netLog");
+    const sourceLog =
+      panelKey === "cleaner"  ? document.getElementById("cleanerLog")  :
+      panelKey === "network"  ? document.getElementById("netLog")      :
+      panelKey === "sysinfo"  ? document.getElementById("sysinfoLog")  :
+      panelKey === "startup"  ? document.getElementById("startupLog")  : null;
     if (!sourceLog) return;
-    const title = panelKey === "cleaner"
-      ? "Activity Log - Performance/Cleaner"
-      : "Activity Log - Networking";
+    const title =
+      panelKey === "cleaner"  ? "Activity Log - Performance/Cleaner" :
+      panelKey === "network"  ? "Activity Log - Networking"          :
+      panelKey === "sysinfo"  ? "Debug Log - System Info"             :
+      panelKey === "startup"  ? "Debug Log - Startup"                  :
+      "Activity Log";
     const w = window.open("", "_blank", "width=720,height=520");
     if (!w) {
       alert("Could not open popout window. The main process needs a setWindowOpenHandler.");
@@ -2648,8 +2655,8 @@
   // Tracks unread counts per panel. The single titlebar button is shown
   // only when the active panel is cleaner or network, and reflects that
   // panel's unread state. Clicking pops out the active panel's log.
-  const logsUnread = { cleaner: 0, network: 0 };
-  let activeLogPanel = null;                  // "cleaner" | "network" | null
+  const logsUnread = { cleaner: 0, network: 0, sysinfo: 0, startup: 0 };
+  let activeLogPanel = null;                  // "cleaner" | "network" | "sysinfo" | "startup" | null
   function hasOpenPopout(panelKey) {
     const list = popouts[panelKey];
     if (!list) return false;
@@ -2676,7 +2683,7 @@
     }
   }
   function setActiveLogPanel(panel) {
-    activeLogPanel = (panel === "cleaner" || panel === "network") ? panel : null;
+    activeLogPanel = (panel === "cleaner" || panel === "network" || panel === "sysinfo" || panel === "startup") ? panel : null;
     renderTitlebarLogsBtn();
   }
   function bumpLogsUnread(panelKey) {
@@ -3985,6 +3992,23 @@
   let suLoaded = false;
   autoLoadPanels["startup"] = () => { if (!suLoaded) { suLoaded = true; loadStartup(); } };
 
+  // ── Startup: Debug Log ────────────────────────────────────────
+  const startupLog = $("#startupLog");
+  function stlog(msg, level) {
+    if (!startupLog) return;
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
+    const cls = level === "ok" ? "log-ok" : level === "warn" ? "log-warn" : level === "err" ? "log-err" : level === "info" ? "log-info" : "";
+    const line = document.createElement("div");
+    line.innerHTML = `<span class="log-time">[${ts}]</span> <span class="${cls}">${esc(msg)}</span>`;
+    startupLog.appendChild(line);
+    if (typeof forwardLogToPopouts === "function") forwardLogToPopouts("startup", line);
+    bumpLogsUnread("startup");
+  }
+  stlog("Startup debug log ready.", "info");
+  if (window.api && window.api.onStartupLog) {
+    window.api.onStartupLog(({ text, level }) => stlog(text, level));
+  }
+
   suEnableBtn.addEventListener("click", async () => {
     if (suSelected === null) return;
     const item = suData[suSelected];
@@ -4246,6 +4270,23 @@
   $("#siRefreshBtn").addEventListener("click", loadSysInfo);
   let siLoaded = false;
   autoLoadPanels["sysinfo"] = () => { if (!siLoaded) { siLoaded = true; loadSysInfo(); } };
+
+  // ── System Info: Debug Log ────────────────────────────────────
+  const sysinfoLog = $("#sysinfoLog");
+  function silog(msg, level) {
+    if (!sysinfoLog) return;
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
+    const cls = level === "ok" ? "log-ok" : level === "warn" ? "log-warn" : level === "err" ? "log-err" : level === "info" ? "log-info" : "";
+    const line = document.createElement("div");
+    line.innerHTML = `<span class="log-time">[${ts}]</span> <span class="${cls}">${esc(msg)}</span>`;
+    sysinfoLog.appendChild(line);
+    if (typeof forwardLogToPopouts === "function") forwardLogToPopouts("sysinfo", line);
+    bumpLogsUnread("sysinfo");
+  }
+  silog("System Info debug log ready.", "info");
+  if (window.api && window.api.onSysInfoLog) {
+    window.api.onSysInfoLog(({ text, level }) => silog(text, level));
+  }
 
   function getSysInfoExportData() {
     if (!siData) return { filename: "system-info", headers: ["Section", "Property", "Value"], rows: [] };

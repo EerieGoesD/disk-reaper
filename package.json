@@ -1,6 +1,6 @@
 {
   "name": "disk-reaper",
-  "version": "1.3.0",
+  "version": "1.3.3",
   "description": "All-in-one Windows system utility for cleaning disk space, tuning performance, managing installed apps, services and processes, fixing networking, and applying privacy and system tweaks.",
   "main": "main.js",
   "author": "EERIE",
@@ -21,6 +21,7 @@
       "main.js",
       "preload.js",
       "index.html",
+      "script-path.js",
       "installed_apps.js",
       "processes.js",
       "services.js",
@@ -37,6 +38,9 @@
       "!node_modules",
       "!dist",
       "!.git"
+    ],
+    "asarUnpack": [
+      "scripts/**/*"
     ],
     "appId": "com.eerie.largefilefinder",
     "productName": "Disk Reaper",

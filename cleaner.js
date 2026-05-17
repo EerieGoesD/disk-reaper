@@ -3,6 +3,7 @@ const { execFile, exec, spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const { scriptPath } = require("./script-path");
 
 // ── Temp file cleanup paths (whitelisted; no arbitrary paths from renderer) ──
 function knownPath(key) {
@@ -66,7 +67,7 @@ const BLOATWARE = [
 function stopAndDisableServices(serviceNames) {
   const namesArg = serviceNames.filter(Boolean).join(",");
   const outFile = path.join(os.tmpdir(), "diskreaper_svc_" + Date.now() + ".json");
-  const elevatedScript = path.join(__dirname, "scripts", "stop-services-elevated.ps1");
+  const elevatedScript = scriptPath("stop-services-elevated.ps1");
 
   return new Promise((resolve) => {
     execFile("powershell", [

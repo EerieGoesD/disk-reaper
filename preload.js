@@ -29,9 +29,19 @@ contextBridge.exposeInMainWorld("api", {
   // System Info
   getSysInfo:   () => ipcRenderer.invoke("get-sysinfo"),
   getLiveStats: () => ipcRenderer.invoke("get-live-stats"),
+  onSysInfoLog: (cb) => {
+    const listener = (_event, data) => cb(data);
+    ipcRenderer.on("sysinfo-log", listener);
+    return () => ipcRenderer.removeListener("sysinfo-log", listener);
+  },
   // Startup
   getStartupItems:   ()     => ipcRenderer.invoke("get-startup-items"),
   setStartupEnabled: (opts) => ipcRenderer.invoke("set-startup-enabled", opts),
+  onStartupLog: (cb) => {
+    const listener = (_event, data) => cb(data);
+    ipcRenderer.on("startup-log", listener);
+    return () => ipcRenderer.removeListener("startup-log", listener);
+  },
   // Processes
   getProcesses: ()    => ipcRenderer.invoke("get-processes"),
   killProcess:  (pid) => ipcRenderer.invoke("kill-process", pid),

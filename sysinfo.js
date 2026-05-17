@@ -1,36 +1,60 @@
-const { ipcMain } = require("electron");
+const { ipcMain, BrowserWindow } = require("electron");
 const { execFile } = require("child_process");
-const path = require("path");
+const fs = require("fs");
+const { scriptPath } = require("./script-path");
 
-function getSysInfo() {
-  const script = path.join(__dirname, "scripts", "get-sysinfo.ps1");
+function emitLog(event, text, level) {
+  if (!text) return;
+  try {
+    const win = event && event.sender
+      ? BrowserWindow.fromWebContents(event.sender)
+      : BrowserWindow.getAllWindows()[0];
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("sysinfo-log", { text, level: level || "info" });
+    }
+  } catch {}
+}
+
+function runScript(event, scriptName, opts) {
+  const script = scriptPath(scriptName);
+  const exists = fs.existsSync(script);
+  emitLog(event, `Running ${scriptName} (exists=${exists}) at ${script}`, "info");
   return new Promise((resolve) => {
-    execFile("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script],
-      { maxBuffer: 5 * 1024 * 1024, windowsHide: true },
-      (err, stdout) => {
-        if (err) return resolve(null);
+    execFile(
+      "powershell",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script],
+      { maxBuffer: opts.maxBuffer, windowsHide: true },
+      (err, stdout, stderr) => {
+        if (err) {
+          emitLog(event, `${scriptName} failed: ${err.message}`, "err");
+          if (stderr) emitLog(event, `stderr: ${String(stderr).trim()}`, "err");
+          return resolve(null);
+        }
+        if (stderr && String(stderr).trim()) {
+          emitLog(event, `${scriptName} stderr: ${String(stderr).trim()}`, "warn");
+        }
+        const raw = (stdout || "").trim();
+        if (!raw) {
+          emitLog(event, `${scriptName} returned empty stdout`, "err");
+          return resolve(null);
+        }
         try {
-          resolve(JSON.parse(stdout.trim()));
-        } catch { resolve(null); }
+          const data = JSON.parse(raw);
+          emitLog(event, `${scriptName} parsed OK`, "ok");
+          resolve(data);
+        } catch (e) {
+          emitLog(event, `${scriptName} JSON parse failed: ${e.message}`, "err");
+          emitLog(event, `stdout (first 300 chars): ${raw.slice(0, 300)}`, "err");
+          resolve(null);
+        }
       }
     );
   });
 }
 
-function getLiveStats() {
-  const script = path.join(__dirname, "scripts", "get-live-stats.ps1");
-  return new Promise((resolve) => {
-    execFile("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script],
-      { maxBuffer: 1024 * 1024, windowsHide: true },
-      (err, stdout) => {
-        if (err) return resolve(null);
-        try {
-          resolve(JSON.parse(stdout.trim()));
-        } catch { resolve(null); }
-      }
-    );
-  });
-}
-
-ipcMain.handle("get-sysinfo", () => getSysInfo());
-ipcMain.handle("get-live-stats", () => getLiveStats());
+ipcMain.handle("get-sysinfo", (event) =>
+  runScript(event, "get-sysinfo.ps1", { maxBuffer: 5 * 1024 * 1024 })
+);
+ipcMain.handle("get-live-stats", (event) =>
+  runScript(event, "get-live-stats.ps1", { maxBuffer: 1024 * 1024 })
+);
