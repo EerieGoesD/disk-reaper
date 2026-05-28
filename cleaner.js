@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { scriptPath } = require("./script-path");
+const { runElevatedPs, runElevatedBatch } = require("./run-elevated");
 
 // ── Temp file cleanup paths (whitelisted; no arbitrary paths from renderer) ──
 function knownPath(key) {
@@ -64,29 +65,34 @@ const BLOATWARE = [
 ];
 
 // ── Stop and disable services (elevated) ──
-function stopAndDisableServices(serviceNames) {
+async function stopAndDisableServices(serviceNames) {
   const namesArg = serviceNames.filter(Boolean).join(",");
   const outFile = path.join(os.tmpdir(), "diskreaper_svc_" + Date.now() + ".json");
   const elevatedScript = scriptPath("stop-services-elevated.ps1");
 
-  return new Promise((resolve) => {
-    execFile("powershell", [
+  const results = await runElevatedBatch([{
+    id: "stop-services",
+    cmd: "powershell",
+    args: [
       "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", elevatedScript,
       "-ServiceNames", namesArg,
       "-OutFile", outFile,
-    ], { maxBuffer: 5 * 1024 * 1024, windowsHide: true }, () => {
-      try {
-        const raw = fs.readFileSync(outFile, "utf8").replace(/^\uFEFF/, "").trim();
-        fs.unlinkSync(outFile);
-        const data = JSON.parse(raw);
-        const arr = Array.isArray(data) ? data : [data];
-        resolve(arr.map(r => ({ name: r.Name, ok: r.Ok, error: r.Error || "" })));
-      } catch {
-        try { fs.unlinkSync(outFile); } catch {}
-        resolve(serviceNames.map(n => ({ name: n, ok: false, error: "Elevation cancelled or failed" })));
-      }
-    });
-  });
+    ],
+  }]);
+
+  try {
+    const raw = fs.readFileSync(outFile, "utf8").replace(/^\uFEFF/, "").trim();
+    fs.unlinkSync(outFile);
+    const data = JSON.parse(raw);
+    const arr = Array.isArray(data) ? data : [data];
+    return arr.map(r => ({ name: r.Name, ok: r.Ok, error: r.Error || "" }));
+  } catch {
+    try { fs.unlinkSync(outFile); } catch {}
+    const reason = results[0] && results[0].error
+      ? results[0].error
+      : "Elevation cancelled or failed";
+    return serviceNames.map(n => ({ name: n, ok: false, error: reason }));
+  }
 }
 
 // ── Batch kill processes ──
@@ -382,23 +388,18 @@ async function setServiceState(name, action) {
   if (!PERF_SERVICES[name]) return { ok: false, error: "unknown service key" };
   if (action !== "disable" && action !== "enable") return { ok: false, error: "action must be enable or disable" };
 
-  // disable = Stop + StartupType=Disabled; enable = StartupType=Automatic + Start
   const ps = action === "disable"
     ? "$ErrorActionPreference='Stop'; try { Stop-Service -Name '" + name + "' -Force -ErrorAction SilentlyContinue; Set-Service -Name '" + name + "' -StartupType Disabled; 'OK' } catch { 'ERR: ' + $_.Exception.Message }"
     : "$ErrorActionPreference='Stop'; try { Set-Service -Name '" + name + "' -StartupType Automatic; Start-Service -Name '" + name + "' -ErrorAction SilentlyContinue; 'OK' } catch { 'ERR: ' + $_.Exception.Message }";
 
-  const encoded = Buffer.from(ps, "utf16le").toString("base64");
-  return new Promise((resolve) => {
-    execFile("powershell", ["-NoProfile", "-EncodedCommand", encoded], {
-      windowsHide: true,
-      timeout: 30 * 1000,
-    }, (err, stdout) => {
-      if (err) return resolve({ ok: false, error: err.message });
-      const out = (stdout || "").trim();
-      if (out.startsWith("ERR:")) return resolve({ ok: false, error: out.replace(/^ERR:\s*/, "") });
-      resolve({ ok: true });
-    });
-  });
+  const r = await runElevatedPs(ps);
+  if (!r.ok) return { ok: false, error: r.error || `elevation failed (exit ${r.exitCode})` };
+  const out = (r.stdout || "").trim();
+  if (out.includes("ERR:")) {
+    const msg = out.split("ERR:").pop().trim();
+    return { ok: false, error: msg };
+  }
+  return { ok: true };
 }
 
 // Delivery Optimization peer-to-peer toggle (Settings -> Windows Update ->
@@ -441,18 +442,14 @@ async function setDeliveryOptimizationP2P(disable) {
       "try { Remove-ItemProperty -Path '" + DO_POLICY_KEY + "' -Name '" + DO_VALUE + "' -ErrorAction SilentlyContinue;" +
       "'OK' } catch { 'ERR: ' + $_.Exception.Message }";
   }
-  const encoded = Buffer.from(ps, "utf16le").toString("base64");
-  return new Promise((resolve) => {
-    execFile("powershell", ["-NoProfile", "-EncodedCommand", encoded], {
-      windowsHide: true,
-      timeout: 15 * 1000,
-    }, (err, stdout) => {
-      if (err) return resolve({ ok: false, error: err.message });
-      const out = (stdout || "").trim();
-      if (out.startsWith("ERR:")) return resolve({ ok: false, error: out.replace(/^ERR:\s*/, "") });
-      resolve({ ok: true });
-    });
-  });
+  const r = await runElevatedPs(ps);
+  if (!r.ok) return { ok: false, error: r.error || `elevation failed (exit ${r.exitCode})` };
+  const out = (r.stdout || "").trim();
+  if (out.includes("ERR:")) {
+    const msg = out.split("ERR:").pop().trim();
+    return { ok: false, error: msg };
+  }
+  return { ok: true };
 }
 
 // ── Streaming command runner for SFC / DISM / chkdsk / wsreset ──────────
@@ -522,6 +519,33 @@ ipcMain.handle("get-delivery-opt-state", () => getDeliveryOptimizationState());
 ipcMain.handle("set-delivery-opt-p2p",   (_, { disable }) => setDeliveryOptimizationP2P(disable));
 ipcMain.handle("run-perf-command",       (event, key) => runPerfCommand(event, key));
 
+// Debug helper: runs a harmless command (whoami /priv) through the elevated
+// batch helper so the user can verify whether UAC fires from MSIX context
+// without touching any real system setting. Streams progress into the
+// existing cleaner log via the perf-cmd-output channel.
+ipcMain.handle("test-elevation", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const emit = (text, level) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("perf-cmd-output", { key: "test-elevation", text, level: level || "info" });
+    }
+  };
+  emit("Test Elevation: starting...", "info");
+  const results = await runElevatedBatch(
+    [{ id: "whoami-priv", cmd: "whoami", args: ["/priv"] }],
+    emit
+  );
+  const r = results[0];
+  if (r.ok) {
+    emit("Test Elevation: SUCCESS - elevation works from MSIX context", "ok");
+    const lines = (r.stdout || "").split(/\r?\n/).slice(0, 6).filter(Boolean);
+    lines.forEach(l => emit("   " + l, "info"));
+  } else {
+    emit(`Test Elevation: FAILED - ${r.error || "unknown"}`, "err");
+  }
+  return r;
+});
+
 // ── Quick tweaks ─────────────────────────────────────────────────────────
 // Sets VisualFXSetting to 2 = "Adjust for best performance" (turns off
 // animations, shadows, smooth scrolling, etc). HKCU per-user setting; takes
@@ -553,13 +577,13 @@ async function applyBestPerformanceVisuals() {
 // not a valid identifier and bcdedit rejects it). Skips "numproc" entirely
 // (myth that more cores = faster boot; that setting is a debugging knob).
 async function applyBootTweaks() {
-  const cmd = 'bcdedit /timeout 3 && bcdedit /set "{current}" quietboot Yes';
-  return new Promise((resolve) => {
-    exec(cmd, { windowsHide: true, timeout: 15 * 1000 }, (err, stdout, stderr) => {
-      if (err) return resolve({ ok: false, error: err.message + (stderr ? " | " + stderr : "") });
-      resolve({ ok: true, output: (stdout || "").trim() });
-    });
-  });
+  const results = await runElevatedBatch([
+    { id: "bcd-timeout", cmd: "bcdedit", args: ["/timeout", "3"] },
+    { id: "bcd-quiet",   cmd: "bcdedit", args: ["/set", "{current}", "quietboot", "Yes"] },
+  ]);
+  const fail = results.find(r => !r.ok);
+  if (fail) return { ok: false, error: fail.error || `${fail.id} exit ${fail.exitCode}` };
+  return { ok: true, output: results.map(r => r.stdout).join("\n").trim() };
 }
 
 // Activate the well-known High Performance plan. On some Win11 SKUs it is
@@ -722,31 +746,41 @@ async function readRegValue(hive, subkey, name) {
 
 async function writeRegValue(hive, subkey, name, value, type) {
   const path = psPath(hive, subkey);
-  // Quote string values, leave numbers / null bare. Null means: delete the value.
+  // HKLM/HKCR/HKU always need admin. HKCU policy paths also need admin in
+  // MSIX context because the per-app virtualization layer rejects writes to
+  // Software\Policies\* (Windows reserves those for Group Policy service).
+  const isHkcuPolicy = hive === "HKCU" && /\\Policies\\/i.test("\\" + subkey + "\\");
+  const needsElevation = hive === "HKLM" || hive === "HKCR" || hive === "HKU" || isHkcuPolicy;
+
+  let ps;
   if (value === null || value === undefined) {
-    const ps =
+    ps =
       "$ErrorActionPreference='Stop';" +
       "try { Remove-ItemProperty -Path '" + path + "' -Name '" + name + "' -ErrorAction SilentlyContinue; 'OK' } catch { 'ERR: ' + $_.Exception.Message }";
-    const encoded = Buffer.from(ps, "utf16le").toString("base64");
-    return new Promise((resolve) => {
-      execFile("powershell", ["-NoProfile", "-EncodedCommand", encoded], { windowsHide: true, timeout: 10 * 1000 }, (err, stdout, stderr) => {
-        if (err) return resolve({ ok: false, error: cleanPsError(err, stderr) });
-        const out = (stdout || "").trim();
-        if (out.startsWith("ERR:")) return resolve({ ok: false, error: out.replace(/^ERR:\s*/, "") });
-        resolve({ ok: true });
-      });
-    });
+  } else {
+    const psType = (type === "String") ? "String" : "DWord";
+    const psValueLiteral = (typeof value === "string")
+      ? "'" + value.replace(/'/g, "''") + "'"
+      : String(value);
+    ps =
+      "$ErrorActionPreference='Stop';" +
+      "try {" +
+      " if (-not (Test-Path '" + path + "')) { New-Item -Path '" + path + "' -Force | Out-Null };" +
+      " Set-ItemProperty -Path '" + path + "' -Name '" + name + "' -Value " + psValueLiteral + " -Type " + psType + ";" +
+      " 'OK' } catch { 'ERR: ' + $_.Exception.Message }";
   }
-  const psType = (type === "String") ? "String" : "DWord";
-  const psValueLiteral = (typeof value === "string")
-    ? "'" + value.replace(/'/g, "''") + "'"
-    : String(value);
-  const ps =
-    "$ErrorActionPreference='Stop';" +
-    "try {" +
-    " if (-not (Test-Path '" + path + "')) { New-Item -Path '" + path + "' -Force | Out-Null };" +
-    " Set-ItemProperty -Path '" + path + "' -Name '" + name + "' -Value " + psValueLiteral + " -Type " + psType + ";" +
-    " 'OK' } catch { 'ERR: ' + $_.Exception.Message }";
+
+  if (needsElevation) {
+    const r = await runElevatedPs(ps);
+    if (!r.ok) return { ok: false, error: r.error || `elevation failed (exit ${r.exitCode})` };
+    const out = (r.stdout || "").trim();
+    if (out.includes("ERR:")) {
+      const msg = out.split("ERR:").pop().trim();
+      return { ok: false, error: msg };
+    }
+    return { ok: true };
+  }
+
   const encoded = Buffer.from(ps, "utf16le").toString("base64");
   return new Promise((resolve) => {
     execFile("powershell", ["-NoProfile", "-EncodedCommand", encoded], {
@@ -919,13 +953,13 @@ async function get8dot3State() {
   });
 }
 async function set8dot3State(disable) {
-  const target = disable ? 1 : 0;
-  return new Promise((resolve) => {
-    exec(`fsutil behavior set disable8dot3 ${target}`, { windowsHide: true, timeout: 10 * 1000 }, (err, _stdout, stderr) => {
-      if (err) return resolve({ ok: false, error: err.message + (stderr ? " | " + stderr : "") });
-      resolve({ ok: true });
-    });
-  });
+  const target = disable ? "1" : "0";
+  const results = await runElevatedBatch([
+    { id: "fsutil-8dot3", cmd: "fsutil", args: ["behavior", "set", "disable8dot3", target] },
+  ]);
+  const r = results[0];
+  if (!r.ok) return { ok: false, error: r.error || `fsutil exit ${r.exitCode}` };
+  return { ok: true };
 }
 
 // Autochk countdown is stored at HKLM\SYSTEM\CurrentControlSet\Control\

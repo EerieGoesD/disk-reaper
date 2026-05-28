@@ -1,5 +1,6 @@
 const { ipcMain } = require("electron");
 const { execFile } = require("child_process");
+const { runElevatedBatch } = require("./run-elevated");
 
 function run(cmd, args, timeout = 20000) {
   return new Promise((resolve) => {
@@ -15,6 +16,18 @@ function run(cmd, args, timeout = 20000) {
 
 function ps(oneLiner, timeout = 20000) {
   return run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", oneLiner], timeout);
+}
+
+// Convert the elevated batch result into the {cmd, ok, out, err} shape the
+// renderer's networking log already expects, preserving the displayed command
+// string per step.
+function toSteps(batchResults, labels) {
+  return batchResults.map((r, i) => ({
+    cmd: labels[i],
+    ok: r.ok,
+    out: (r.stdout || "").trim(),
+    err: r.ok ? "" : (r.error || `exit ${r.exitCode}`),
+  }));
 }
 
 async function getNetworkConfig() {
@@ -71,57 +84,64 @@ async function runDiagnostics() {
 
 async function fixDns(adapter, primary = "8.8.8.8", secondary = "1.1.1.1") {
   if (!adapter) return { ok: false, error: "No active adapter detected." };
-  const r1 = await run("netsh", ["interface", "ip", "set", "dns", `name=${adapter}`, "static", primary]);
-  const r2 = await run("netsh", ["interface", "ip", "add", "dns", `name=${adapter}`, `addr=${secondary}`, "index=2"]);
-  const r3 = await run("ipconfig", ["/flushdns"]);
-  return {
-    ok: r1.ok && r2.ok && r3.ok,
-    steps: [
-      { cmd: `netsh set dns "${adapter}" ${primary}`,  ok: r1.ok, out: r1.stdout.trim(), err: r1.stderr.trim() },
-      { cmd: `netsh add dns "${adapter}" ${secondary}`, ok: r2.ok, out: r2.stdout.trim(), err: r2.stderr.trim() },
-      { cmd: "ipconfig /flushdns",                      ok: r3.ok, out: r3.stdout.trim(), err: r3.stderr.trim() },
-    ],
-  };
+  const commands = [
+    { id: "set-dns",   cmd: "netsh",    args: ["interface", "ip", "set", "dns", `name=${adapter}`, "static", primary] },
+    { id: "add-dns",   cmd: "netsh",    args: ["interface", "ip", "add", "dns", `name=${adapter}`, `addr=${secondary}`, "index=2"] },
+    { id: "flush-dns", cmd: "ipconfig", args: ["/flushdns"] },
+  ];
+  const results = await runElevatedBatch(commands);
+  const steps = toSteps(results, [
+    `netsh set dns "${adapter}" ${primary}`,
+    `netsh add dns "${adapter}" ${secondary}`,
+    "ipconfig /flushdns",
+  ]);
+  return { ok: steps.every(s => s.ok), steps };
 }
 
 async function resetDnsAuto(adapter) {
   if (!adapter) return { ok: false, error: "No active adapter detected." };
-  const r1 = await run("netsh", ["interface", "ip", "set", "dns", `name=${adapter}`, "source=dhcp"]);
-  const r2 = await run("ipconfig", ["/flushdns"]);
-  return {
-    ok: r1.ok && r2.ok,
-    steps: [
-      { cmd: `netsh set dns "${adapter}" dhcp`, ok: r1.ok, out: r1.stdout.trim(), err: r1.stderr.trim() },
-      { cmd: "ipconfig /flushdns",              ok: r2.ok, out: r2.stdout.trim(), err: r2.stderr.trim() },
-    ],
-  };
+  const commands = [
+    { id: "set-dns-dhcp", cmd: "netsh",    args: ["interface", "ip", "set", "dns", `name=${adapter}`, "source=dhcp"] },
+    { id: "flush-dns",    cmd: "ipconfig", args: ["/flushdns"] },
+  ];
+  const results = await runElevatedBatch(commands);
+  const steps = toSteps(results, [
+    `netsh set dns "${adapter}" dhcp`,
+    "ipconfig /flushdns",
+  ]);
+  return { ok: steps.every(s => s.ok), steps };
 }
 
 async function flushDns() {
+  // ipconfig /flushdns does NOT require admin - run unelevated.
   const r = await run("ipconfig", ["/flushdns"]);
   return { ok: r.ok, steps: [{ cmd: "ipconfig /flushdns", ok: r.ok, out: r.stdout.trim(), err: r.stderr.trim() }] };
 }
 
 async function renewIp() {
-  const r1 = await run("ipconfig", ["/release"], 60000);
-  const r2 = await run("ipconfig", ["/renew"], 90000);
-  return {
-    ok: r1.ok && r2.ok,
-    steps: [
-      { cmd: "ipconfig /release", ok: r1.ok, out: r1.stdout.trim(), err: r1.stderr.trim() },
-      { cmd: "ipconfig /renew",   ok: r2.ok, out: r2.stdout.trim(), err: r2.stderr.trim() },
-    ],
-  };
+  const commands = [
+    { id: "release", cmd: "ipconfig", args: ["/release"] },
+    { id: "renew",   cmd: "ipconfig", args: ["/renew"] },
+  ];
+  const results = await runElevatedBatch(commands);
+  const steps = toSteps(results, ["ipconfig /release", "ipconfig /renew"]);
+  return { ok: steps.every(s => s.ok), steps };
 }
 
 async function resetWinsock() {
-  const r = await run("netsh", ["winsock", "reset"]);
-  return { ok: r.ok, steps: [{ cmd: "netsh winsock reset", ok: r.ok, out: r.stdout.trim(), err: r.stderr.trim() }] };
+  const results = await runElevatedBatch([
+    { id: "winsock-reset", cmd: "netsh", args: ["winsock", "reset"] },
+  ]);
+  const steps = toSteps(results, ["netsh winsock reset"]);
+  return { ok: steps.every(s => s.ok), steps };
 }
 
 async function resetIpStack() {
-  const r = await run("netsh", ["int", "ip", "reset"]);
-  return { ok: r.ok, steps: [{ cmd: "netsh int ip reset", ok: r.ok, out: r.stdout.trim(), err: r.stderr.trim() }] };
+  const results = await runElevatedBatch([
+    { id: "ip-reset", cmd: "netsh", args: ["int", "ip", "reset"] },
+  ]);
+  const steps = toSteps(results, ["netsh int ip reset"]);
+  return { ok: steps.every(s => s.ok), steps };
 }
 
 ipcMain.handle("net-diagnostics",    () => runDiagnostics());
