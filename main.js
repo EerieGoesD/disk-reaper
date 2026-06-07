@@ -11,6 +11,7 @@ require("./startup");
 require("./sysinfo");
 require("./cleaner");
 require("./debloat");
+require("./boost-batch");
 require("./networking");
 require("./drivers");
 

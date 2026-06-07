@@ -959,7 +959,6 @@
                 <p>Apply a curated set of performance tweaks in sequence. You pick which actions to run via checkboxes; safe defaults are pre-selected. Each action's progress streams into the Activity Log.</p>
               </div>
               <button class="btn btn-success btn-boost" id="boostPcBtn">Boost PC</button>
-              <button class="btn" id="testElevationBtn" style="margin-left:8px" title="Run a harmless command (whoami /priv) elevated to verify UAC works from this app">Test Elevation</button>
             </div>
 
             <nav class="cleaner-toc" id="cleanerToc">
@@ -5808,67 +5807,88 @@
   }
 
   async function applyBoostActions() {
-    const keys = selectedBoostKeys();
-    if (!keys.size) return;
+    const keys = Array.from(selectedBoostKeys());
+    if (!keys.length) return;
     const applyBtn = document.getElementById("boostApply");
     applyBtn.disabled = true;
     const origText = applyBtn.textContent;
     const wantRestore = !!document.getElementById("boostCreateRestorePoint")?.checked;
     closeBoostDialog();
     setBoostButtonsRunning(true);
-    clog(`Boost PC: starting ${keys.size} action(s)...`, "info");
+    clog(`Boost PC: ${keys.length} action(s) selected. Requesting elevation...`, "info");
     setLogJobRunning("panel-cleaner", true);
-    // Total steps for the progress bar = the optional restore point + each ticked action.
-    const totalSteps = keys.size + (wantRestore ? 1 : 0);
-    let stepsDone = 0;
+    const totalSteps = keys.length + (wantRestore ? 1 : 0);
     setBoostProgress(0, totalSteps);
-    if (wantRestore) {
-      clog("  → Creating System Restore Point first...", "info");
+
+    // Pre-resolve OEM bloatware kill: needs renderer-side process list.
+    let bloatwareServices = [], bloatwarePids = [];
+    if (keys.includes("killAllBloatware")) {
       try {
-        const rr = await window.api.createRestorePoint("Disk Reaper Boost PC");
-        if (rr && rr.ok) clog("     restore point created.", "ok");
-        else clog(`     restore point failed: ${(rr && rr.error) || "unknown"} - continuing anyway.`, "warn");
-      } catch (e) { clog(`     restore point error: ${e.message || e} - continuing anyway.`, "warn"); }
+        const [list, procs] = await Promise.all([window.api.getBloatwareList(), window.api.getProcesses()]);
+        const procByName = new Map();
+        for (const p of procs) {
+          const k = (p.name || "").toLowerCase();
+          if (!procByName.has(k)) procByName.set(k, []);
+          procByName.get(k).push(p);
+        }
+        for (const bw of list) {
+          const m = procByName.get(bw.process.toLowerCase()) || [];
+          if (m.length) {
+            if (bw.service) bloatwareServices.push(bw.service);
+            for (const p of m) bloatwarePids.push(p.pid);
+          }
+        }
+        bloatwareServices = [...new Set(bloatwareServices)];
+        clog(`  bloatware pre-scan: ${bloatwarePids.length} PIDs, ${bloatwareServices.length} services`, "info");
+      } catch (e) { clog(`  bloatware pre-scan failed: ${e.message || e}`, "warn"); }
+    }
+
+    const t0 = Date.now();
+    let result;
+    try {
+      result = await window.api.runBoostBatch(keys, {
+        createRestorePoint: wantRestore,
+        bloatwareServices,
+        bloatwarePids,
+      });
+    } catch (e) {
+      clog(`Boost PC: elevated process error - ${e.message || e}`, "err");
+      result = { ok: false, error: e.message || String(e), perAction: {} };
+    }
+
+    // Walk per-action results, log each, advance the progress bar.
+    let ok = 0, fail = 0, stepsDone = 0;
+    const order = wantRestore ? ["restorePoint", ...keys] : keys;
+    const labelByKey = Object.fromEntries(BOOST_ACTIONS.map(a => [a.key, a.label]));
+    labelByKey["restorePoint"] = "Create System Restore Point";
+    for (const k of order) {
+      const label = labelByKey[k] || k;
+      clog(`  → ${label}`, "info");
+      const pa = (result.perAction || {})[k];
+      if (pa && pa.ok) {
+        ok++;
+        if (pa.output) clog(`     ${pa.output}`, "ok");
+        else clog("     done.", "ok");
+      } else {
+        fail++;
+        const reason = (pa && pa.output) || (result && result.error) || "no result captured";
+        clog(`     failed: ${reason}`, "err");
+      }
       stepsDone++;
       setBoostProgress(stepsDone, totalSteps);
     }
-    const t0 = Date.now();
-    let ok = 0, fail = 0;
-    try {
-      for (const a of BOOST_ACTIONS) {
-        if (!keys.has(a.key)) continue;
-        clog(`  → ${a.label}`, "info");
-        try {
-          const r = await a.run();
-          if (r && r.ok === false) { fail++; clog(`     failed: ${r.error || "unknown"}`, "err"); }
-          else { ok++; clog(`     done.`, "ok"); }
-        } catch (e) {
-          fail++;
-          clog(`     error: ${e.message || e}`, "err");
-        }
-        stepsDone++;
-        setBoostProgress(stepsDone, totalSteps);
-      }
-    } finally {
-      setLogJobRunning("panel-cleaner", false);
-      setBoostButtonsRunning(false);
-    }
+
+    setLogJobRunning("panel-cleaner", false);
+    setBoostButtonsRunning(false);
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     clog(`Boost PC: ${ok} succeeded, ${fail} failed. ${elapsed}s total.`, fail ? "warn" : "ok");
     applyBtn.disabled = false;
     applyBtn.textContent = origText;
-    // Refresh state for sections the user has open. Closed sections will
-    // refetch their state the next time they're expanded.
     if (typeof reloadAllOpenedSections === "function") reloadAllOpenedSections();
   }
 
   document.getElementById("boostPcBtn")?.addEventListener("click", openBoostDialog);
   document.getElementById("sidebarBoostBtn")?.addEventListener("click", openBoostDialog);
-  document.getElementById("testElevationBtn")?.addEventListener("click", async () => {
-    const btn = document.getElementById("testElevationBtn");
-    btn.disabled = true;
-    try { await window.api.testElevation(); } finally { btn.disabled = false; }
-  });
   document.getElementById("boostCancel")?.addEventListener("click", closeBoostDialog);
   document.getElementById("boostApply")?.addEventListener("click", applyBoostActions);
   boostOverlay?.addEventListener("click", e => { if (e.target === boostOverlay) closeBoostDialog(); });

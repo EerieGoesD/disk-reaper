@@ -519,33 +519,6 @@ ipcMain.handle("get-delivery-opt-state", () => getDeliveryOptimizationState());
 ipcMain.handle("set-delivery-opt-p2p",   (_, { disable }) => setDeliveryOptimizationP2P(disable));
 ipcMain.handle("run-perf-command",       (event, key) => runPerfCommand(event, key));
 
-// Debug helper: runs a harmless command (whoami /priv) through the elevated
-// batch helper so the user can verify whether UAC fires from MSIX context
-// without touching any real system setting. Streams progress into the
-// existing cleaner log via the perf-cmd-output channel.
-ipcMain.handle("test-elevation", async (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  const emit = (text, level) => {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("perf-cmd-output", { key: "test-elevation", text, level: level || "info" });
-    }
-  };
-  emit("Test Elevation: starting...", "info");
-  const results = await runElevatedBatch(
-    [{ id: "whoami-priv", cmd: "whoami", args: ["/priv"] }],
-    emit
-  );
-  const r = results[0];
-  if (r.ok) {
-    emit("Test Elevation: SUCCESS - elevation works from MSIX context", "ok");
-    const lines = (r.stdout || "").split(/\r?\n/).slice(0, 6).filter(Boolean);
-    lines.forEach(l => emit("   " + l, "info"));
-  } else {
-    emit(`Test Elevation: FAILED - ${r.error || "unknown"}`, "err");
-  }
-  return r;
-});
-
 // ── Quick tweaks ─────────────────────────────────────────────────────────
 // Sets VisualFXSetting to 2 = "Adjust for best performance" (turns off
 // animations, shadows, smooth scrolling, etc). HKCU per-user setting; takes

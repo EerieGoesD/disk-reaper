@@ -138,13 +138,70 @@ ${psBody}
 
 // Convenience: run a single PowerShell script elevated.
 // Returns { ok, stdout, exitCode, error }.
+// Writes the script to a temp .ps1 file and runs it elevated via -File. This
+// avoids the ~8 KB command-line limit that breaks -EncodedCommand for big
+// scripts (Boost PC with 50+ actions easily exceeds it).
 async function runElevatedPs(psScript, onLog) {
-  const encoded = Buffer.from(psScript, "utf16le").toString("base64");
-  const results = await runElevatedBatch(
-    [{ id: "ps", cmd: "powershell", args: ["-NoProfile", "-EncodedCommand", encoded] }],
-    onLog
-  );
-  return results[0];
+  const log = (text, level) => {
+    broadcastLog(text, level);
+    if (typeof onLog === "function") onLog(text, level);
+  };
+  const stamp = Date.now() + "_" + Math.random().toString(36).slice(2);
+  const scriptFile  = path.join(os.tmpdir(), `dr_elev_${stamp}.ps1`);
+  const resultsFile = path.join(os.tmpdir(), `dr_elev_${stamp}.out`);
+
+  // Wrap the user's script so all output streams (stdout, stderr, warnings,
+  // etc.) get teed to the results file. The parent reads the file after the
+  // elevated process exits.
+  const wrapped =
+    `$ErrorActionPreference = 'Continue'\r\n` +
+    `& {\r\n${psScript}\r\n} *>&1 | Out-File -FilePath ${quote(resultsFile)} -Encoding utf8\r\n`;
+
+  // PS scripts loaded with -File want a BOM to be interpreted as UTF-16/UTF-8
+  // correctly. Write UTF-8 with BOM.
+  const bom = Buffer.from([0xEF, 0xBB, 0xBF]);
+  fs.writeFileSync(scriptFile, Buffer.concat([bom, Buffer.from(wrapped, "utf8")]));
+
+  log("Elevation requested (single elevated process)", "info");
+
+  const outerCommand =
+    `try { Start-Process powershell ` +
+    `-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',${quote(scriptFile)} ` +
+    `-Verb RunAs -Wait -WindowStyle Hidden -ErrorAction Stop } ` +
+    `catch { Write-Error $_.Exception.Message; exit 1 }`;
+
+  return new Promise((resolve) => {
+    execFile(
+      "powershell",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", outerCommand],
+      { windowsHide: true, maxBuffer: 5 * 1024 * 1024 },
+      (err, _stdout, stderr) => {
+        const cleanup = () => {
+          try { fs.unlinkSync(scriptFile); } catch {}
+          try { fs.unlinkSync(resultsFile); } catch {}
+        };
+        if (err) {
+          const reason = (stderr && String(stderr).trim()) || err.message || "";
+          if (/canceled by the user|operation was canceled/i.test(reason)) {
+            log("UAC: declined by user", "warn");
+          } else {
+            log(`UAC: failed (${reason || "unknown"})`, "err");
+          }
+          cleanup();
+          return resolve({ ok: false, stdout: "", exitCode: -1, error: reason || "UAC cancelled or elevation failed" });
+        }
+        let stdout = "";
+        try {
+          if (fs.existsSync(resultsFile)) {
+            stdout = fs.readFileSync(resultsFile, "utf8").replace(/^﻿/, "");
+          }
+        } catch {}
+        cleanup();
+        log("UAC: accepted, elevated process completed", "ok");
+        resolve({ ok: true, stdout, exitCode: 0 });
+      }
+    );
+  });
 }
 
 module.exports = { runElevatedBatch, runElevatedPs };

@@ -57,7 +57,7 @@ contextBridge.exposeInMainWorld("api", {
   getDeliveryOptState: ()      => ipcRenderer.invoke("get-delivery-opt-state"),
   setDeliveryOptP2P:   (disable) => ipcRenderer.invoke("set-delivery-opt-p2p", { disable }),
   runPerfCommand:      (key)   => ipcRenderer.invoke("run-perf-command", key),
-  testElevation:       ()      => ipcRenderer.invoke("test-elevation"),
+  runBoostBatch:       (keys, opts) => ipcRenderer.invoke("run-boost-batch", { keys, opts }),
   onElevationLog: (cb) => {
     const listener = (_event, data) => cb(data);
     ipcRenderer.on("elevation-log", listener);
