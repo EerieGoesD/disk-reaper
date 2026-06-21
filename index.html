@@ -578,6 +578,16 @@
   .bloat-table-body::-webkit-scrollbar-track { background: var(--surface2); }
   .bloat-table-body::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
   .bloat-table-body::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  /* Single scroll region that holds BOTH the process table and the services
+     table in the Kill Bloatware dialog, so the whole list (including the
+     services-to-disable section) is reachable with one scrollbar. */
+  .bloat-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .bloat-scroll::-webkit-scrollbar { width: 6px; }
+  .bloat-scroll::-webkit-scrollbar-track { background: var(--surface2); }
+  .bloat-scroll::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .bloat-scroll::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  .bloat-scroll .bloat-table { flex: none; }
+  .bloat-scroll .bloat-table-body { max-height: none; overflow: visible; }
   .bloat-row { display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--border); font-size: 12.5px; transition: background 0.1s; }
   .bloat-row:last-child { border-bottom: none; }
   .bloat-row:hover { background: var(--surface2); }
@@ -5632,9 +5642,8 @@
           }
           if (!found.length) return { ok: true };
           const services = [...new Set(found.map(f => f.service).filter(Boolean))];
-          if (services.length) await window.api.stopDisableServices(services);
           const pids = found.flatMap(f => f.pids);
-          if (pids.length) await window.api.killBloatware(pids);
+          if (services.length || pids.length) await window.api.killBloatwareElevated(services, pids);
           return { ok: true };
         } catch (e) { return { ok: false, error: e.message || String(e) }; }
       } },
@@ -5866,9 +5875,22 @@
       clog(`  → ${label}`, "info");
       const pa = (result.perAction || {})[k];
       if (pa && pa.ok) {
-        ok++;
-        if (pa.output) clog(`     ${pa.output}`, "ok");
-        else clog("     done.", "ok");
+        // Some actions run multiple sub-operations and report "N ok, M failed"
+        // (e.g. the telemetry scheduled tasks). Count each sub-operation so
+        // partial failures are reflected in the final summary instead of the
+        // whole action counting as a single success.
+        const sub = pa.output && pa.output.match(/(\d+)\s+ok,\s+(\d+)\s+failed/i);
+        const subOk = sub ? parseInt(sub[1], 10) : 0;
+        const subFail = sub ? parseInt(sub[2], 10) : 0;
+        if (sub && (subOk + subFail) > 0) {
+          ok += subOk;
+          fail += subFail;
+          clog(`     ${pa.output}`, subFail > 0 ? "warn" : "ok");
+        } else {
+          ok++;
+          if (pa.output) clog(`     ${pa.output}`, "ok");
+          else clog("     done.", "ok");
+        }
       } else {
         fail++;
         const reason = (pa && pa.output) || (result && result.error) || "no result captured";
@@ -6178,18 +6200,20 @@
           <div class="spacer"></div>
           <span class="bloat-summary" id="bloatSummary">${found.length} processes - ${fmtSize(totalMem)}</span>
         </div>
-        <div class="bloat-table">
-          <div class="bloat-table-header">
-            <span style="width:28px"></span>
-            <span style="width:180px">Name</span>
-            <span style="width:80px">Category</span>
-            <span style="width:40px;text-align:right">Qty</span>
-            <span style="width:80px;text-align:right">Memory</span>
-            <span style="flex:1;padding-left:10px">Process</span>
+        <div class="bloat-scroll">
+          <div class="bloat-table">
+            <div class="bloat-table-header">
+              <span style="width:28px"></span>
+              <span style="width:180px">Name</span>
+              <span style="width:80px">Category</span>
+              <span style="width:40px;text-align:right">Qty</span>
+              <span style="width:80px;text-align:right">Memory</span>
+              <span style="flex:1;padding-left:10px">Process</span>
+            </div>
+            <div class="bloat-table-body">${tableRows}</div>
           </div>
-          <div class="bloat-table-body">${tableRows}</div>
+          ${servicesSection}
         </div>
-        ${servicesSection}
         <div class="bloat-actions">
           <button class="btn btn-ghost" id="bloatCancel">Cancel</button>
           <button class="btn btn-danger" id="bloatConfirm">Kill Selected</button>
@@ -6235,52 +6259,62 @@
 
       const confirmBtn = overlay.querySelector("#bloatConfirm");
       confirmBtn.disabled = true;
-      confirmBtn.textContent = "Stopping services...";
+      confirmBtn.textContent = "Killing bloatware...";
 
-      // 1. Stop and disable underlying services so they don't respawn
-      const serviceNames = selected.map(f => f.service).filter(Boolean);
-      let svcStopped = 0, svcFailed = 0;
-      if (serviceNames.length > 0) {
-        clog("Phase 1: Stopping and disabling " + serviceNames.length + " service(s): [" + serviceNames.join(", ") + "]", "info");
-        clog("  Requesting UAC elevation...", "info");
-        const svcResults = await runWithLogIndicator("panel-cleaner", () => window.api.stopDisableServices(serviceNames));
-        for (const r of svcResults) {
-          if (r.ok) {
-            clog("  Service '" + r.name + "' stopped and set to Disabled.", "ok");
-            svcStopped++;
-          } else {
-            clog("  Service '" + r.name + "' FAILED: " + r.error, "err");
-            svcFailed++;
-          }
-        }
-        clog("Phase 1 complete: " + svcStopped + " stopped, " + svcFailed + " failed.", svcFailed > 0 ? "warn" : "ok");
-      } else {
-        clog("Phase 1: No backing services to stop. Skipping.", "info");
-      }
-
-      // 2. Kill any remaining processes (those without a service, or service stop failed)
-      confirmBtn.textContent = "Killing processes...";
+      // Stop+disable the backing services AND kill the leftover PIDs in a
+      // single elevated run (one UAC prompt). Killing PIDs elevated is what
+      // prevents the "Access is denied" failures on SYSTEM-owned processes.
+      const serviceNames = [...new Set(selected.map(f => f.service).filter(Boolean))];
       const pidsToKill = [];
       selected.forEach(f => pidsToKill.push(...f.pids));
-      clog("Phase 2: Killing " + pidsToKill.length + " process(es) by PID: [" + pidsToKill.join(", ") + "]", "info");
-      const killResults = await runWithLogIndicator("panel-cleaner", () => window.api.killBloatware(pidsToKill));
-      let killed = 0, killFailed = 0;
-      for (const r of killResults) {
+
+      if (serviceNames.length > 0) {
+        clog("Stopping + disabling " + serviceNames.length + " service(s): [" + serviceNames.join(", ") + "]", "info");
+      } else {
+        clog("No backing services to stop.", "info");
+      }
+      clog("Killing " + pidsToKill.length + " process(es) by PID: [" + pidsToKill.join(", ") + "]", "info");
+      clog("  Requesting UAC elevation...", "info");
+
+      // Call directly (not via runWithLogIndicator) so the log popout does NOT
+      // auto-open over this dialog. The user can open it from the Logs button.
+      const res = await window.api.killBloatwareElevated(serviceNames, pidsToKill);
+
+      let svcStopped = 0, svcFailed = 0, svcMissing = 0;
+      for (const r of (res.services || [])) {
         if (r.ok) {
-          clog("  PID " + r.pid + " killed.", "ok");
-          killed++;
-        } else if (r.error && r.error.includes("not found")) {
+          clog("  Service '" + r.name + "' stopped and set to Disabled.", "ok");
+          svcStopped++;
+        } else if (r.missing) {
+          clog("  Service '" + r.name + "' not installed - skipped (its process is still killed below).", "info");
+          svcMissing++;
+        } else {
+          clog("  Service '" + r.name + "' FAILED: " + r.error, "err");
+          svcFailed++;
+        }
+      }
+
+      let killed = 0, killFailed = 0;
+      for (const r of (res.pids || [])) {
+        if (r.ok && r.gone) {
           clog("  PID " + r.pid + " already terminated (service stop handled it).", "ok");
+          killed++;
+        } else if (r.ok) {
+          clog("  PID " + r.pid + " killed.", "ok");
           killed++;
         } else {
           clog("  PID " + r.pid + " FAILED: " + (r.error || "unknown error"), "err");
           killFailed++;
         }
       }
-      clog("Phase 2 complete: " + killed + " killed, " + killFailed + " failed.", killFailed > 0 ? "warn" : "ok");
+
+      if (!res.ok) clog("Bloatware kill failed: " + (res.error || "unknown error"), "err");
 
       const totalFreed = selected.reduce((s, f) => s + f.memBytes, 0);
-      clog("Bloatware kill complete. Estimated memory freed: " + fmtSize(totalFreed) + ".", svcFailed + killFailed > 0 ? "warn" : "ok");
+      clog("Bloatware kill complete: " + svcStopped + " services disabled" +
+        (svcMissing ? " (" + svcMissing + " not installed)" : "") + ", " + killed + " processes killed" +
+        ((svcFailed + killFailed) ? ", " + (svcFailed + killFailed) + " failed" : "") +
+        ". Estimated memory freed: " + fmtSize(totalFreed) + ".", (svcFailed + killFailed) > 0 ? "warn" : "ok");
 
       markLastRun("bloat.kill");
       overlay.remove();

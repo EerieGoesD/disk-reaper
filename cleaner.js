@@ -113,9 +113,80 @@ async function killBloatwareProcesses(pids) {
   return results;
 }
 
+// ── Combined elevated bloatware kill ──
+// Stops + disables the backing services AND kills the leftover PIDs in a
+// SINGLE elevated PowerShell run (one UAC prompt for the whole operation).
+// Killing PIDs while elevated is required: bloatware processes frequently run
+// as SYSTEM or another user, which a non-elevated taskkill cannot terminate
+// (it fails with "Access is denied"). Services that don't exist on this
+// machine are reported as missing (skipped), not as hard failures.
+async function killBloatwareElevated(serviceNames, pids) {
+  const svcList = (serviceNames || []).filter(Boolean);
+  const pidList = (pids || [])
+    .map(p => parseInt(p, 10))
+    .filter(p => Number.isFinite(p) && p > 0);
+
+  const svcArr = svcList.map(n => "'" + String(n).replace(/'/g, "''") + "'").join(",");
+  const pidArr = pidList.join(",");
+
+  const script = `
+$svc = @()
+foreach ($n in @(${svcArr})) {
+  $s = Get-Service -Name $n -ErrorAction SilentlyContinue
+  if (-not $s) { $svc += [PSCustomObject]@{ Name = $n; Ok = $false; Missing = $true; Error = 'not installed' }; continue }
+  try {
+    Stop-Service -Name $n -Force -ErrorAction Stop
+    Set-Service -Name $n -StartupType Disabled -ErrorAction Stop
+    $svc += [PSCustomObject]@{ Name = $n; Ok = $true; Missing = $false; Error = '' }
+  } catch {
+    $svc += [PSCustomObject]@{ Name = $n; Ok = $false; Missing = $false; Error = $_.Exception.Message }
+  }
+}
+$pidres = @()
+foreach ($p in @(${pidArr})) {
+  $proc = Get-Process -Id $p -ErrorAction SilentlyContinue
+  if (-not $proc) { $pidres += [PSCustomObject]@{ Pid = $p; Ok = $true; Gone = $true; Error = '' }; continue }
+  try {
+    Stop-Process -Id $p -Force -ErrorAction Stop
+    $pidres += [PSCustomObject]@{ Pid = $p; Ok = $true; Gone = $false; Error = '' }
+  } catch {
+    $pidres += [PSCustomObject]@{ Pid = $p; Ok = $false; Gone = $false; Error = $_.Exception.Message }
+  }
+}
+'##KILLBLOAT##' + (ConvertTo-Json -InputObject (@{ services = @($svc); pids = @($pidres) }) -Compress -Depth 5)
+`;
+
+  const fail = (reason) => ({
+    ok: false,
+    error: reason,
+    services: svcList.map(n => ({ name: n, ok: false, missing: false, error: reason })),
+    pids: pidList.map(p => ({ pid: p, ok: false, gone: false, error: reason })),
+  });
+
+  const r = await runElevatedPs(script);
+  if (!r || !r.ok) return fail((r && r.error) || "Elevation cancelled or failed");
+
+  const m = (r.stdout || "").match(/##KILLBLOAT##(\{[\s\S]*\})/);
+  if (!m) return fail("Elevated process produced no result");
+  let data;
+  try { data = JSON.parse(m[1]); } catch (e) { return fail("Could not parse elevated result: " + e.message); }
+
+  let svc = data.services || [];
+  if (!Array.isArray(svc)) svc = [svc];
+  let pr = data.pids || [];
+  if (!Array.isArray(pr)) pr = [pr];
+
+  return {
+    ok: true,
+    services: svc.map(s => ({ name: s.Name, ok: !!s.Ok, missing: !!s.Missing, error: s.Error || "" })),
+    pids: pr.map(p => ({ pid: p.Pid, ok: !!p.Ok, gone: !!p.Gone, error: p.Error || "" })),
+  };
+}
+
 ipcMain.handle("get-bloatware-list", () => BLOATWARE);
 ipcMain.handle("stop-disable-services", (_, names) => stopAndDisableServices(names));
 ipcMain.handle("kill-bloatware", (_, pids) => killBloatwareProcesses(pids));
+ipcMain.handle("kill-bloatware-elevated", (_, { services, pids }) => killBloatwareElevated(services || [], pids || []));
 
 // ── Folder info (path + exists + size in bytes). Computed via PowerShell so
 //    the main process event loop is not blocked by deep recursion. ──────────

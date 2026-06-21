@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld("api", {
   // Cleaner
   getBloatwareList:    ()      => ipcRenderer.invoke("get-bloatware-list"),
   killBloatware:       (pids)  => ipcRenderer.invoke("kill-bloatware", pids),
+  killBloatwareElevated: (services, pids) => ipcRenderer.invoke("kill-bloatware-elevated", { services, pids }),
   stopDisableServices: (names) => ipcRenderer.invoke("stop-disable-services", names),
   getFolderInfo:       (key)   => ipcRenderer.invoke("get-folder-info", key),
   clearTempFolder:     (key)   => ipcRenderer.invoke("clear-temp-folder", key),
