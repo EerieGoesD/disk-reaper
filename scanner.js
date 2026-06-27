@@ -2,7 +2,8 @@ const { parentPort, workerData } = require("worker_threads");
 const fs = require("fs");
 const path = require("path");
 
-const { limit, mode, drives, sharedState } = workerData;
+const { limit, mode, drives, sharedState, exclude } = workerData;
+const excludeSet = new Set((exclude || []).map(p => p.toLowerCase()));
 
 function getState() {
   return Atomics.load(sharedState, 0);
@@ -39,6 +40,7 @@ function walkFiles(dir) {
     try {
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
+        if (excludeSet.has(full.toLowerCase())) continue;
         walkFiles(full);
       } else if (entry.isFile()) {
         const stat = fs.statSync(full);
@@ -63,6 +65,7 @@ function walkFolders(dir) {
     try {
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
+        if (excludeSet.has(full.toLowerCase())) continue;
         total += walkFolders(full);
       } else if (entry.isFile()) {
         total += fs.statSync(full).size;

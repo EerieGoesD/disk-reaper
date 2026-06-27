@@ -104,7 +104,7 @@ let scanWorker = null;
 let sharedState = null; // Int32Array over SharedArrayBuffer
 // Values: 0 = running, 1 = paused, 2 = stopped
 
-ipcMain.handle("start-scan", (event, { limit, mode, root }) => {
+ipcMain.handle("start-scan", (event, { limit, mode, root, exclude }) => {
   // A specific folder narrows the scan; otherwise sweep every drive.
   const drives = root
     ? [root]
@@ -116,7 +116,7 @@ ipcMain.handle("start-scan", (event, { limit, mode, root }) => {
 
   return new Promise((resolve) => {
     scanWorker = new Worker(path.join(__dirname, "scanner.js"), {
-      workerData: { limit, mode, drives, sharedState },
+      workerData: { limit, mode, drives, sharedState, exclude },
     });
 
     scanWorker.on("message", (msg) => {

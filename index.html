@@ -649,6 +649,22 @@
   .dialog-actions { display: flex; justify-content: center; gap: 8px; }
   @keyframes dialogFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 
+  /* ── Exclude folders dialog ── */
+  .exclude-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px 16px; width: 560px; max-width: 92vw; max-height: 82vh; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 12px; }
+  .exclude-dialog h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+  .exclude-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .exclude-list { flex: 1; min-height: 90px; max-height: 340px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .exclude-list::-webkit-scrollbar { width: 6px; }
+  .exclude-list::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .exclude-empty { padding: 26px 16px; text-align: center; color: var(--text-dim); font-size: 12.5px; }
+  .exclude-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .exclude-item:last-child { border-bottom: none; }
+  .exclude-item input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; flex-shrink: 0; margin: 0; width: 15px; height: 15px; }
+  .exclude-item-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  .exclude-item-remove { flex-shrink: 0; width: 22px; height: 22px; border: none; background: transparent; color: var(--text-dim); font-size: 17px; line-height: 1; border-radius: 5px; cursor: pointer; transition: background 0.1s, color 0.1s; }
+  .exclude-item-remove:hover { background: var(--danger); color: #fff; }
+  .exclude-row-actions { display: flex; align-items: center; gap: 8px; }
+
   /* ─────────────────────────────────────────────────────────────
      LIGHT THEME — overrides only. The default (dark) rules above are
      left untouched; these apply only when <html data-theme="light">.
@@ -797,6 +813,8 @@
           <label class="scope-toggle"><input type="checkbox" id="wholeSystem" checked /> Scan Whole System</label>
           <button class="btn btn-ghost" id="folderBtn" disabled>Choose folder…</button>
           <span class="scope-path" id="folderPath" style="display:none" title=""></span>
+          <button class="btn btn-ghost" id="excludeBtn" disabled>Exclude…</button>
+          <span class="scope-path" id="excludePaths" style="display:none" title=""></span>
         </div>
         <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
         <div class="table-wrap">
@@ -3138,10 +3156,13 @@
   makeSortable("#panel-files", filesSort, renderFiles);
 
   // ── Scan scope (whole system vs a chosen folder) ──
-  const wholeSystem = $("#wholeSystem");
-  const folderBtn   = $("#folderBtn");
-  const folderPath  = $("#folderPath");
-  let chosenFolder  = null;
+  const wholeSystem  = $("#wholeSystem");
+  const folderBtn    = $("#folderBtn");
+  const folderPath   = $("#folderPath");
+  const excludeBtn   = $("#excludeBtn");
+  const excludePaths = $("#excludePaths");
+  let chosenFolder    = null;
+  let excludedFolders = [];
 
   function updateScanLabel() {
     const span = scanBtn.querySelector("span");
@@ -3149,10 +3170,20 @@
     const noun = modeSelect.value === "folders" ? "Folders" : "Files";
     span.textContent = wholeSystem.checked ? `Scan All ${noun}` : `Scan ${noun}`;
   }
+  function renderExcludes() {
+    const specific = !wholeSystem.checked;
+    const active = excludedFolders.filter(e => e.enabled).length;
+    if (!specific || !active) { excludePaths.style.display = "none"; return; }
+    excludePaths.style.display = "";
+    excludePaths.textContent = active === 1 ? "1 folder excluded" : active + " folders excluded";
+    excludePaths.title = excludedFolders.filter(e => e.enabled).map(e => e.path).join("\n");
+  }
   function updateScopeUI() {
     const specific = !wholeSystem.checked;
-    folderBtn.disabled = !specific;                       // always visible, greyed when whole-system
+    folderBtn.disabled  = !specific;                      // always visible, greyed when whole-system
+    excludeBtn.disabled = !specific;
     folderPath.style.display = specific && chosenFolder ? "" : "none";
+    renderExcludes();
     updateScanLabel();
   }
   wholeSystem.addEventListener("change", updateScopeUI);
@@ -3161,6 +3192,58 @@
     if (f) { chosenFolder = f; folderPath.textContent = f; folderPath.title = f; }
     updateScopeUI();
   });
+
+  excludeBtn.addEventListener("click", () => { if (!excludeBtn.disabled) openExcludeDialog(); });
+  excludePaths.addEventListener("click", () => { if (!wholeSystem.checked) openExcludeDialog(); });
+
+  function openExcludeDialog() {
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `
+      <div class="exclude-dialog">
+        <h3>Exclude folders from scans</h3>
+        <p class="exclude-hint">Ticked folders, and everything inside them, are skipped when you scan a chosen folder. Untick one to keep it in the list without excluding it.</p>
+        <div class="exclude-list" id="excludeList"></div>
+        <div class="exclude-row-actions">
+          <button class="btn btn-ghost" id="excludeAdd">Add Folder…</button>
+          <div class="spacer"></div>
+          <button class="btn btn-accent" id="excludeDone">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const listEl = overlay.querySelector("#excludeList");
+
+    function renderList() {
+      listEl.innerHTML = "";
+      if (!excludedFolders.length) {
+        listEl.innerHTML = '<div class="exclude-empty">No folders yet. Click "Add Folder…" to choose one.</div>';
+        return;
+      }
+      excludedFolders.forEach((entry, i) => {
+        const row = document.createElement("div");
+        row.className = "exclude-item";
+        row.innerHTML = `
+          <input type="checkbox" ${entry.enabled ? "checked" : ""} />
+          <span class="exclude-item-path" title="${esc(entry.path)}">${esc(entry.path)}</span>
+          <button class="exclude-item-remove" title="Remove from list">&times;</button>`;
+        row.querySelector("input").addEventListener("change", ev => { entry.enabled = ev.target.checked; });
+        row.querySelector(".exclude-item-remove").addEventListener("click", () => { excludedFolders.splice(i, 1); renderList(); });
+        listEl.appendChild(row);
+      });
+    }
+    renderList();
+
+    overlay.querySelector("#excludeAdd").addEventListener("click", async () => {
+      const f = await window.api.pickFolder();
+      if (f && !excludedFolders.some(e => e.path.toLowerCase() === f.toLowerCase())) {
+        excludedFolders.push({ path: f, enabled: true });
+        renderList();
+      }
+    });
+    const close = () => { overlay.remove(); updateScopeUI(); };
+    overlay.querySelector("#excludeDone").addEventListener("click", close);
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  }
 
   modeSelect.addEventListener("change", () => {
     updateScanLabel();
@@ -3174,9 +3257,11 @@
     const limit = parseInt(countInput.value) || 50;
     const mode  = modeSelect.value;
     let root = null;
+    let exclude = [];
     if (!wholeSystem.checked) {
       if (!chosenFolder) { alert("Pick a folder first, or tick 'Scan Whole System' to scan everything."); return; }
       root = chosenFolder;
+      exclude = excludedFolders.filter(e => e.enabled).map(e => e.path);
     }
     fileItems = []; fileSelected.clear(); renderFiles();
     scanBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
@@ -3186,13 +3271,18 @@
       filesStatus.textContent = `${fmtNum(scanned)} ${label} scanned…`;
     });
     try {
-      const result = await window.api.startScan({ limit, mode, root });
+      const result = await window.api.startScan({ limit, mode, root, exclude });
       fileItems = result.items;
       renderFiles();
       requestAnimationFrame(() => fitColumnsToContent('panel-files'));
-      filesStatus.textContent = `Done — ${fmtNum(result.scanned)} ${result.label} scanned`;
-      const totalSize = fileItems.reduce((s, it) => s + it.size, 0);
-      filesFooter.textContent = `${fileItems.length} ${result.label}  ·  ${fmtSize(totalSize)} total`;
+      filesStatus.textContent = `Done - ${fmtNum(result.scanned)} ${result.label} scanned`;
+      if (result.label === "folders") {
+        // Folders nest inside each other, so summing their sizes double-counts. Show count only.
+        filesFooter.textContent = `${fileItems.length} folders`;
+      } else {
+        const totalSize = fileItems.reduce((s, it) => s + it.size, 0);
+        filesFooter.textContent = `${fileItems.length} files  ·  ${fmtSize(totalSize)} total`;
+      }
     } catch { filesStatus.textContent = "Scan failed"; }
     progressBar.classList.remove("active");
     scanBtn.disabled = false; pauseBtn.disabled = true; pauseBtn.textContent = "Pause"; stopBtn.disabled = true;
