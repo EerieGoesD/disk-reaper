@@ -104,8 +104,11 @@ let scanWorker = null;
 let sharedState = null; // Int32Array over SharedArrayBuffer
 // Values: 0 = running, 1 = paused, 2 = stopped
 
-ipcMain.handle("start-scan", (event, { limit, mode }) => {
-  const drives = process.platform === "win32" ? getWindowsDrives() : ["/"];
+ipcMain.handle("start-scan", (event, { limit, mode, root }) => {
+  // A specific folder narrows the scan; otherwise sweep every drive.
+  const drives = root
+    ? [root]
+    : (process.platform === "win32" ? getWindowsDrives() : ["/"]);
 
   // Fresh shared state buffer for every scan
   sharedState = new Int32Array(new SharedArrayBuffer(4));
@@ -169,4 +172,24 @@ ipcMain.handle("show-in-explorer", (event, filePath) => {
 
 ipcMain.handle("open-external", (event, url) => {
   shell.openExternal(url);
+});
+
+ipcMain.handle("pick-folder", async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: "Choose a folder to scan",
+    properties: ["openDirectory"],
+  });
+  if (canceled || !filePaths.length) return null;
+  return filePaths[0];
+});
+
+ipcMain.handle("set-titlebar-theme", (event, theme) => {
+  if (!mainWindow) return;
+  try {
+    if (theme === "light") {
+      mainWindow.setTitleBarOverlay({ color: "#f4f4f6", symbolColor: "#333333", height: 32 });
+    } else {
+      mainWindow.setTitleBarOverlay({ color: "#0a0a0c", symbolColor: "#777777", height: 32 });
+    }
+  } catch {}
 });

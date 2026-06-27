@@ -19,12 +19,12 @@ const folderMode = mode === "folders";
 let scanned = 0;
 let topItems = [];
 
-function insertTop(size, filePath) {
+function insertTop(size, filePath, modified) {
   if (topItems.length < limit) {
-    topItems.push({ size, path: filePath });
+    topItems.push({ size, path: filePath, modified });
     if (topItems.length === limit) topItems.sort((a, b) => b.size - a.size);
   } else if (size > topItems[topItems.length - 1].size) {
-    topItems[topItems.length - 1] = { size, path: filePath };
+    topItems[topItems.length - 1] = { size, path: filePath, modified };
     topItems.sort((a, b) => b.size - a.size);
   }
 }
@@ -42,7 +42,7 @@ function walkFiles(dir) {
         walkFiles(full);
       } else if (entry.isFile()) {
         const stat = fs.statSync(full);
-        insertTop(stat.size, full);
+        insertTop(stat.size, full, stat.mtimeMs);
         scanned++;
         if (scanned % 3000 === 0) {
           parentPort.postMessage({ type: "progress", scanned, label: "files" });
@@ -70,7 +70,9 @@ function walkFolders(dir) {
     } catch {}
   }
   scanned++;
-  insertTop(total, dir);
+  let dirMtime;
+  try { dirMtime = fs.statSync(dir).mtimeMs; } catch {}
+  insertTop(total, dir, dirMtime);
   if (scanned % 500 === 0) {
     parentPort.postMessage({ type: "progress", scanned, label: "folders" });
   }

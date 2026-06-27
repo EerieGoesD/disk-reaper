@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld("api", {
   deleteFiles:   (paths)        => ipcRenderer.invoke("delete-files", paths),
   showInExplorer:(path)         => ipcRenderer.invoke("show-in-explorer", path),
   openExternal:  (url)          => ipcRenderer.invoke("open-external", url),
+  pickFolder:    ()            => ipcRenderer.invoke("pick-folder"),
+  setTitlebarTheme: (theme)     => ipcRenderer.invoke("set-titlebar-theme", theme),
   onScanProgress: (cb) => {
     const listener = (_event, data) => cb(data);
     ipcRenderer.on("scan-progress", listener);

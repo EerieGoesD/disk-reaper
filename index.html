@@ -43,6 +43,12 @@
   .app-title { display: flex; align-items: center; gap: 8px; padding: 12px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
   .app-title span { font-size: 14px; font-weight: 700; color: var(--accent-h); letter-spacing: -0.3px; }
   .app-title-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent-h); filter: drop-shadow(0 0 6px rgba(99,102,241,0.5)); }
+  .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; width: 28px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; transition: color 0.12s, background 0.12s; flex-shrink: 0; -webkit-app-region: no-drag; }
+  .theme-btn:hover { color: var(--text); background: var(--surface); }
+  .theme-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .theme-btn .icon-moon { display: none; }
+  html[data-theme="light"] .theme-btn .icon-sun  { display: none; }
+  html[data-theme="light"] .theme-btn .icon-moon { display: inline; }
 
   /* ── Panels ── */
   .panels { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -58,6 +64,12 @@
   .controls input[type="number"]:focus { border-color: var(--accent); }
   .controls select { padding: 7px 28px 7px 12px; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2363636e'/%3E%3C/svg%3E") no-repeat right 10px center; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; appearance: none; outline: none; cursor: pointer; transition: border-color 0.2s; }
   .controls select:focus { border-color: var(--accent); }
+
+  /* ── Scan scope (Large Files) ── */
+  .scope-row { display: flex; align-items: center; gap: 10px; padding: 0 20px 10px; flex-wrap: wrap; flex-shrink: 0; }
+  .scope-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; user-select: none; }
+  .scope-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .scope-path { font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── Buttons ── */
   .btn { padding: 7px 16px; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; -webkit-app-region: no-drag; }
@@ -210,6 +222,7 @@
   /* ── Column widths (defaults — overridden by JS fit-to-content) ── */
   .col-index      { width: 56px;  text-align: center; flex-shrink: 0; }
   .col-size       { width: 110px; flex-shrink: 0; }
+  .col-modified   { width: 150px; flex-shrink: 0; }
   .col-path       { width: 480px; flex-shrink: 0; }
   .col-mem        { width: 110px; flex-shrink: 0; }
   .col-pid        { width: 72px;  flex-shrink: 0; }
@@ -244,6 +257,7 @@
 
   .row .col-index     { color: var(--text-dim); font-family: var(--mono); font-size: 11px; text-align: center; }
   .row .col-size      { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-modified  { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
   .row .col-path      { direction: rtl; text-align: left; }
   .row .col-mem       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
   .row .col-pid       { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
@@ -635,6 +649,57 @@
   .dialog-actions { display: flex; justify-content: center; gap: 8px; }
   @keyframes dialogFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 
+  /* ─────────────────────────────────────────────────────────────
+     LIGHT THEME — overrides only. The default (dark) rules above are
+     left untouched; these apply only when <html data-theme="light">.
+     ───────────────────────────────────────────────────────────── */
+  html[data-theme="light"] {
+    --bg:       #f4f4f6;
+    --surface:  #ffffff;
+    --surface2: #ececf1;
+    --border:   #d9d9e0;
+    --text:     #1b1b20;
+    --text-dim: #65656f;
+    --accent:   #6366f1;
+    --accent-h: #4f46e5;
+    --danger:   #dc2626;
+    --danger-h: #ef4444;
+    --success:  #16a34a;
+    --warning:  #d97706;
+    --orange:   #ea580c;
+  }
+  /* Secondary text greys originally tuned for a dark background */
+  html[data-theme="light"] .cleaner-hero-text p,
+  html[data-theme="light"] .cleaner-card-text p,
+  html[data-theme="light"] .cleaner-row-desc,
+  html[data-theme="light"] .cleaner-row-meta,
+  html[data-theme="light"] .cleaner-row-path,
+  html[data-theme="light"] .cleaner-row-lastrun,
+  html[data-theme="light"] .drv-notice,
+  html[data-theme="light"] .ns-details,
+  html[data-theme="light"] .net-empty,
+  html[data-theme="light"] .net-running { color: #5a5a64; }
+  html[data-theme="light"] .drv-notice strong,
+  html[data-theme="light"] .cleaner-card-text h3,
+  html[data-theme="light"] .cleaner-hero-text h3 { color: var(--text); }
+  /* Scrollbar thumbs readable on a light track */
+  html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c4c4cc; }
+  html[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a8a8b2; }
+  /* Disabled buttons */
+  html[data-theme="light"] .btn-accent:disabled { background: #d6d6e2; color: #9a9aa6; }
+  html[data-theme="light"] .btn-danger:disabled { background: #f0d8d8; color: #c29494; }
+  html[data-theme="light"] .btn-success:disabled { background: #d4e9d8; color: #8caa92; }
+  html[data-theme="light"] .btn-warning:disabled { background: #ecdfc2; color: #b3a06e; }
+  html[data-theme="light"] .btn-ghost:disabled:hover { background: transparent; color: var(--text-dim); }
+  /* Decorative borders / hover lines that were near-black on dark */
+  html[data-theme="light"] .cleaner-row-title { border-bottom-color: var(--border); }
+  html[data-theme="light"] .cleaner-row:hover { border-color: #c4c4cc; }
+  html[data-theme="light"] .logs-btn,
+  html[data-theme="light"] .log-collapse-btn { border-color: var(--border); }
+  html[data-theme="light"] .log-box .log-time { color: #9a9aa6; }
+  /* Pickier mid-greys used for hints/values */
+  html[data-theme="light"] .cleaner-row-meta.is-busy { color: var(--accent-h); }
+
 </style>
 </head>
 <body>
@@ -663,6 +728,11 @@
           </svg>
         </div>
         <span>Disk Reaper</span>
+        <div class="spacer"></div>
+        <button class="theme-btn" id="themeBtn" title="Toggle light / dark theme">
+          <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
       </div>
       <div class="nav-item active" data-panel="files">
         <svg viewBox="0 0 16 16"><path d="M3 13V4.5L6.5 2H12a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M6.5 2v2.5H3"/></svg>
@@ -723,6 +793,11 @@
           <div class="spacer"></div>
           <span class="status-text" id="filesStatus">Ready</span>
         </div>
+        <div class="scope-row">
+          <label class="scope-toggle"><input type="checkbox" id="wholeSystem" checked /> Scan Whole System</label>
+          <button class="btn btn-ghost" id="folderBtn" disabled>Choose folder…</button>
+          <span class="scope-path" id="folderPath" style="display:none" title=""></span>
+        </div>
         <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
         <div class="table-wrap">
           <div class="table-scroll">
@@ -730,6 +805,7 @@
               <div class="table-header">
                 <span class="col-index">#</span>
                 <span class="col-size sortable" data-sort="size">Size<span class="sort-ind"> ▼</span></span>
+                <span class="col-modified sortable" data-sort="modified">Modified<span class="sort-ind"></span></span>
                 <span class="col-path sortable" data-sort="path">Path<span class="sort-ind"></span></span>
               </div>
               <div class="table-body" id="filesBody">
@@ -2391,6 +2467,12 @@
     while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
     return i === 0 ? `${v} B` : `${v.toFixed(1)} ${u[i]}`;
   }
+  function fmtDate(ms) {
+    if (!ms) return "—";
+    const d = new Date(ms);
+    if (isNaN(d)) return "—";
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+  }
   function fmtNum(n) { return n.toLocaleString("en-US"); }
   function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
@@ -2916,6 +2998,24 @@
   $("#linkFeedback").addEventListener("click",  e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/discussions/new/choose"); });
   $("#linkFeature").addEventListener("click",   e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/issues/new?template=feature-request.md"); });
 
+  // ── Theme (dark / light) ──
+  const themeBtn = $("#themeBtn");
+  function applyTheme(theme) {
+    const t = theme === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("diskreaper.theme", t); } catch {}
+    if (window.api.setTitlebarTheme) window.api.setTitlebarTheme(t);
+  }
+  themeBtn?.addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme");
+    applyTheme(cur === "light" ? "dark" : "light");
+  });
+  (function initTheme() {
+    let saved = "dark";
+    try { saved = localStorage.getItem("diskreaper.theme") || "dark"; } catch {}
+    applyTheme(saved);
+  })();
+
   // ── Export ─────────────────────────────────────────────────────
   let activeMenu = null;
   document.addEventListener("click", e => {
@@ -2954,7 +3054,7 @@
           state.dir = state.dir === "asc" ? "desc" : "asc";
         } else {
           state.col = col;
-          state.dir = (col === "size" || col === "mem" || col === "pid") ? "desc" : "asc";
+          state.dir = (col === "size" || col === "mem" || col === "pid" || col === "modified") ? "desc" : "asc";
         }
         document.querySelectorAll(panelSel + " .table-header .sort-ind").forEach(s => s.textContent = "");
         th.querySelector(".sort-ind").textContent = state.dir === "asc" ? " ▲" : " ▼";
@@ -2985,6 +3085,7 @@
   function sortedFileItems() {
     return [...fileItems].sort((a, b) => {
       if (filesSort.col === "size") return filesSort.dir === "desc" ? b.size - a.size : a.size - b.size;
+      if (filesSort.col === "modified") { const av = a.modified || 0, bv = b.modified || 0; return filesSort.dir === "desc" ? bv - av : av - bv; }
       if (filesSort.col === "path") return filesSort.dir === "asc"  ? a.path.localeCompare(b.path) : b.path.localeCompare(a.path);
       return 0;
     });
@@ -2994,7 +3095,7 @@
     filesBody.innerHTML = "";
     if (!fileItems.length) {
       filesBody.appendChild(filesEmpty);
-      const btnLabel = modeSelect.value === "folders" ? "Scan All Folders" : "Scan All Files";
+      const btnLabel = scanBtn.querySelector("span").textContent;
       filesEmpty.querySelector("p").innerHTML = 'Hit <strong>' + btnLabel + '</strong> to find the largest ' + modeSelect.value;
       return;
     }
@@ -3007,6 +3108,7 @@
       row.innerHTML = `
         <span class="col-index">${i + 1}</span>
         <span class="col-size">${fmtSize(item.size)}</span>
+        <span class="col-modified">${fmtDate(item.modified)}</span>
         <span class="col-path" title="${esc(item.path)}">${esc(item.path)}</span>
       `;
       row.addEventListener("click", e => {
@@ -3035,17 +3137,47 @@
 
   makeSortable("#panel-files", filesSort, renderFiles);
 
-  modeSelect.addEventListener("change", () => {
+  // ── Scan scope (whole system vs a chosen folder) ──
+  const wholeSystem = $("#wholeSystem");
+  const folderBtn   = $("#folderBtn");
+  const folderPath  = $("#folderPath");
+  let chosenFolder  = null;
+
+  function updateScanLabel() {
     const span = scanBtn.querySelector("span");
-    if (span) span.textContent = modeSelect.value === "folders" ? "Scan All Folders" : "Scan All Files";
+    if (!span) return;
+    const noun = modeSelect.value === "folders" ? "Folders" : "Files";
+    span.textContent = wholeSystem.checked ? `Scan All ${noun}` : `Scan ${noun}`;
+  }
+  function updateScopeUI() {
+    const specific = !wholeSystem.checked;
+    folderBtn.disabled = !specific;                       // always visible, greyed when whole-system
+    folderPath.style.display = specific && chosenFolder ? "" : "none";
+    updateScanLabel();
+  }
+  wholeSystem.addEventListener("change", updateScopeUI);
+  folderBtn.addEventListener("click", async () => {
+    const f = await window.api.pickFolder();
+    if (f) { chosenFolder = f; folderPath.textContent = f; folderPath.title = f; }
+    updateScopeUI();
+  });
+
+  modeSelect.addEventListener("change", () => {
+    updateScanLabel();
     if (!fileItems.length) renderFiles();
   });
+  updateScopeUI();
 
   let removeProgressListener = null, paused = false;
 
   scanBtn.addEventListener("click", async () => {
     const limit = parseInt(countInput.value) || 50;
     const mode  = modeSelect.value;
+    let root = null;
+    if (!wholeSystem.checked) {
+      if (!chosenFolder) { alert("Pick a folder first, or tick 'Scan Whole System' to scan everything."); return; }
+      root = chosenFolder;
+    }
     fileItems = []; fileSelected.clear(); renderFiles();
     scanBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
     progressBar.classList.add("active");
@@ -3054,7 +3186,7 @@
       filesStatus.textContent = `${fmtNum(scanned)} ${label} scanned…`;
     });
     try {
-      const result = await window.api.startScan({ limit, mode });
+      const result = await window.api.startScan({ limit, mode, root });
       fileItems = result.items;
       renderFiles();
       requestAnimationFrame(() => fitColumnsToContent('panel-files'));
@@ -3107,8 +3239,8 @@
 
   wireExport("filesExportBtn", "filesExportMenu", () => ({
     filename: "large-files",
-    headers:  ["#", "Size", "Path"],
-    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), f.path]),
+    headers:  ["#", "Size", "Modified", "Path"],
+    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), fmtDate(f.modified), f.path]),
   }));
 
   // ══════════════════════════════════════════════════════════════
