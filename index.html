@@ -3098,6 +3098,7 @@
   const filesFooter = $("#filesFooter");
 
   let fileItems = [], fileSelected = new Set(), fileLastClick = null;
+  let filesLabel = "files";
   const filesSort = { col: "size", dir: "desc" };
 
   function sortedFileItems() {
@@ -3273,6 +3274,7 @@
     try {
       const result = await window.api.startScan({ limit, mode, root, exclude });
       fileItems = result.items;
+      filesLabel = result.label;
       renderFiles();
       requestAnimationFrame(() => fitColumnsToContent('panel-files'));
       filesStatus.textContent = `Done - ${fmtNum(result.scanned)} ${result.label} scanned`;
@@ -3328,7 +3330,7 @@
   });
 
   wireExport("filesExportBtn", "filesExportMenu", () => ({
-    filename: "large-files",
+    filename: filesLabel === "folders" ? "largest-folders" : "largest-files",
     headers:  ["#", "Size", "Modified", "Path"],
     rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), fmtDate(f.modified), f.path]),
   }));
