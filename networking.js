@@ -71,15 +71,45 @@ async function pingHost(host, count = 4) {
   return { ...stats, host, raw: r.stdout || r.stderr };
 }
 
+// Actual name resolution test (separate from ping). Tells us WHY DNS looks
+// broken: whether the name resolves at all, which server answered, and how
+// long it took. Distinguishes a real resolver failure from ICMP just being
+// blocked (name resolves fine but ping google.com gets no reply).
+async function resolveDns(host) {
+  const cmd =
+    "$ErrorActionPreference='SilentlyContinue';" +
+    "$sw = [System.Diagnostics.Stopwatch]::StartNew();" +
+    "try {" +
+    "  $r = Resolve-DnsName -Name '" + host + "' -Type A -ErrorAction Stop;" +
+    "  $sw.Stop();" +
+    "  $ips = @($r | Where-Object { $_.IPAddress } | ForEach-Object { $_.IPAddress });" +
+    "  $srv = ($r | Where-Object { $_.Server } | Select-Object -First 1 -ExpandProperty Server);" +
+    "  [PSCustomObject]@{ ok = ($ips.Count -gt 0); ips = $ips; server = $srv; ms = [int]$sw.ElapsedMilliseconds } | ConvertTo-Json -Compress" +
+    "} catch {" +
+    "  $sw.Stop();" +
+    "  [PSCustomObject]@{ ok = $false; ips = @(); server = ''; ms = [int]$sw.ElapsedMilliseconds; error = $_.Exception.Message } | ConvertTo-Json -Compress" +
+    "}";
+  const r = await ps(cmd);
+  try {
+    const d = JSON.parse((r.stdout || "").trim() || "{}");
+    let ips = d.ips || [];
+    if (!Array.isArray(ips)) ips = [ips];
+    return { ok: !!d.ok, ips, server: d.server || "", ms: d.ms ?? null, error: d.error || "", host };
+  } catch {
+    return { ok: false, ips: [], server: "", ms: null, error: (r.stderr || "lookup failed").trim(), host };
+  }
+}
+
 async function runDiagnostics() {
   const adapters = await getNetworkConfig();
   const primary = adapters[0] || null;
-  const [gateway, publicIp, publicDns] = await Promise.all([
+  const [gateway, publicIp, publicDns, dnsResolve] = await Promise.all([
     primary && primary.IPv4Gateway ? pingHost(primary.IPv4Gateway, 3) : Promise.resolve(null),
     pingHost("8.8.8.8", 4),
     pingHost("google.com", 4),
+    resolveDns("google.com"),
   ]);
-  return { adapters, primary, gateway, publicIp, publicDns };
+  return { adapters, primary, gateway, publicIp, publicDns, dnsResolve };
 }
 
 async function fixDns(adapter, primary = "8.8.8.8", secondary = "1.1.1.1") {

@@ -6579,16 +6579,18 @@
       netDiag.innerHTML = `<div class="net-empty">Diagnostics failed to run.</div>`;
       return;
     }
-    const { primary, gateway, publicIp, publicDns } = data;
+    const { primary, gateway, publicIp, publicDns, dnsResolve } = data;
     const adapterOk = !!primary;
     const gwOk      = gateway && gateway.ok;
     const ipOk      = publicIp && publicIp.ok;
-    const dnsOk     = publicDns && publicDns.ok;
+    // DNS health is name resolution, not the google.com ping (which fails when
+    // ICMP is blocked even though names resolve fine).
+    const dnsOk     = dnsResolve && dnsResolve.ok;
 
     const adapterValue = primary ? esc(primary.InterfaceAlias) : "None";
     const gwValue   = gateway ? (gwOk ? `${gateway.avgMs ?? "?"} ms` : "no reply") : "skipped";
     const ipValue   = publicIp ? (ipOk ? `${publicIp.avgMs ?? "?"} ms` : "no reply") : "skipped";
-    const dnsValue  = publicDns ? (dnsOk ? `${publicDns.avgMs ?? "?"} ms` : "failed") : "skipped";
+    const dnsValue  = dnsResolve ? (dnsOk ? `${dnsResolve.ms ?? "?"} ms` : "failed") : "skipped";
     const dnsDotClass = dnsOk ? "ok" : (ipOk ? "err" : "warn");
 
     const statusRow =
@@ -6626,8 +6628,21 @@
     if (!adapterOk)      nlog("No active network adapter with a gateway found.", "err");
     else if (!gwOk)      nlog("Your router is not responding. Check Wi-Fi/Ethernet or reboot the router.", "err");
     else if (!ipOk)      nlog("No route to the internet. Connection is local only.", "err");
-    else if (!dnsOk)     nlog("Internet works but DNS is broken. Try 'Use Google + Cloudflare DNS'.", "warn");
-    else                 nlog("All checks passed. Network looks healthy.", "ok");
+    else if (!dnsOk) {
+      const servers = (primary && primary.DnsServers && primary.DnsServers.length) ? primary.DnsServers.join(", ") : "none configured";
+      nlog("DNS servers in use: " + servers, "info");
+      nlog("Name lookup for google.com FAILED" + (dnsResolve && dnsResolve.error ? ": " + dnsResolve.error : "") + ". The resolver is not answering.", "err");
+      nlog("Internet works but DNS is broken. Try 'Switch to Google + Cloudflare DNS'.", "warn");
+    }
+    else {
+      if (dnsResolve && dnsResolve.ips && dnsResolve.ips.length) {
+        nlog("Name lookup for google.com resolved to " + dnsResolve.ips.join(", ") + (dnsResolve.server ? " via " + dnsResolve.server : "") + (dnsResolve.ms != null ? " in " + dnsResolve.ms + " ms" : "") + ".", "info");
+      }
+      if (ipOk && publicDns && !publicDns.ok) {
+        nlog("DNS resolves fine; the google.com ping got no reply, which usually means ICMP is blocked, not a DNS problem.", "info");
+      }
+      nlog("All checks passed. Network looks healthy.", "ok");
+    }
   }
 
   async function runNetDiagnostics() {
