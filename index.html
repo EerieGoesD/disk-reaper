@@ -225,6 +225,7 @@
   .col-modified   { width: 150px; flex-shrink: 0; }
   .col-path       { width: 480px; flex-shrink: 0; }
   .col-mem        { width: 110px; flex-shrink: 0; }
+  .col-cpu        { width: 80px;  flex-shrink: 0; }
   .col-pid        { width: 72px;  flex-shrink: 0; }
   .col-proc-name  { width: 200px; flex-shrink: 0; }
   .col-proc-desc  { width: 320px; flex-shrink: 0; }
@@ -260,6 +261,8 @@
   .row .col-modified  { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
   .row .col-path      { direction: rtl; text-align: left; }
   .row .col-mem       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-cpu       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-cpu.idle  { color: var(--text-dim); font-weight: 400; }
   .row .col-pid       { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
   .row .col-proc-desc { color: var(--text-dim); font-size: 12px; }
   .row .col-svc-status{ font-size: 12px; font-weight: 500; }
@@ -919,6 +922,7 @@
                 <span class="col-index">#</span>
                 <span class="col-pid       sortable" data-sort="pid" id="procPidHeader">PID<span class="sort-ind"></span></span>
                 <span class="col-mem       sortable" data-sort="mem">Memory<span class="sort-ind"> ▼</span></span>
+                <span class="col-cpu       sortable" data-sort="cpu">CPU<span class="sort-ind"></span></span>
                 <span class="col-proc-name sortable" data-sort="name">Process<span class="sort-ind"></span></span>
                 <span class="col-proc-desc">Description</span>
               </div>
@@ -3072,7 +3076,7 @@
           state.dir = state.dir === "asc" ? "desc" : "asc";
         } else {
           state.col = col;
-          state.dir = (col === "size" || col === "mem" || col === "pid" || col === "modified") ? "desc" : "asc";
+          state.dir = (col === "size" || col === "mem" || col === "cpu" || col === "pid" || col === "modified") ? "desc" : "asc";
         }
         document.querySelectorAll(panelSel + " .table-header .sort-ind").forEach(s => s.textContent = "");
         th.querySelector(".sort-ind").textContent = state.dir === "asc" ? " ▲" : " ▼";
@@ -3615,6 +3619,29 @@
   let procData = [], procSelectedPid = null, procGrouped = false, procSearchTerm = "";
   const procSort = { col: "mem", dir: "desc" };
 
+  const fmtCpu = v => (v > 0 ? v.toFixed(1) : "0") + "%";
+
+  function sortProcs(items) {
+    return items.sort((a, b) => {
+      if (procSort.col === "mem")  return procSort.dir === "desc" ? b.memBytes - a.memBytes : a.memBytes - b.memBytes;
+      if (procSort.col === "cpu")  return procSort.dir === "desc" ? b.cpuPct   - a.cpuPct   : a.cpuPct   - b.cpuPct;
+      if (procSort.col === "name") return procSort.dir === "asc"  ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+      if (procSort.col === "pid")  return procSort.dir === "asc"  ? (a.pid|0) - (b.pid|0) : (b.pid|0) - (a.pid|0);
+      return 0;
+    });
+  }
+
+  function groupProcs(source) {
+    const map = new Map();
+    for (const p of source) {
+      const key = p.name.toLowerCase();
+      if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, cpuPct: 0, instances: 0, description: p.description });
+      const g = map.get(key); g.memBytes += p.memBytes; g.cpuPct += p.cpuPct; g.instances++;
+    }
+    for (const g of map.values()) g.cpuPct = Math.round(g.cpuPct * 10) / 10;
+    return [...map.values()];
+  }
+
   function renderProcesses() {
     procBody.innerHTML = "";
 
@@ -3623,13 +3650,7 @@
       const source = procSearchTerm
         ? procData.filter(p => p.name.toLowerCase().includes(procSearchTerm) || (p.description||"").toLowerCase().includes(procSearchTerm))
         : procData;
-      const map = new Map();
-      for (const p of source) {
-        const key = p.name.toLowerCase();
-        if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, instances: 0, description: p.description });
-        const g = map.get(key); g.memBytes += p.memBytes; g.instances++;
-      }
-      const groups = [...map.values()].sort((a, b) => b.memBytes - a.memBytes);
+      const groups = sortProcs(groupProcs(source).map(g => ({ ...g, pid: g.instances })));
       if (!groups.length) { procBody.appendChild(procEmpty); return; }
       groups.forEach((g, i) => {
         const row = document.createElement("div");
@@ -3639,6 +3660,7 @@
           <span class="col-index">${i + 1}</span>
           <span class="col-pid">${g.instances}×</span>
           <span class="col-mem">${fmtSize(g.memBytes)}</span>
+          <span class="col-cpu${g.cpuPct > 0 ? "" : " idle"}">${fmtCpu(g.cpuPct)}</span>
           <span class="col-proc-name" title="${esc(g.name)}">${esc(g.name)}</span>
           <span class="col-proc-desc" title="${esc(g.description)}">${esc(g.description) || "—"}</span>
         `;
@@ -3660,12 +3682,7 @@
       let items = procSearchTerm
         ? procData.filter(p => p.name.toLowerCase().includes(procSearchTerm) || (p.description||"").toLowerCase().includes(procSearchTerm))
         : [...procData];
-      items.sort((a, b) => {
-        if (procSort.col === "mem")  return procSort.dir === "desc" ? b.memBytes - a.memBytes : a.memBytes - b.memBytes;
-        if (procSort.col === "name") return procSort.dir === "asc"  ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-        if (procSort.col === "pid")  return procSort.dir === "asc"  ? a.pid - b.pid : b.pid - a.pid;
-        return 0;
-      });
+      sortProcs(items);
       if (!items.length) { procBody.appendChild(procEmpty); return; }
       items.forEach((proc, i) => {
         const row = document.createElement("div");
@@ -3676,6 +3693,7 @@
           <span class="col-index">${i + 1}</span>
           <span class="col-pid">${proc.pid}</span>
           <span class="col-mem">${fmtSize(proc.memBytes)}</span>
+          <span class="col-cpu${proc.cpuPct > 0 ? "" : " idle"}">${fmtCpu(proc.cpuPct)}</span>
           <span class="col-proc-name" title="${esc(proc.name)}">${esc(proc.name)}</span>
           <span class="col-proc-desc" title="${esc(proc.description)}">${esc(proc.description) || "—"}</span>
         `;
@@ -3696,7 +3714,7 @@
     procRefreshBtn.disabled = true; killBtn.disabled = true; procSelectedPid = null;
     procStatus.textContent = "Loading…";
     try {
-      procData = await window.api.getProcesses();
+      procData = await window.api.getProcesses(true);
       renderProcesses();
       requestAnimationFrame(() => fitColumnsToContent('panel-processes'));
       procStatus.textContent = `${fmtNum(procData.length)} processes`;
@@ -3712,7 +3730,7 @@
     renderProcesses();
   });
 
-  makeSortable("#panel-processes", procSort, () => { if (!procGrouped) renderProcesses(); });
+  makeSortable("#panel-processes", procSort, renderProcesses);
 
   procGroupSel.addEventListener("change", () => {
     procGrouped = procGroupSel.value === "grouped";
@@ -3747,20 +3765,14 @@
 
   wireExport("procExportBtn", "procExportMenu", () => {
     if (procGrouped) {
-      const map = new Map();
-      for (const p of procData) {
-        const key = p.name.toLowerCase();
-        if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, instances: 0, description: p.description });
-        const g = map.get(key); g.memBytes += p.memBytes; g.instances++;
-      }
-      const rows = [...map.values()].sort((a,b) => b.memBytes - a.memBytes)
-        .map((g, i) => [i+1, `${g.instances}×`, fmtSize(g.memBytes), g.name, g.description || ""]);
-      return { filename: "processes", headers: ["#","Instances","Memory","Application","Description"], rows };
+      const rows = sortProcs(groupProcs(procData).map(g => ({ ...g, pid: g.instances })))
+        .map((g, i) => [i+1, `${g.instances}×`, fmtSize(g.memBytes), fmtCpu(g.cpuPct), g.name, g.description || ""]);
+      return { filename: "processes", headers: ["#","Instances","Memory","CPU","Application","Description"], rows };
     }
     return {
       filename: "processes",
-      headers:  ["#","PID","Memory","Process","Description"],
-      rows:     [...procData].sort((a,b) => b.memBytes - a.memBytes).map((p,i) => [i+1, p.pid, fmtSize(p.memBytes), p.name, p.description||""]),
+      headers:  ["#","PID","Memory","CPU","Process","Description"],
+      rows:     sortProcs([...procData]).map((p,i) => [i+1, p.pid, fmtSize(p.memBytes), fmtCpu(p.cpuPct), p.name, p.description||""]),
     };
   });
 

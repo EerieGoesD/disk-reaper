@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld("api", {
     return () => ipcRenderer.removeListener("startup-log", listener);
   },
   // Processes
-  getProcesses: ()    => ipcRenderer.invoke("get-processes"),
+  getProcesses: (withCpu) => ipcRenderer.invoke("get-processes", !!withCpu),
   killProcess:  (pid) => ipcRenderer.invoke("kill-process", pid),
   // Cleaner
   getBloatwareList:    ()      => ipcRenderer.invoke("get-bloatware-list"),
