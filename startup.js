@@ -2,6 +2,7 @@ const { ipcMain, BrowserWindow } = require("electron");
 const { execFile } = require("child_process");
 const fs = require("fs");
 const { scriptPath } = require("./script-path");
+const { runElevatedBatch } = require("./run-elevated");
 
 function emitLog(event, text, level) {
   if (!text) return;
@@ -66,6 +67,34 @@ async function setStartupEnabled(event, name, source, enabled, uwpPath) {
     "-UwpPath", uwpPath || "",
     "-Enabled", enabled ? "1" : "0",
   ];
+
+  // Machine-wide (HKLM) startup entries can only be changed by an admin. The
+  // Store build never runs elevated, so ask for elevation for those instead of
+  // failing with "Requested registry access is not allowed".
+  const needsAdmin =
+    source === "HKLM" ||
+    source === "HKLM32" ||
+    source === "CommonStartupFolder" ||
+    /HKEY_LOCAL_MACHINE|^HKLM/i.test(String(uwpPath || ""));
+
+  if (needsAdmin) {
+    const script = scriptPath("set-startup.ps1");
+    emitLog(event, `${name}: machine-wide entry, requesting admin permission...`, "info");
+    const results = await runElevatedBatch([{
+      id: "set-startup",
+      cmd: "powershell",
+      args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...args],
+    }]);
+    const r = results[0];
+    if (!r || !r.ok) {
+      const err = (r && r.error) || `exit ${r && r.exitCode}`;
+      emitLog(event, `set-startup.ps1 failed: ${err}`, "err");
+      return { ok: false, error: err };
+    }
+    emitLog(event, `${name}: ${enabled ? "enabled" : "disabled"}.`, "ok");
+    return { ok: true };
+  }
+
   const stdout = await runPS(event, "set-startup.ps1", args);
   if (stdout === null) return { ok: false, error: "PowerShell command failed" };
   return { ok: true };
