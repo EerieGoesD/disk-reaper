@@ -61,10 +61,13 @@ async function getStartupItems(event) {
 }
 
 async function setStartupEnabled(event, name, source, enabled, uwpPath) {
+  // Never pass -UwpPath with an empty value: an empty argument is dropped when
+  // the command is relayed to the elevated PowerShell, which then binds
+  // -Enabled as the value for -UwpPath and fails with exit 1.
   const args = [
     "-Name", name,
     "-Source", source,
-    "-UwpPath", uwpPath || "",
+    ...(uwpPath ? ["-UwpPath", uwpPath] : []),
     "-Enabled", enabled ? "1" : "0",
   ];
 

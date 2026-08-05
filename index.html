@@ -2907,12 +2907,24 @@
     });
   }
 
+  // Panels that finished loading while hidden: their columns could not be
+  // measured (a hidden element reports zero width), so re-fit them the next
+  // time the panel is shown.
+  const pendingColFit = {};
+
   // Measure content widths, store, apply. Call after first load.
   function fitColumnsToContent(panelId) {
     const panel = document.getElementById(panelId);
     if (!panel) return;
     const header = panel.querySelector('.table-header');
     if (!header) return;
+    // Measuring a hidden panel yields 0 for every column and squashes the
+    // table. Defer until the panel is visible again.
+    if (!panel.offsetParent && panel.offsetWidth === 0) {
+      pendingColFit[panelId] = true;
+      return;
+    }
+    delete pendingColFit[panelId];
     const count = header.children.length;
     if (!colWidths[panelId]) colWidths[panelId] = {};
 
@@ -3009,6 +3021,10 @@
       item.classList.add("active");
       document.getElementById("panel-" + item.dataset.panel).classList.add("active");
       const panel = item.dataset.panel;
+      // A table that finished loading while this panel was hidden could not be
+      // measured; fit it now that it is on screen.
+      const panelId = "panel-" + panel;
+      if (pendingColFit[panelId]) requestAnimationFrame(() => fitColumnsToContent(panelId));
       if (typeof setActiveLogPanel === "function") setActiveLogPanel(panel);
       if (autoLoadPanels[panel]) autoLoadPanels[panel]();
     });

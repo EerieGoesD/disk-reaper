@@ -61,6 +61,8 @@ foreach ($ap in $approvedPaths) {
         $val = $key.GetValue($name)
         if ($val -and $val.Length -ge 1 -and $val[0] -ne 2) {
           $disabledSet[$name] = $true
+          # Folder entries are stored as "AnyDesk.lnk" but listed as "AnyDesk".
+          $disabledSet[[System.IO.Path]::GetFileNameWithoutExtension($name)] = $true
         }
       }
     }
