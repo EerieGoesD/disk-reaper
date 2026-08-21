@@ -969,7 +969,7 @@
               <div class="table-body" id="svcBody">
                 <div class="empty-state" id="svcEmpty">
                   <div class="icon">⚙</div>
-                  <p>Scanning...</p>
+                  <p id="svcEmptyText">Scanning...</p>
                 </div>
               </div>
             </div>
@@ -1011,7 +1011,7 @@
               <div class="table-body" id="suBody">
                 <div class="empty-state" id="suEmpty">
                   <div class="icon">⚡</div>
-                  <p>Scanning...</p>
+                  <p id="suEmptyText">Scanning...</p>
                 </div>
               </div>
             </div>
@@ -2417,6 +2417,13 @@
   </div>
 
   <!-- Startup Context Menu -->
+  <div class="context-menu" id="svcContextMenu" style="display:none">
+    <div class="ctx-item" id="svcCtxToggle">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l9 5-9 5z"/></svg>
+      <span id="svcCtxToggleLabel">Start Service</span>
+    </div>
+  </div>
+
   <div class="context-menu" id="suContextMenu" style="display:none">
     <div class="ctx-item" data-su-copy="name">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
@@ -3836,7 +3843,16 @@
       return svcSort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
 
-    if (!items.length) { svcBody.appendChild(svcEmpty); return; }
+    if (!items.length) {
+      const t = document.getElementById("svcEmptyText");
+      if (t) {
+        t.textContent = svcScanning ? "Scanning..."
+          : svcSearchTerm ? "No services match your search"
+          : "No services found";
+      }
+      svcBody.appendChild(svcEmpty);
+      return;
+    }
 
     items.forEach((svc, i) => {
       const origIdx = svcData.indexOf(svc);
@@ -3856,6 +3872,14 @@
           r.classList.toggle("selected", parseInt(r.dataset.origidx) === svcSelected));
         updateSvcButtons();
       });
+      row.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        svcSelected = origIdx;
+        svcBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", parseInt(r.dataset.origidx) === svcSelected));
+        updateSvcButtons();
+        showSvcContextMenu(e, svc);
+      });
       svcBody.appendChild(row);
     });
 
@@ -3869,17 +3893,23 @@
     stopSvcBtn.disabled  = s === "stopped";
   }
 
+  let svcScanning = false;
+
   async function loadServices() {
     svcRefreshBtn.disabled = true; startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
     svcSelected = null; svcStatus.textContent = "Scanning...";
+    svcScanning = true;
+    renderServices();
     try {
       svcData = await window.api.getServices();
+      svcScanning = false;
       renderServices();
       requestAnimationFrame(() => fitColumnsToContent('panel-services'));
       const running = svcData.filter(s => s.status.toLowerCase() === "running").length;
       svcStatus.textContent = `${fmtNum(svcData.length)} services`;
       svcFooter.textContent = `${svcData.length} services  ·  ${running} running`;
     } catch { svcStatus.textContent = "Failed"; }
+    svcScanning = false;
     svcRefreshBtn.disabled = false;
   }
 
@@ -3896,26 +3926,70 @@
   let svcLoaded = false;
   autoLoadPanels["services"] = () => { if (!svcLoaded) { svcLoaded = true; loadServices(); } };
 
-  startSvcBtn.addEventListener("click", async () => {
-    if (svcSelected === null) return;
-    const svc = svcData[svcSelected];
-    svcStatus.textContent = `Starting "${svc.name}"…`;
+  async function startServiceItem(svc) {
+    if (!svc) return;
+    svcStatus.textContent = `Starting "${svc.name}"...`;
     startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
     const r = await window.api.controlService(svc.name, "start");
     if (!r.ok) alert(`Could not start:\n${r.error}`);
     await loadServices();
-  });
+  }
 
-  stopSvcBtn.addEventListener("click", async () => {
-    if (svcSelected === null) return;
-    const svc = svcData[svcSelected];
+  async function stopServiceItem(svc) {
+    if (!svc) return;
     if (!await customConfirm(`Stop "${svc.displayName}"?`)) return;
-    svcStatus.textContent = `Stopping "${svc.name}"…`;
+    svcStatus.textContent = `Stopping "${svc.name}"...`;
     startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
     const r = await window.api.controlService(svc.name, "stop");
     if (!r.ok) alert(`Could not stop:\n${r.error}`);
     await loadServices();
+  }
+
+  startSvcBtn.addEventListener("click", () => {
+    if (svcSelected === null) return;
+    startServiceItem(svcData[svcSelected]);
   });
+
+  stopSvcBtn.addEventListener("click", () => {
+    if (svcSelected === null) return;
+    stopServiceItem(svcData[svcSelected]);
+  });
+
+  // -- Services Context Menu --
+  const svcCtxMenu   = $("#svcContextMenu");
+  const svcCtxToggle = $("#svcCtxToggle");
+  const svcCtxLabel  = $("#svcCtxToggleLabel");
+  let svcCtxItem = null;
+
+  function hideSvcContextMenu() { svcCtxMenu.style.display = "none"; }
+
+  function showSvcContextMenu(e, svc) {
+    hideAllContextMenus();
+    svcCtxItem = svc;
+    svcCtxLabel.textContent = svc.status.toLowerCase() === "running" ? "Stop Service" : "Start Service";
+    svcCtxMenu.style.display = "block";
+    const mx = e.clientX, my = e.clientY;
+    const mw = svcCtxMenu.offsetWidth, mh = svcCtxMenu.offsetHeight;
+    const ww = window.innerWidth, wh = window.innerHeight;
+    svcCtxMenu.style.left = (mx + mw > ww ? mx - mw : mx) + "px";
+    svcCtxMenu.style.top  = (my + mh > wh ? my - mh : my) + "px";
+  }
+
+  svcCtxToggle.addEventListener("click", () => {
+    hideSvcContextMenu();
+    const svc = svcCtxItem;
+    if (!svc) return;
+    if (svc.status.toLowerCase() === "running") stopServiceItem(svc);
+    else startServiceItem(svc);
+  });
+
+  document.addEventListener("click", e => {
+    if (!svcCtxMenu.contains(e.target)) hideSvcContextMenu();
+  });
+  document.addEventListener("contextmenu", e => {
+    if (!svcCtxMenu.contains(e.target) && !e.target.closest("#svcBody .row")) hideSvcContextMenu();
+  });
+  window.addEventListener("blur", hideSvcContextMenu);
 
   wireExport("svcExportBtn", "svcExportMenu", () => ({
     filename: "services",
@@ -4187,7 +4261,16 @@
       return suSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
 
-    if (!items.length) { suBody.appendChild(suEmpty); return; }
+    if (!items.length) {
+      const t = document.getElementById("suEmptyText");
+      if (t) {
+        t.textContent = suScanning ? "Scanning..."
+          : suSearchTerm ? "No startup items match your search"
+          : "No startup items found";
+      }
+      suBody.appendChild(suEmpty);
+      return;
+    }
 
     items.forEach((item, i) => {
       const origIdx = suData.indexOf(item);
@@ -4229,17 +4312,23 @@
     suDisableBtn.disabled = !item.enabled;
   }
 
+  let suScanning = false;
+
   async function loadStartup() {
     suRefreshBtn.disabled = true; suEnableBtn.disabled = true; suDisableBtn.disabled = true;
     suSelected = null; suStatus.textContent = "Scanning...";
+    suScanning = true;
+    renderStartup();
     try {
       suData = await window.api.getStartupItems();
+      suScanning = false;
       renderStartup();
       requestAnimationFrame(() => fitColumnsToContent('panel-startup'));
       const enabled = suData.filter(s => s.enabled).length;
       suStatus.textContent = `${fmtNum(suData.length)} startup items`;
       suFooter.textContent = `${suData.length} items  ·  ${enabled} enabled  ·  ${suData.length - enabled} disabled`;
     } catch { suStatus.textContent = "Failed"; }
+    suScanning = false;
     suRefreshBtn.disabled = false;
   }
 
