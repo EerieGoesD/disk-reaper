@@ -1,5 +1,6 @@
 const { ipcMain } = require("electron");
 const { exec } = require("child_process");
+const { runElevatedBatch } = require("./run-elevated");
 
 function parseCSV(line) {
   const cols = []; let cur = "", inQ = false;
@@ -33,16 +34,28 @@ function getServices() {
   });
 }
 
-function controlService(name, action) {
-  const cmd = action === "start"
-    ? `powershell -NoProfile -Command "Start-Service -Name '${name}'"`
-    : `powershell -NoProfile -Command "Stop-Service -Name '${name}' -Force"`;
-  return new Promise((resolve) => {
-    exec(cmd, (err) => {
-      if (err) resolve({ ok: false, error: err.message });
-      else resolve({ ok: true });
-    });
-  });
+// Starting or stopping a Windows service requires admin rights. The Store
+// build never runs elevated, so ask for permission and run the command there
+// instead of failing with "Cannot open <service> service on computer".
+async function controlService(name, action) {
+  const verb = action === "start" ? "Start-Service" : "Stop-Service";
+  const safe = String(name).replace(/'/g, "''");
+  const ps = action === "start"
+    ? `${verb} -Name '${safe}' -ErrorAction Stop`
+    : `${verb} -Name '${safe}' -Force -ErrorAction Stop`;
+
+  const results = await runElevatedBatch([{
+    id: "control-service",
+    cmd: "powershell",
+    args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
+  }]);
+  const r = results[0];
+  if (!r || !r.ok) {
+    const out = (r && r.stdout ? String(r.stdout).trim() : "");
+    const reason = (r && r.error) || out || `exit ${r && r.exitCode}`;
+    return { ok: false, error: reason };
+  }
+  return { ok: true };
 }
 
 ipcMain.handle("get-services", () => getServices());

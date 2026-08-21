@@ -969,7 +969,7 @@
               <div class="table-body" id="svcBody">
                 <div class="empty-state" id="svcEmpty">
                   <div class="icon">⚙</div>
-                  <p>Hit <strong>Refresh</strong> to list Windows services</p>
+                  <p>Scanning...</p>
                 </div>
               </div>
             </div>
@@ -1011,7 +1011,7 @@
               <div class="table-body" id="suBody">
                 <div class="empty-state" id="suEmpty">
                   <div class="icon">⚡</div>
-                  <p>Hit <strong>Refresh</strong> to list startup items</p>
+                  <p>Scanning...</p>
                 </div>
               </div>
             </div>
@@ -3871,7 +3871,7 @@
 
   async function loadServices() {
     svcRefreshBtn.disabled = true; startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
-    svcSelected = null; svcStatus.textContent = "Loading…";
+    svcSelected = null; svcStatus.textContent = "Scanning...";
     try {
       svcData = await window.api.getServices();
       renderServices();
@@ -3893,6 +3893,8 @@
 
   makeSortable("#panel-services", svcSort, renderServices);
   svcRefreshBtn.addEventListener("click", loadServices);
+  let svcLoaded = false;
+  autoLoadPanels["services"] = () => { if (!svcLoaded) { svcLoaded = true; loadServices(); } };
 
   startSvcBtn.addEventListener("click", async () => {
     if (svcSelected === null) return;
@@ -4229,7 +4231,7 @@
 
   async function loadStartup() {
     suRefreshBtn.disabled = true; suEnableBtn.disabled = true; suDisableBtn.disabled = true;
-    suSelected = null; suStatus.textContent = "Loading...";
+    suSelected = null; suStatus.textContent = "Scanning...";
     try {
       suData = await window.api.getStartupItems();
       renderStartup();
