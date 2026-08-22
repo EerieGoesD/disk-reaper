@@ -233,6 +233,7 @@
   .col-svc-status { width: 110px; flex-shrink: 0; }
   .col-svc-name   { width: 220px; flex-shrink: 0; }
   .col-svc-dname  { width: 320px; flex-shrink: 0; }
+  .col-svc-start  { width: 170px; flex-shrink: 0; }
   .col-su-status  { width: 90px;  flex-shrink: 0; }
   .col-su-name    { width: 200px; flex-shrink: 0; }
   .col-su-command { width: 360px; flex-shrink: 0; }
@@ -320,6 +321,12 @@
   .context-menu .ctx-item.disabled { opacity: 0.35; pointer-events: none; }
   .context-menu .ctx-item svg { width: 14px; height: 14px; flex-shrink: 0; }
   .context-menu .ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
+  .context-menu .ctx-label { padding: 4px 12px 2px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+  .context-menu .ctx-choice .ctx-tick { visibility: hidden; }
+  .context-menu .ctx-choice.is-current .ctx-tick { visibility: visible; color: var(--accent); }
+  .context-menu .ctx-choice.is-current { color: var(--accent); font-weight: 600; }
+  .context-menu .ctx-choice.is-current:hover { background: var(--accent); color: #fff; }
+  .context-menu .ctx-choice.is-current:hover .ctx-tick { color: #fff; }
 
   /* ── System Info ── */
   .sysinfo-content { padding: 0 20px 20px; overflow-y: auto; flex: 1; }
@@ -963,6 +970,7 @@
               <div class="table-header">
                 <span class="col-dot"></span>
                 <span class="col-svc-status sortable" data-sort="status">Status<span class="sort-ind"></span></span>
+                <span class="col-svc-start  sortable" data-sort="startType">Startup Type<span class="sort-ind"></span></span>
                 <span class="col-svc-name   sortable" data-sort="name">Service Name<span class="sort-ind"></span></span>
                 <span class="col-svc-dname  sortable" data-sort="displayName">Display Name<span class="sort-ind"> ▲</span></span>
               </div>
@@ -2422,6 +2430,24 @@
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l9 5-9 5z"/></svg>
       <span id="svcCtxToggleLabel">Start Service</span>
     </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-label" id="svcCtxStartHeading">Startup type</div>
+    <div class="ctx-item ctx-choice" data-svc-start="Automatic">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Automatic
+    </div>
+    <div class="ctx-item ctx-choice" data-svc-start="AutomaticDelayed">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Automatic (Delayed Start)
+    </div>
+    <div class="ctx-item ctx-choice" data-svc-start="Manual">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Manual
+    </div>
+    <div class="ctx-item ctx-choice" data-svc-start="Disabled">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Disabled
+    </div>
   </div>
 
   <div class="context-menu" id="suContextMenu" style="display:none">
@@ -3839,6 +3865,7 @@
       let av, bv;
       if (svcSort.col === "status")    { av = a.status;      bv = b.status; }
       else if (svcSort.col === "name") { av = a.name;        bv = b.name; }
+      else if (svcSort.col === "startType") { av = a.startTypeLabel || ""; bv = b.startTypeLabel || ""; }
       else                             { av = a.displayName; bv = b.displayName; }
       return svcSort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
@@ -3863,6 +3890,7 @@
       row.innerHTML = `
         <span class="col-dot"><span class="dot ${svcDotClass(svc.status)}"></span></span>
         <span class="col-svc-status" style="color:${svcColor(svc.status)}">${esc(svc.status)}</span>
+        <span class="col-svc-start"  title="${esc(svc.startTypeLabel || "")}">${esc(svc.startTypeLabel || "")}</span>
         <span class="col-svc-name"   title="${esc(svc.name)}">${esc(svc.name)}</span>
         <span class="col-svc-dname"  title="${esc(svc.displayName)}">${esc(svc.displayName)}</span>
       `;
@@ -3967,6 +3995,11 @@
     hideAllContextMenus();
     svcCtxItem = svc;
     svcCtxLabel.textContent = svc.status.toLowerCase() === "running" ? "Stop Service" : "Start Service";
+    const heading = document.getElementById("svcCtxStartHeading");
+    if (heading) heading.textContent = `Startup type: ${svc.startTypeLabel || "Unknown"}`;
+    svcCtxMenu.querySelectorAll("[data-svc-start]").forEach(b => {
+      b.classList.toggle("is-current", b.dataset.svcStart === svc.startType);
+    });
     svcCtxMenu.style.display = "block";
     const mx = e.clientX, my = e.clientY;
     const mw = svcCtxMenu.offsetWidth, mh = svcCtxMenu.offsetHeight;
@@ -3983,6 +4016,24 @@
     else startServiceItem(svc);
   });
 
+  // Startup type: stopping a service only lasts until the next boot, this is
+  // what decides whether it starts again.
+  svcCtxMenu.querySelectorAll("[data-svc-start]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      hideSvcContextMenu();
+      const svc = svcCtxItem;
+      if (!svc) return;
+      const type = btn.dataset.svcStart;
+      if (type === svc.startType) return;
+      svcStatus.textContent = `Setting startup type for "${svc.name}"...`;
+      startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
+      const r = await window.api.setServiceStartType(svc.name, type);
+      if (!r.ok) alert(`Could not change startup type:
+${r.error}`);
+      await loadServices();
+    });
+  });
+
   document.addEventListener("click", e => {
     if (!svcCtxMenu.contains(e.target)) hideSvcContextMenu();
   });
@@ -3993,9 +4044,9 @@
 
   wireExport("svcExportBtn", "svcExportMenu", () => ({
     filename: "services",
-    headers:  ["Status", "Service Name", "Display Name"],
+    headers:  ["Status", "Startup Type", "Service Name", "Display Name"],
     rows:     [...svcData].sort((a,b) => a.displayName.localeCompare(b.displayName))
-                          .map(s => [s.status, s.name, s.displayName]),
+                          .map(s => [s.status, s.startTypeLabel || "", s.name, s.displayName]),
   }));
 
   // ══════════════════════════════════════════════════════════════

@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld("api", {
   // Services
   getServices:     ()              => ipcRenderer.invoke("get-services"),
   controlService:  (name, action)  => ipcRenderer.invoke("control-service", { name, action }),
+  setServiceStartType: (name, startType) => ipcRenderer.invoke("set-service-start-type", { name, startType }),
   // Networking
   netDiagnostics:   ()         => ipcRenderer.invoke("net-diagnostics"),
   netGetAdapters:   ()         => ipcRenderer.invoke("net-get-adapters"),
