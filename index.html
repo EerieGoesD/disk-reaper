@@ -78,6 +78,7 @@
   .btn-fixed-width { display: inline-grid; place-items: center; }
   .btn-fixed-width::before { content: attr(data-longest); grid-area: 1 / 1; visibility: hidden; white-space: nowrap; pointer-events: none; }
   .btn-fixed-width > span { grid-area: 1 / 1; }
+  .btn-fixed-width[hidden] { display: none; }
   .btn-accent:hover { background: var(--accent-h); }
   .btn-accent:disabled { background: #2a2a40; color: #555; cursor: default; transform: none; }
   .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
@@ -2205,6 +2206,7 @@
               </div>
               <div class="cleaner-card-action align-left">
                 <button class="btn btn-accent" id="netRunDiagBtn" title="Pings your router and the public internet to test your connection.">Run Diagnostics</button>
+                <button class="btn btn-danger btn-fixed-width" id="netAutoFixBtn" data-longest="Run Diagnostics" title="Runs the repairs for the problem diagnostics found." hidden><span>Fix</span></button>
               </div>
             </div>
 
@@ -6744,22 +6746,261 @@ ${r.error}`);
     bumpLogsUnread("network");
   }
 
-  function renderDiag(data) {
+  // After diagnostics, offer a single Fix button that runs the repairs for
+  // whatever failed, in order, and re-checks when it is done.
+  let netFixPlan = null;
+
+  function clearNetFixSuggestions() {
+    netFixPlan = null;
+    const btn = document.getElementById("netAutoFixBtn");
+    if (btn) btn.hidden = true;
+  }
+
+  // Things that sit between this PC and the internet and can cause exactly
+  // these symptoms. Named so the user knows what to switch off.
+  function netBlockers(extra) {
+    const out = [];
+    if (extra && extra.vpnAdapters && extra.vpnAdapters.length) out.push(`VPN connection (${extra.vpnAdapters.join(", ")})`);
+    if (extra && extra.proxyEnabled) out.push(`proxy (${extra.proxyServer || "unnamed"})`);
+    if (extra && extra.autoConfigUrl) out.push("automatic proxy script");
+    if (extra && extra.firewallBlockingOutbound && extra.firewallBlockingOutbound.length) out.push(`firewall blocking outgoing traffic (${extra.firewallBlockingOutbound.join(", ")})`);
+    return out;
+  }
+
+  function suggestNetFixes({ adapterOk, gwOk, ipOk, dnsOk, extra }, opts) {
+    const quiet = !!(opts && opts.quiet);
+    const btn = document.getElementById("netAutoFixBtn");
+    netFixPlan = null;
+    if (btn) btn.hidden = true;
+    const blockers = netBlockers(extra);
+    if (!adapterOk || !gwOk) {
+      netFixPlan = { label: "no connection to your router", steps: ["renewIp"], blockers };
+    } else if (!ipOk) {
+      netFixPlan = { label: "no internet", steps: ["flushDns", "renewIp"], blockers };
+    } else if (!dnsOk) {
+      netFixPlan = { label: "DNS not working", steps: ["flushDns", "fixDns"], blockers };
+    }
+    if (!netFixPlan) return;
+    if (btn) btn.hidden = false;
+    if (quiet) return;
+    nlog(`Found a problem: ${netFixPlan.label}. Click Fix to repair it automatically.`, "warn");
+    if (blockers.length) nlog(`Also present: ${blockers.join("; ")}. Fix will test whether this is involved.`, "info");
+  }
+
+  // Each repair the Fix button can run on its own, with no prompts.
+  const NET_AUTO_FIXES = {
+    flushDns: {
+      label: "Flush DNS cache",
+      run: async () => {
+        const r = await window.api.netFlushDns();
+        markLastRun("net.flushDns");
+        return r;
+      },
+    },
+    renewIp: {
+      label: "Renew IP address",
+      run: async () => {
+        const r = await window.api.netRenewIp();
+        markLastRun("net.renewIp");
+        return r;
+      },
+    },
+    fixDns: {
+      label: "Switch to Google + Cloudflare DNS",
+      run: async () => {
+        const adapter = await ensureAdapter();
+        if (!adapter) return { ok: false, error: "No active adapter detected." };
+        const r = await window.api.netFixDns({ adapter, primary: "8.8.8.8", secondary: "1.1.1.1" });
+        markLastRun("net.fixDns");
+        return r;
+      },
+    },
+  };
+
+  function netSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function netQuickCheck() {
+    const data = await window.api.netDiagnostics();
+    return {
+      data,
+      adapterOk: !!(data && data.primary),
+      gwOk:  !!(data && data.gateway && data.gateway.ok),
+      ipOk:  !!(data && data.publicIp && data.publicIp.ok),
+      dnsOk: !!(data && data.dnsResolve && data.dnsResolve.ok),
+    };
+  }
+
+  async function runNetAutoFix() {
+    if (!netFixPlan) return;
+    const plan = netFixPlan;
+    const btn = document.getElementById("netAutoFixBtn");
+    const runBtn = document.getElementById("netRunDiagBtn");
+    const btnLabel = btn ? btn.querySelector("span") : null;
+    const orig = btnLabel ? btnLabel.textContent : "";
+    if (btn) btn.disabled = true;
+    if (runBtn) runBtn.disabled = true;
+    if (btnLabel) btnLabel.textContent = "Fixing...";
+    setLogJobRunning("panel-network", true);
+    nlog(`Fixing ${plan.label}...`, "info");
+    let last = null;
+    let sawRouterOk = false;
+    try {
+      // 1. Apply the repairs for what was found.
+      for (const key of plan.steps) {
+        const step = NET_AUTO_FIXES[key];
+        if (!step) continue;
+        nlog(`Step: ${step.label}`, "info");
+        const r = await step.run();
+        logSteps(r);
+        nlog(`${step.label}: ${r && r.ok ? "done" : "failed"}`, r && r.ok ? "ok" : "err");
+      }
+
+      // 2. The network needs time to come back after a renew, so wait and
+      //    keep checking instead of testing right away.
+      nlog("Repairs applied. Waiting for the connection to come back - this can take a minute...", "info");
+      if (btnLabel) btnLabel.textContent = "Checking...";
+      const deadline = Date.now() + 90 * 1000;
+      let attempt = 0;
+      await netSleep(8000);
+      while (Date.now() < deadline) {
+        attempt++;
+        nlog(`Check ${attempt}: testing the connection...`, "info");
+        try { last = await netQuickCheck(); } catch { last = null; }
+        if (last) {
+          if (last.gwOk) sawRouterOk = true;
+          nlog(`Check ${attempt}: router ${last.gwOk ? "OK" : "not responding"}, internet ${last.ipOk ? "OK" : "down"}, DNS ${last.dnsOk ? "OK" : "down"}.`, (last.gwOk && last.ipOk && last.dnsOk) ? "ok" : "warn");
+          if (last.adapterOk && last.gwOk && last.ipOk && last.dnsOk) break;
+        } else {
+          nlog(`Check ${attempt}: could not test the connection.`, "warn");
+        }
+        if (Date.now() >= deadline) break;
+        await netSleep(10000);
+      }
+
+      // 3. Still broken and a VPN is running? Prove whether the VPN is the
+      //    cause by switching it off and testing again, instead of guessing.
+      let vpnWasTheCause = false;
+      let vpnTested = false;
+      const stillDown = !last || !last.ipOk || !last.dnsOk;
+      const vpnAdapters = (last && last.data && last.data.extra && last.data.extra.vpnAdapters) || [];
+      const vpnServices = (last && last.data && last.data.extra && last.data.extra.vpnServices) || [];
+      if (stillDown && last && last.gwOk && (vpnAdapters.length || vpnServices.length)) {
+        vpnTested = true;
+        if (btnLabel) btnLabel.textContent = "Testing...";
+        nlog(`Still no internet and a VPN is active (${[...vpnAdapters, ...vpnServices].join(", ")}). Turning it off to test whether it is the cause...`, "info");
+        const off = await window.api.netSetVpnEnabled(false, vpnAdapters, vpnServices);
+        if (!off || !off.ok) {
+          nlog(`Could not turn the VPN off: ${(off && off.error) || "unknown"}. Turn it off in the VPN app and run diagnostics again.`, "err");
+        } else {
+          nlog("VPN turned off. Waiting, then testing again...", "ok");
+          await netSleep(6000);
+          let afterVpn = null;
+          for (let i = 1; i <= 3; i++) {
+            nlog(`VPN test check ${i}...`, "info");
+            try { afterVpn = await netQuickCheck(); } catch { afterVpn = null; }
+            if (afterVpn) {
+              nlog(`VPN test check ${i}: internet ${afterVpn.ipOk ? "OK" : "down"}, DNS ${afterVpn.dnsOk ? "OK" : "down"}.`, afterVpn.ipOk ? "ok" : "warn");
+              if (afterVpn.ipOk && afterVpn.dnsOk) break;
+            }
+            if (i < 3) await netSleep(8000);
+          }
+          if (afterVpn && afterVpn.ipOk && afterVpn.dnsOk) {
+            vpnWasTheCause = true;
+            last = afterVpn;
+            nlog("Internet came back with the VPN off, so the VPN was blocking it. It is now off. Reconnect it from the VPN app when you want it back.", "ok");
+          } else {
+            nlog("Still no internet with the VPN off, so the VPN was not the cause. Turning it back on...", "info");
+            const on = await window.api.netSetVpnEnabled(true, vpnAdapters, vpnServices);
+            nlog(on && on.ok ? "VPN turned back on." : `Could not turn the VPN back on: ${(on && on.error) || "unknown"}. Start it from the VPN app.`, on && on.ok ? "ok" : "warn");
+            // The adapters come back one at a time, so a check straight after
+            // this reads as "no router". Wait, and keep the best reading.
+            await netSleep(10000);
+            let settled = null;
+            for (let i = 1; i <= 2; i++) {
+              try { settled = await netQuickCheck(); } catch { settled = null; }
+              if (settled && settled.gwOk) break;
+              if (i < 2) await netSleep(8000);
+            }
+            if (settled && settled.gwOk) last = settled;
+            else if (afterVpn) last = afterVpn;
+          }
+        }
+      }
+
+      // 4. Verdict: where does the problem live?
+      if (last && last.data) {
+        netPrimaryAdapter = last.data.primary ? last.data.primary.InterfaceAlias : netPrimaryAdapter;
+        nlog("Final state after the repairs:", "info");
+        renderDiag(last.data, { noSuggest: true });
+      }
+      const allOk = last && last.adapterOk && last.gwOk && last.ipOk && last.dnsOk;
+      const blockers = netBlockers(last && last.data ? last.data.extra : null).filter(b => !/^VPN connection/.test(b) || !vpnTested);
+      if (allOk) {
+        nlog(vpnWasTheCause
+          ? "Internet is back. The VPN was the cause."
+          : "Internet is back. Everything checks out.", "ok");
+      } else if ((!last || !last.adapterOk || !last.gwOk) && !sawRouterOk) {
+        nlog("The fixes did not help: your PC still cannot reach your router. The problem is between this PC and the router - check Wi-Fi or the network cable, and restart the router.", "err");
+      } else if (blockers.length) {
+        nlog(`The fixes did not help, and something on this PC is sitting in the way: ${blockers.join("; ")}.`, "err");
+        nlog("Turn that off and run diagnostics again.", "warn");
+      } else if (!last.ipOk) {
+        const dp = (last.data && last.data.deep) || {};
+        const tr = (last.data && last.data.trace) || {};
+        if (dp.vpnBlockRules && dp.vpnBlockRules.length) {
+          nlog(`Traffic is still being blocked on this PC by VPN kill-switch rules that stayed behind: ${dp.vpnBlockRules.join("; ")}. Open the VPN app and turn its kill switch off, or uninstall the VPN.`, "err");
+        } else if (dp.routes && dp.routes.length > 1) {
+          nlog(`More than one connection is claiming the internet route (${dp.routes.map(r => r.iface).join(", ")}). Traffic is likely going into the wrong one instead of your router.`, "err");
+        } else if (tr.lastReplyingHop > 1 && !tr.hitHopLimit) {
+          nlog(`Ruled out: this PC and the VPN. Traffic leaves your router fine and dies ${tr.lastReplyingHop} hops out, last answer from ${tr.lastReplyingIp}. That is inside your provider's network, so this is your provider. Contact them with that address.`, "err");
+        } else if (tr.lastReplyingHop === 1) {
+          nlog("Ruled out: this PC and the VPN. Your router answers, but nothing past it does, so the router's internet side is down. Restart the router; if it stays down, it is your provider's line.", "err");
+        } else {
+          nlog(vpnTested
+            ? "Ruled out: this PC's settings and the VPN. Your PC reaches the router fine but nothing beyond it answers, so the problem is the router's internet connection or your provider. Restart the router; if it stays down, contact your provider."
+            : "The fixes did not help: your PC reaches the router fine, but nothing beyond the router answers, and nothing on this PC is blocking it. The problem is the router's internet connection or your provider. Restart the router; if it stays down, contact your provider.", "err");
+        }
+      } else {
+        nlog("The fixes did not help: the connection works but name lookups still fail, even on Google DNS. Restart the router; if it stays broken, contact your provider.", "err");
+      }
+      // Offer the Fix button again only if something is still wrong.
+      if (last && last.data && !allOk) {
+        const ex = last.data.extra || {};
+        suggestNetFixes({
+          adapterOk: last.adapterOk, gwOk: last.gwOk, ipOk: last.ipOk, dnsOk: last.dnsOk, extra: ex,
+        }, { quiet: true });
+      }
+      markLastRun("net.runDiag");
+    } finally {
+      setLogJobRunning("panel-network", false);
+      if (btn) btn.disabled = false;
+      if (btnLabel) btnLabel.textContent = orig || "Fix";
+      if (runBtn) runBtn.disabled = false;
+    }
+  }
+
+  function renderDiag(data, opts) {
+    const quiet = !!(opts && opts.quiet);
+    const noSuggest = quiet || !!(opts && opts.noSuggest);
     if (!data) {
       netDiag.innerHTML = `<div class="net-empty">Diagnostics failed to run.</div>`;
       return;
     }
     const { primary, gateway, publicIp, publicDns, dnsResolve } = data;
+    const extra     = data.extra || {};
     const adapterOk = !!primary;
     const gwOk      = gateway && gateway.ok;
-    const ipOk      = publicIp && publicIp.ok;
+    // Many networks and VPNs block ping while normal traffic works, so a real
+    // connection counts as internet even when the ping gets no reply.
+    const pingOk    = !!(publicIp && publicIp.ok);
+    const ipOk      = pingOk || !!extra.tcpOk;
     // DNS health is name resolution, not the google.com ping (which fails when
     // ICMP is blocked even though names resolve fine).
     const dnsOk     = dnsResolve && dnsResolve.ok;
 
     const adapterValue = primary ? esc(primary.InterfaceAlias) : "None";
     const gwValue   = gateway ? (gwOk ? `${gateway.avgMs ?? "?"} ms` : "no reply") : "skipped";
-    const ipValue   = publicIp ? (ipOk ? `${publicIp.avgMs ?? "?"} ms` : "no reply") : "skipped";
+    const ipValue   = ipOk ? (pingOk ? `${publicIp.avgMs ?? "?"} ms` : "OK (ping blocked)") : "no reply";
     const dnsValue  = dnsResolve ? (dnsOk ? `${dnsResolve.ms ?? "?"} ms` : "failed") : "skipped";
     const dnsDotClass = dnsOk ? "ok" : (ipOk ? "err" : "warn");
 
@@ -6794,20 +7035,69 @@ ${r.error}`);
 
     netDiag.innerHTML = `<div class="ns-row">${statusRow}</div>${detailsRow}`;
 
+    // Log every measurement, not just the verdict.
+    if (quiet) return;
+    nlog(`Adapter: ${primary ? primary.InterfaceAlias : "none found"}${primary && primary.IPv4Address ? " (IP " + primary.IPv4Address + ")" : ""}`, adapterOk ? "ok" : "err");
+    if (primary && primary.IPv4Gateway) nlog(`Router address: ${primary.IPv4Gateway}`, "info");
+    if (primary && primary.DnsServers && primary.DnsServers.length) nlog(`DNS servers in use: ${primary.DnsServers.join(", ")}`, "info");
+    if (gateway) nlog(`Router ping: ${gateway.received}/${gateway.sent} replies${gwOk && gateway.avgMs != null ? ", " + gateway.avgMs + " ms average" : ""}${gateway.lossPct != null ? ", " + gateway.lossPct + "% loss" : ""}`, gwOk ? "ok" : "err");
+    if (publicIp) nlog(`Internet ping (8.8.8.8): ${publicIp.received}/${publicIp.sent} replies${ipOk && publicIp.avgMs != null ? ", " + publicIp.avgMs + " ms average" : ""}${publicIp.lossPct != null ? ", " + publicIp.lossPct + "% loss" : ""}`, ipOk ? "ok" : "err");
+    if (publicDns) nlog(`google.com ping: ${publicDns.received}/${publicDns.sent} replies`, publicDns.ok ? "ok" : "warn");
+    if (extra.tcp && extra.tcp.length) {
+      nlog(`Direct connection test: ${extra.tcp.map(t => `${t.target} ${t.ok ? "OK" : "blocked"}`).join(", ")}`, extra.tcpOk ? "ok" : "err");
+      if (!pingOk && extra.tcpOk) nlog("Ping gets no reply but real connections go through, so the internet is working and only ping is blocked.", "info");
+    }
+    if (extra.vpnAdapters && extra.vpnAdapters.length) nlog(`VPN connection active: ${extra.vpnAdapters.join(", ")}`, "warn");
+    if (extra.vpnServices && extra.vpnServices.length) nlog(`VPN software running: ${extra.vpnServices.join(", ")}`, "info");
+    if (extra.proxyEnabled) nlog(`Proxy is turned on: ${extra.proxyServer || "unnamed"}`, "warn");
+    if (extra.autoConfigUrl) nlog(`Automatic proxy script in use: ${extra.autoConfigUrl}`, "warn");
+    if (extra.firewallBlockingOutbound && extra.firewallBlockingOutbound.length) nlog(`Firewall is set to block outgoing traffic on: ${extra.firewallBlockingOutbound.join(", ")}`, "warn");
+
+    // Where traffic actually goes, and whether the router itself is alive.
+    const deep = data.deep || {};
+    const trace = data.trace || {};
+    if (deep.routes && deep.routes.length) {
+      nlog(`Internet traffic is being sent through: ${deep.routes.map(r => `${r.iface} via ${r.nextHop} (priority ${r.ifMetric + r.metric})`).join(" | ")}`, deep.routes.length > 1 ? "warn" : "info");
+      if (deep.routes.length > 1) nlog("More than one connection is claiming the internet route. If the top one is a VPN or a virtual adapter, traffic is going into it instead of your router.", "warn");
+    }
+    if (deep.gateway) {
+      nlog(`Router itself: admin page ${deep.routerHttp || deep.routerHttps ? "answers" : "no answer"}, acts as DNS ${deep.routerDns ? "yes" : "no"}`, (deep.routerHttp || deep.routerHttps || deep.routerDns) ? "ok" : "warn");
+    }
+    if (deep.vpnBlockRules && deep.vpnBlockRules.length) {
+      nlog(`VPN kill-switch style blocking rules are still active: ${deep.vpnBlockRules.join("; ")}`, "warn");
+    }
+    if (trace.hops && trace.hops.length) {
+      nlog(`Route trace to 8.8.8.8: ${trace.hops.map(h => `${h.hop}:${h.ip || "no reply"}`).join("  ")}`, "info");
+      // Only read the trace as a failure when the internet is actually down.
+      // A trace that simply ran out of hops proves nothing.
+      if (trace.reached) {
+        nlog("Traffic reaches the internet, so the path out is fine.", "ok");
+      } else if (ipOk) {
+        nlog(trace.hitHopLimit
+          ? `The trace stopped at the ${trace.maxHops} hop limit, not at a fault. The connection works.`
+          : "Some hops did not answer, which is normal. The connection works.", "info");
+      } else if (!trace.lastReplyingHop) {
+        nlog("Traffic does not get past this PC. Nothing on the way out answers, not even your router.", "err");
+      } else if (trace.lastReplyingHop === 1) {
+        nlog(`Traffic stops right after your router (${trace.lastReplyingIp}). Your router is reachable but its internet side is not passing traffic, so this is the router or your provider's line.`, "err");
+      } else {
+        nlog(`Traffic gets ${trace.lastReplyingHop} hops out, last answer from ${trace.lastReplyingIp}, then stops. That is inside your provider's network, past your router.`, "err");
+      }
+    } else if (trace.host) {
+      nlog("Route trace returned nothing.", "warn");
+    }
+    if (dnsResolve) {
+      nlog(`Name lookup for google.com: ${dnsOk ? "resolved to " + dnsResolve.ips.join(", ") : "FAILED" + (dnsResolve.error ? " (" + dnsResolve.error + ")" : "")}${dnsResolve.server ? " via " + dnsResolve.server : ""}${dnsResolve.ms != null ? " in " + dnsResolve.ms + " ms" : ""}`, dnsOk ? "ok" : "err");
+    }
+
+    if (!noSuggest) suggestNetFixes({ adapterOk, gwOk, ipOk, dnsOk, extra });
+
     // Verdict
     if (!adapterOk)      nlog("No active network adapter with a gateway found.", "err");
     else if (!gwOk)      nlog("Your router is not responding. Check Wi-Fi/Ethernet or reboot the router.", "err");
     else if (!ipOk)      nlog("No route to the internet. Connection is local only.", "err");
-    else if (!dnsOk) {
-      const servers = (primary && primary.DnsServers && primary.DnsServers.length) ? primary.DnsServers.join(", ") : "none configured";
-      nlog("DNS servers in use: " + servers, "info");
-      nlog("Name lookup for google.com FAILED" + (dnsResolve && dnsResolve.error ? ": " + dnsResolve.error : "") + ". The resolver is not answering.", "err");
-      nlog("Internet works but DNS is broken. Try 'Switch to Google + Cloudflare DNS'.", "warn");
-    }
+    else if (!dnsOk)     nlog("Internet works but DNS is broken. Try 'Switch to Google + Cloudflare DNS'.", "warn");
     else {
-      if (dnsResolve && dnsResolve.ips && dnsResolve.ips.length) {
-        nlog("Name lookup for google.com resolved to " + dnsResolve.ips.join(", ") + (dnsResolve.server ? " via " + dnsResolve.server : "") + (dnsResolve.ms != null ? " in " + dnsResolve.ms + " ms" : "") + ".", "info");
-      }
       if (ipOk && publicDns && !publicDns.ok) {
         nlog("DNS resolves fine; the google.com ping got no reply, which usually means ICMP is blocked, not a DNS problem.", "info");
       }
@@ -6816,6 +7106,7 @@ ${r.error}`);
   }
 
   async function runNetDiagnostics() {
+    clearNetFixSuggestions();
     netDiag.innerHTML = `<div class="net-running">Running diagnostics... this takes a few seconds.</div>`;
     nlog("Running diagnostics: adapter detection + ping 8.8.8.8 + ping google.com...", "info");
     try {
@@ -6868,6 +7159,7 @@ ${r.error}`);
   }
 
   wireNetBtn("netRunDiagBtn", runNetDiagnostics);
+  wireNetBtn("netAutoFixBtn", runNetAutoFix);
 
   wireNetBtn("netFixDnsBtn", async () => {
     const adapter = await ensureAdapter();

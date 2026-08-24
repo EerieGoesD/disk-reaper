@@ -83,7 +83,7 @@ async function resolveDns(host) {
     "  $r = Resolve-DnsName -Name '" + host + "' -Type A -ErrorAction Stop;" +
     "  $sw.Stop();" +
     "  $ips = @($r | Where-Object { $_.IPAddress } | ForEach-Object { $_.IPAddress });" +
-    "  $srv = ($r | Where-Object { $_.Server } | Select-Object -First 1 -ExpandProperty Server);" +
+    "  $srv = [string](($r | Where-Object { $_.Server } | Select-Object -First 1 -ExpandProperty Server));" +
     "  [PSCustomObject]@{ ok = ($ips.Count -gt 0); ips = $ips; server = $srv; ms = [int]$sw.ElapsedMilliseconds } | ConvertTo-Json -Compress" +
     "} catch {" +
     "  $sw.Stop();" +
@@ -94,22 +94,153 @@ async function resolveDns(host) {
     const d = JSON.parse((r.stdout || "").trim() || "{}");
     let ips = d.ips || [];
     if (!Array.isArray(ips)) ips = [ips];
-    return { ok: !!d.ok, ips, server: d.server || "", ms: d.ms ?? null, error: d.error || "", host };
+    const server = (d.server && typeof d.server === "object")
+      ? (d.server.Address || d.server.IPAddressToString || "")
+      : (d.server || "");
+    return { ok: !!d.ok, ips, server: String(server), ms: d.ms ?? null, error: d.error || "", host };
   } catch {
     return { ok: false, ips: [], server: "", ms: null, error: (r.stderr || "lookup failed").trim(), host };
   }
 }
 
+// Ping alone is not proof: many networks and VPNs block ping while normal
+// traffic works fine. This opens a real connection to check.
+// Also reports anything that commonly sits in the way: a VPN tunnel, a proxy,
+// or a firewall set to block outgoing traffic.
+const NET_EXTRA_PS = [
+  "$ErrorActionPreference='SilentlyContinue';",
+  "function Test-Tcp([string]$h,[int]$p,[int]$ms=4000){",
+  "  $c=New-Object System.Net.Sockets.TcpClient;",
+  "  try{ $ar=$c.BeginConnect($h,$p,$null,$null); $ok=$ar.AsyncWaitHandle.WaitOne($ms,$false);",
+  "       if($ok){ $c.EndConnect($ar); return $true } else { return $false } }",
+  "  catch { return $false } finally { $c.Close() } }",
+  "$tcp = @(",
+  "  [PSCustomObject]@{ target='1.1.1.1:443'; ok=(Test-Tcp '1.1.1.1' 443) },",
+  "  [PSCustomObject]@{ target='8.8.8.8:53';  ok=(Test-Tcp '8.8.8.8' 53) } );",
+  "$vpnAdapters = @(Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and ($_.InterfaceDescription -match 'VPN|TAP-|Tunnel|WireGuard|NordLynx|OpenVPN|Zscaler|AnyConnect|GlobalProtect|Netskope|Proton|Mullvad|WinTun') } | ForEach-Object { $_.Name });",
+  "$vpnServices = @(Get-Service | Where-Object { $_.Status -eq 'Running' -and ($_.Name -match 'nordvpn|openvpn|wireguard|expressvpn|protonvpn|surfshark|mullvad|cisco|anyconnect|zscaler|forticlient|globalprotect|pulse|netskope') } | ForEach-Object { $_.Name });",
+  "$is = Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Internet Settings';",
+  "$fw = @(Get-NetFirewallProfile | Where-Object { $_.Enabled -and $_.DefaultOutboundAction -eq 'Block' } | ForEach-Object { $_.Name });",
+  "[PSCustomObject]@{ tcp=$tcp; vpnAdapters=$vpnAdapters; vpnServices=$vpnServices;",
+  "  proxyEnabled=[bool]($is.ProxyEnable -eq 1); proxyServer=[string]$is.ProxyServer;",
+  "  autoConfigUrl=[string]$is.AutoConfigURL; firewallBlockingOutbound=$fw } | ConvertTo-Json -Compress -Depth 4",
+].join(" ");
+
+async function getExtraChecks() {
+  const r = await ps(NET_EXTRA_PS, 30000);
+  const empty = {
+    tcp: [], tcpOk: false, vpnAdapters: [], vpnServices: [],
+    proxyEnabled: false, proxyServer: "", autoConfigUrl: "", firewallBlockingOutbound: [],
+  };
+  try {
+    const d = JSON.parse((r.stdout || "").trim() || "{}");
+    const arr = (v) => (Array.isArray(v) ? v : (v == null || v === "" ? [] : [v]));
+    const tcp = arr(d.tcp).map(t => ({ target: String(t.target || ""), ok: !!t.ok }));
+    return {
+      tcp,
+      tcpOk: tcp.some(t => t.ok),
+      vpnAdapters: arr(d.vpnAdapters).map(String),
+      vpnServices: arr(d.vpnServices).map(String),
+      proxyEnabled: !!d.proxyEnabled,
+      proxyServer: String(d.proxyServer || ""),
+      autoConfigUrl: String(d.autoConfigUrl || ""),
+      firewallBlockingOutbound: arr(d.firewallBlockingOutbound).map(String),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+// Traceroute: shows exactly where traffic stops - at the router, at the first
+// hop inside the provider's network, or further out.
+async function traceRoute(host, maxHops = 8) {
+  const r = await run("tracert", ["-d", "-h", String(maxHops), "-w", "800", host], 60000);
+  const hops = [];
+  for (const line of (r.stdout || "").split(/\r?\n/)) {
+    const m = /^\s*(\d+)\s+(.*)$/.exec(line);
+    if (!m) continue;
+    const rest = m[2].trim();
+    const ipm = /(\d+\.\d+\.\d+\.\d+)\s*$/.exec(rest);
+    hops.push({
+      hop: +m[1],
+      ip: ipm ? ipm[1] : "",
+      timedOut: !ipm,
+      text: rest.replace(/\s+/g, " "),
+    });
+  }
+  const reached = hops.some(h => h.ip === host);
+  const lastReplying = [...hops].reverse().find(h => h.ip);
+  return {
+    host,
+    hops,
+    reached,
+    maxHops,
+    // Stopped only because it ran out of hops, not because traffic died.
+    hitHopLimit: !reached && hops.length >= maxHops,
+    lastReplyingHop: lastReplying ? lastReplying.hop : 0,
+    lastReplyingIp: lastReplying ? lastReplying.ip : "",
+  };
+}
+
+// Default routes (a stale route on a virtual or VPN adapter sends traffic into
+// a dead end), whether the router itself really answers, and any leftover VPN
+// kill-switch block rules.
+const NET_DEEP_PS = [
+  "$ErrorActionPreference='SilentlyContinue';",
+  "function Test-Tcp([string]$h,[int]$p,[int]$ms=3000){",
+  "  $c=New-Object System.Net.Sockets.TcpClient;",
+  "  try{ $ar=$c.BeginConnect($h,$p,$null,$null); $ok=$ar.AsyncWaitHandle.WaitOne($ms,$false);",
+  "       if($ok){ $c.EndConnect($ar); return $true } else { return $false } }",
+  "  catch { return $false } finally { $c.Close() } }",
+  "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object InterfaceMetric | Select-Object -First 1).NextHop;",
+  "$routes = @(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | ForEach-Object {",
+  "  [PSCustomObject]@{ iface=$_.InterfaceAlias; nextHop=$_.NextHop; metric=[int]$_.RouteMetric; ifMetric=[int]$_.InterfaceMetric } });",
+  "$routerHttp = $false; $routerHttps = $false; $routerDns = $false;",
+  "if ($gw) { $routerHttp = Test-Tcp $gw 80; $routerHttps = Test-Tcp $gw 443;",
+  "  $r = Resolve-DnsName -Name 'google.com' -Server $gw -Type A -QuickTimeout;",
+  "  $routerDns = [bool]($r | Where-Object { $_.IPAddress }) };",
+  "$vpnFilters = @(Get-NetFirewallRule -Enabled True -Action Block |",
+  "  Where-Object { $_.DisplayName -match 'nord|vpn|kill' } | Select-Object -First 6 |",
+  "  ForEach-Object { \"$($_.DisplayName) [$($_.Direction)]\" });",
+  "[PSCustomObject]@{ gateway=$gw; routes=$routes; routerHttp=$routerHttp; routerHttps=$routerHttps;",
+  "  routerDns=$routerDns; vpnBlockRules=$vpnFilters } | ConvertTo-Json -Compress -Depth 4",
+].join(" ");
+
+async function getDeepChecks() {
+  const r = await ps(NET_DEEP_PS, 40000);
+  const empty = { gateway: "", routes: [], routerHttp: false, routerHttps: false, routerDns: false, vpnBlockRules: [] };
+  try {
+    const d = JSON.parse((r.stdout || "").trim() || "{}");
+    const arr = (v) => (Array.isArray(v) ? v : (v == null || v === "" ? [] : [v]));
+    return {
+      gateway: String(d.gateway || ""),
+      routes: arr(d.routes).map(x => ({
+        iface: String(x.iface || ""), nextHop: String(x.nextHop || ""),
+        metric: Number(x.metric) || 0, ifMetric: Number(x.ifMetric) || 0,
+      })),
+      routerHttp: !!d.routerHttp,
+      routerHttps: !!d.routerHttps,
+      routerDns: !!d.routerDns,
+      vpnBlockRules: arr(d.vpnBlockRules).map(String),
+    };
+  } catch { return empty; }
+}
+
 async function runDiagnostics() {
   const adapters = await getNetworkConfig();
   const primary = adapters[0] || null;
-  const [gateway, publicIp, publicDns, dnsResolve] = await Promise.all([
+  const [gateway, publicIp, publicDns, dnsResolve, extra] = await Promise.all([
     primary && primary.IPv4Gateway ? pingHost(primary.IPv4Gateway, 3) : Promise.resolve(null),
     pingHost("8.8.8.8", 4),
     pingHost("google.com", 4),
     resolveDns("google.com"),
+    getExtraChecks(),
   ]);
-  return { adapters, primary, gateway, publicIp, publicDns, dnsResolve };
+  const [trace, deep] = await Promise.all([
+    traceRoute("8.8.8.8", 12),
+    getDeepChecks(),
+  ]);
+  return { adapters, primary, gateway, publicIp, publicDns, dnsResolve, extra, trace, deep };
 }
 
 async function fixDns(adapter, primary = "8.8.8.8", secondary = "1.1.1.1") {
@@ -174,6 +305,37 @@ async function resetIpStack() {
   return { ok: steps.every(s => s.ok), steps };
 }
 
+// Turn a VPN off (or back on) so the app can prove whether the VPN is what is
+// blocking the internet, instead of just blaming it. Needs admin.
+async function setVpnEnabled(enabled, adapters, services) {
+  const q = (v) => "'" + String(v).replace(/'/g, "''") + "'";
+  const adapterList = (adapters || []).filter(Boolean).map(q).join(",");
+  const serviceList = (services || []).filter(Boolean).map(q).join(",");
+  if (!adapterList && !serviceList) return { ok: false, error: "Nothing to change." };
+
+  const lines = ["$ErrorActionPreference='SilentlyContinue';"];
+  if (enabled) {
+    if (serviceList) lines.push(`foreach ($s in @(${serviceList})) { Start-Service -Name $s };`);
+    if (adapterList) lines.push(`foreach ($a in @(${adapterList})) { Enable-NetAdapter -Name $a -Confirm:$false };`);
+  } else {
+    if (adapterList) lines.push(`foreach ($a in @(${adapterList})) { Disable-NetAdapter -Name $a -Confirm:$false };`);
+    if (serviceList) lines.push(`foreach ($s in @(${serviceList})) { Stop-Service -Name $s -Force };`);
+  }
+  lines.push("'OK'");
+
+  const results = await runElevatedBatch([{
+    id: enabled ? "vpn-on" : "vpn-off",
+    cmd: "powershell",
+    args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", lines.join(" ")],
+  }]);
+  const r = results[0];
+  if (!r || !r.ok) {
+    return { ok: false, error: (r && r.error) || `exit ${r && r.exitCode}` };
+  }
+  return { ok: true, steps: [{ cmd: enabled ? "Turn VPN back on" : "Turn VPN off", ok: true, out: (r.stdout || "").trim(), err: "" }] };
+}
+
+ipcMain.handle("net-set-vpn-enabled", (_, { enabled, adapters, services }) => setVpnEnabled(enabled, adapters, services));
 ipcMain.handle("net-diagnostics",    () => runDiagnostics());
 ipcMain.handle("net-get-adapters",   () => getNetworkConfig());
 ipcMain.handle("net-fix-dns",        (_, { adapter, primary, secondary }) => fixDns(adapter, primary, secondary));

@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld("api", {
   setServiceStartType: (name, startType) => ipcRenderer.invoke("set-service-start-type", { name, startType }),
   // Networking
   netDiagnostics:   ()         => ipcRenderer.invoke("net-diagnostics"),
+  netSetVpnEnabled: (enabled, adapters, services) => ipcRenderer.invoke("net-set-vpn-enabled", { enabled, adapters, services }),
   netGetAdapters:   ()         => ipcRenderer.invoke("net-get-adapters"),
   netFixDns:        (opts)     => ipcRenderer.invoke("net-fix-dns", opts),
   netResetDns:      (opts)     => ipcRenderer.invoke("net-reset-dns", opts),
