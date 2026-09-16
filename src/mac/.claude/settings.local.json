@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node -e \"require\\(''''./main.js''''\\)\")",
+      "Bash(node --check main.js)",
+      "Bash(node --check preload.js)",
+      "Bash(node --check scanner-worker.js)",
+      "Bash(./node_modules/.bin/electron --version)",
+      "Bash(node -e \"const e = require\\(''./node_modules/electron/index.js''\\); console.log\\(typeof e, Object.keys\\(e||{}\\).slice\\(0,5\\)\\)\")",
+      "Bash(node -e \"const e = require\\(''''./node_modules/electron''''\\); console.log\\(JSON.stringify\\(e\\)\\)\")",
+      "Bash(sysctl -n machdep.cpu.brand_string)"
+    ]
+  }
+}

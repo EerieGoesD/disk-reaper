@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Disk Reaper</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:       #0a0a0c;
+    --surface:  #111114;
+    --surface2: #18181c;
+    --border:   #222228;
+    --text:     #d4d4d8;
+    --text-dim: #63636e;
+    --accent:   #6366f1;
+    --accent-h: #818cf8;
+    --danger:   #ef4444;
+    --danger-h: #f87171;
+    --success:  #22c55e;
+    --warning:  #eab308;
+    --orange:   #f97316;
+    --radius:   10px;
+    --font:     'DM Sans', system-ui, sans-serif;
+    --mono:     'JetBrains Mono', monospace;
+  }
+
+  html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); overflow: hidden; user-select: none; }
+
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* macOS titlebar drag region — traffic lights sit here */
+  .titlebar { -webkit-app-region: drag; height: 38px; flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+
+  .main-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 188px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 6px 0 12px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 12px; margin: 1px 8px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text-dim); cursor: pointer; transition: background 0.12s, color 0.12s; -webkit-app-region: no-drag; }
+  .nav-item:hover  { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(99,102,241,0.14); color: var(--accent-h); }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .app-title { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .app-title span { font-size: 14px; font-weight: 700; color: var(--accent-h); letter-spacing: -0.3px; }
+  .app-title-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent-h); filter: drop-shadow(0 0 6px rgba(99,102,241,0.5)); }
+
+  /* ── Panels ── */
+  .panels { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .panel  { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .panel.active { display: flex; }
+
+  /* ── Controls ── */
+  .controls { display: flex; align-items: center; gap: 10px; padding: 14px 20px 10px; flex-wrap: wrap; flex-shrink: 0; }
+  .controls label { font-size: 13px; color: var(--text-dim); font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase; }
+  .controls input[type="number"] { width: 64px; padding: 7px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 13px; text-align: center; outline: none; transition: border-color 0.2s; -moz-appearance: textfield; }
+  .controls input[type="number"]::-webkit-inner-spin-button,
+  .controls input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .controls input[type="number"]:focus { border-color: var(--accent); }
+  .controls select { padding: 7px 28px 7px 12px; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2363636e'/%3E%3C/svg%3E") no-repeat right 10px center; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; appearance: none; outline: none; cursor: pointer; transition: border-color 0.2s; }
+  .controls select:focus { border-color: var(--accent); }
+
+  /* ── Buttons ── */
+  .btn { padding: 7px 16px; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; -webkit-app-region: no-drag; }
+  .btn:active { transform: scale(0.97); }
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-accent:hover { background: var(--accent-h); }
+  .btn-accent:disabled { background: #2a2a40; color: #555; cursor: default; transform: none; }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-ghost:disabled { opacity: 0.35; cursor: default; transform: none; }
+  .btn-ghost:disabled:hover { background: transparent; color: var(--text-dim); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: var(--danger-h); }
+  .btn-danger:disabled { background: #2e1212; color: #444; cursor: default; transform: none; }
+  .btn-success { background: var(--success); color: #0a0a0c; font-weight: 600; }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn-success:disabled { background: #0e2a12; color: #3a5a3a; cursor: default; transform: none; }
+  .btn-export { background: var(--warning); color: #0a0a0c; font-weight: 700; }
+  .btn-export:hover { background: #f0c020; }
+
+  /* ── Export dropdown ── */
+  .export-wrap { position: relative; }
+  .export-menu { position: absolute; bottom: calc(100% + 4px); right: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-width: 152px; z-index: 100; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+  .export-menu.open { display: block; }
+  .export-menu button { display: block; width: 100%; padding: 9px 14px; background: none; border: none; text-align: left; color: var(--text); font-family: var(--font); font-size: 13px; cursor: pointer; transition: background 0.1s; }
+  .export-menu button:hover { background: var(--surface); }
+  .export-menu button + button { border-top: 1px solid var(--border); }
+
+  .spacer { flex: 1; }
+  .status-text { font-size: 12px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; }
+
+  /* ── Progress ── */
+  .progress-track { height: 2px; background: var(--surface); margin: 0 20px 10px; border-radius: 1px; overflow: hidden; flex-shrink: 0; }
+  .progress-bar { height: 100%; width: 30%; background: var(--accent); border-radius: 1px; transform: translateX(-100%); }
+  .progress-bar.active { animation: shimmer 1.4s ease-in-out infinite; }
+  .progress-bar.warn   { background: var(--warning); }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(430%); } }
+
+  /* ── Search ── */
+  .search-input { padding: 7px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; outline: none; transition: border-color 0.2s; width: 210px; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text-dim); }
+
+  /* ── Table layout ── */
+  .table-wrap { flex: 1; margin: 0 20px; border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .table-scroll { flex: 1; overflow: auto; display: flex; flex-direction: column; min-height: 0; }
+  .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  .table-scroll::-webkit-scrollbar-track { background: var(--surface2); }
+  .table-scroll::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .table-scroll::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  .table-scroll::-webkit-scrollbar-corner { background: var(--surface2); }
+  .table-inner { display: flex; flex-direction: column; flex: 1; min-height: 0; width: max-content; min-width: 100%; }
+  .table-header { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; position: sticky; top: 0; z-index: 2; }
+  .table-header span { padding: 9px 14px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); white-space: nowrap; position: relative; user-select: none; flex-shrink: 0; }
+  .table-header span.sortable { cursor: pointer; transition: color 0.12s; }
+  .table-header span.sortable:hover { color: var(--text); }
+  .sort-ind { font-size: 9px; margin-left: 2px; }
+  .table-body { flex: 1; overflow: visible; min-height: 0; }
+
+  /* ── Resize handle ── */
+  .col-resize-handle { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 10; }
+  .col-resize-handle:hover, .col-resize-handle.resizing { background: var(--accent); opacity: 0.5; }
+
+  /* ── Column widths ── */
+  .col-index      { width: 56px;  text-align: center; flex-shrink: 0; }
+  .col-size       { width: 110px; flex-shrink: 0; }
+  .col-path       { width: 480px; flex-shrink: 0; }
+  .col-mem        { width: 110px; flex-shrink: 0; }
+  .col-pid        { width: 72px;  flex-shrink: 0; }
+  .col-proc-name  { width: 280px; flex-shrink: 0; }
+  .col-proc-desc  { width: 320px; flex-shrink: 0; }
+  .col-dot        { width: 36px;  flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .col-svc-status { width: 100px; flex-shrink: 0; }
+  .col-svc-name   { width: 280px; flex-shrink: 0; }
+  .col-svc-dname  { width: 260px; flex-shrink: 0; }
+  .col-svc-type   { width: 100px; flex-shrink: 0; }
+  .col-app-name   { width: 260px; flex-shrink: 0; }
+  .col-app-size   { width: 110px; flex-shrink: 0; }
+  .col-version    { width: 100px; flex-shrink: 0; }
+  .col-publisher  { width: 200px; flex-shrink: 0; }
+
+  /* ── Rows ── */
+  .row { display: flex; align-items: center; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; animation: fadeIn 0.18s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .row:last-child { border-bottom: none; }
+  .row:hover    { background: var(--surface2); }
+  .row.selected { background: rgba(99,102,241,0.12); }
+  .row span { padding: 8px 14px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; flex-shrink: 0; }
+
+  .row .col-index    { color: var(--text-dim); font-family: var(--mono); font-size: 11px; text-align: center; }
+  .row .col-size     { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-path     { direction: rtl; text-align: left; }
+  .row .col-mem      { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-pid      { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
+  .row .col-proc-desc{ color: var(--text-dim); font-size: 12px; }
+  .row .col-svc-status{ font-size: 12px; font-weight: 500; }
+  .row .col-svc-type { font-size: 11.5px; color: var(--text-dim); }
+  .row .col-version  { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
+  .row .col-publisher{ color: var(--text-dim); font-size: 12px; }
+  .row .col-app-size { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+
+  /* ── Status dot ── */
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .dot-running { background: var(--success); box-shadow: 0 0 5px var(--success); }
+  .dot-stopped { background: var(--danger); }
+  .dot-unknown { background: #52525b; }
+
+  /* ── Empty state ── */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 8px; color: var(--text-dim); }
+  .empty-state .icon { font-size: 28px; opacity: 0.22; margin-bottom: 4px; }
+  .empty-state p { font-size: 13px; }
+
+  /* ── Panel actions ── */
+  .panel-actions { display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-shrink: 0; }
+  .panel-footer-info { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+
+  /* ── Footer ── */
+  .global-footer { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 5px 20px 8px; flex-shrink: 0; border-top: 1px solid var(--border); }
+  .footer-links { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .footer-links span { color: var(--text-dim); }
+  .footer-links a { color: var(--text-dim); text-decoration: none; transition: color 0.15s; cursor: pointer; }
+  .footer-links a:hover { color: var(--accent-h); }
+  .footer-links .sep { opacity: 0.3; }
+
+  /* ── Cleaner ── */
+  .cleaner-body { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0 20px 16px; }
+  .cleaner-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 2px 10px; }
+  .cleaner-scroll::-webkit-scrollbar { width: 6px; }
+  .cleaner-scroll::-webkit-scrollbar-track { background: transparent; }
+  .cleaner-scroll::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .cleaner-item { display: flex; align-items: flex-start; gap: 12px; padding: 11px 15px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .cleaner-item:hover { background: var(--surface2); }
+  .cleaner-item.selected { border-color: rgba(99,102,241,0.45); background: rgba(99,102,241,0.07); }
+  .cleaner-item input[type="checkbox"] { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .cleaner-item-info { flex: 1; min-width: 0; }
+  .cleaner-item-header { display: flex; align-items: center; gap: 8px; }
+  .cleaner-item-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .cleaner-item-desc { font-size: 12px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
+  .cleaner-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: rgba(234,179,8,0.12); color: var(--warning); letter-spacing: 0.04em; }
+  .cleaner-state { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .cleaner-state.running { border: 2px solid var(--warning); border-bottom-color: transparent; border-radius: 50%; animation: spin 0.75s linear infinite; }
+  .cleaner-state.done    { color: var(--success); }
+  .cleaner-state.error   { color: var(--danger); }
+  .cleaner-log-section { flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+  .cleaner-log-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 6px; }
+  .cleaner-log { height: 140px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; padding: 8px 12px; font-family: var(--mono); font-size: 11.5px; display: flex; flex-direction: column; gap: 1px; }
+  .cleaner-log::-webkit-scrollbar { width: 4px; }
+  .cleaner-log::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 2px; }
+  .cleaner-log-entry { display: flex; gap: 10px; line-height: 1.65; }
+  .cleaner-log-ts  { color: var(--text-dim); flex-shrink: 0; }
+  .cleaner-log-msg { flex: 1; white-space: pre-wrap; word-break: break-word; }
+  .cleaner-log-msg.ok  { color: var(--success); }
+  .cleaner-log-msg.err { color: var(--danger); }
+  .cleaner-log-placeholder { color: var(--text-dim); font-size: 12px; text-align: center; margin: auto; }
+
+  /* ── Context menu ── */
+  .ctx-menu { position: fixed; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 4px; min-width: 180px; z-index: 500; box-shadow: 0 8px 30px rgba(0,0,0,0.5); display: none; }
+  .ctx-menu.open { display: block; animation: dialogFadeIn 0.1s ease; }
+  .ctx-menu-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 5px; font-size: 13px; color: var(--text); cursor: pointer; transition: background 0.1s; white-space: nowrap; }
+  .ctx-menu-item:hover { background: rgba(99,102,241,0.15); color: var(--accent-h); }
+  .ctx-menu-item svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; opacity: 0.7; }
+  .ctx-menu-sep { height: 1px; background: var(--border); margin: 3px 0; }
+  .ctx-menu-item.ctx-danger { color: var(--danger); }
+  .ctx-menu-item.ctx-danger:hover { background: rgba(239,68,68,0.15); color: var(--danger-h); }
+
+  /* ── Custom confirm dialog ── */
+  .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: dialogFadeIn 0.12s ease; }
+  .dialog-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px 20px; min-width: 320px; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .dialog-message { font-size: 13.5px; color: var(--text); line-height: 1.6; white-space: pre-wrap; text-align: center; }
+  .dialog-actions { display: flex; justify-content: center; gap: 8px; }
+  @keyframes dialogFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- macOS traffic lights live in this drag region -->
+  <div class="titlebar"></div>
+
+  <div class="main-layout">
+
+    <nav class="sidebar">
+      <div class="app-title">
+        <div class="app-title-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="12" rx="10" ry="3.5"/>
+            <ellipse cx="12" cy="12" rx="10" ry="3.5" transform="rotate(60 12 12)"/>
+            <ellipse cx="12" cy="12" rx="10" ry="3.5" transform="rotate(120 12 12)"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <span>Disk Reaper</span>
+      </div>
+
+      <div class="nav-item active" data-panel="files">
+        <svg viewBox="0 0 16 16"><path d="M3 13V4.5L6.5 2H12a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M6.5 2v2.5H3"/></svg>
+        Large Files
+      </div>
+      <div class="nav-item" data-panel="apps">
+        <svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+        Installed Apps
+      </div>
+      <div class="nav-item" data-panel="processes">
+        <svg viewBox="0 0 16 16"><polyline points="1,9 3.5,4 6,10 8.5,6 11,9.5 13,7 15,9"/></svg>
+        Processes
+      </div>
+      <div class="nav-item" data-panel="services">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>
+        Services
+      </div>
+      <div class="nav-item" data-panel="cleaner">
+        <svg viewBox="0 0 16 16"><path d="M8 1l1.5 3.2L13 5l-2.5 2.4.6 3.6L8 9.3 4.9 11l.6-3.6L3 5l3.5-.8z"/></svg>
+        Cleaner
+      </div>
+    </nav>
+
+    <div class="panels">
+
+      <!-- ══ Large Files ══════════════════════════════════════════ -->
+      <div id="panel-files" class="panel active">
+        <div class="controls">
+          <label for="count">Show top</label>
+          <input type="number" id="count" value="50" min="1" max="500" />
+          <select id="mode">
+            <option value="files">Largest files</option>
+            <option value="folders">Largest folders</option>
+          </select>
+          <button class="btn btn-accent" id="scanBtn">Scan All Drives</button>
+          <button class="btn btn-ghost"  id="pauseBtn" disabled>Pause</button>
+          <button class="btn btn-ghost"  id="stopBtn"  disabled>Stop</button>
+          <div class="spacer"></div>
+          <span class="status-text" id="filesStatus">Ready</span>
+        </div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-index">#</span>
+                <span class="col-size sortable" data-sort="size">Size<span class="sort-ind"> ▼</span></span>
+                <span class="col-path sortable" data-sort="path">Path<span class="sort-ind"></span></span>
+              </div>
+              <div class="table-body" id="filesBody">
+                <div class="empty-state" id="filesEmpty">
+                  <div class="icon">⌕</div>
+                  <p>Hit <strong>Scan All Drives</strong> to find the largest files</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-danger" id="deleteBtn">Move to Trash</button>
+          <button class="btn btn-ghost"  id="finderBtn">Reveal in Finder</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="filesFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="filesExportBtn">Export ↑</button>
+            <div class="export-menu" id="filesExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ Installed Apps ═══════════════════════════════════════ -->
+      <div id="panel-apps" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="appsRefreshBtn">Scan Apps</button>
+          <input class="search-input" type="text" id="appsSearch" placeholder="Search apps…" />
+          <select id="appsSizeMode">
+            <option value="total">App + Data (total)</option>
+            <option value="app">App size only</option>
+            <option value="data">Data size only</option>
+          </select>
+          <div class="spacer"></div>
+          <span class="status-text" id="appsStatus">Ready</span>
+        </div>
+        <div class="progress-track" id="appsCalcTrack" style="display:none;">
+          <div class="progress-bar warn active" id="appsCalcBar"></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-index">#</span>
+                <span class="col-app-name  sortable" data-sort="name">Application<span class="sort-ind"></span></span>
+                <span class="col-app-size  sortable" data-sort="size">Size<span class="sort-ind"> ▼</span></span>
+                <span class="col-version   sortable" data-sort="version">Version<span class="sort-ind"></span></span>
+                <span class="col-publisher sortable" data-sort="publisher">Publisher<span class="sort-ind"></span></span>
+              </div>
+              <div class="table-body" id="appsBody">
+                <div class="empty-state" id="appsEmpty">
+                  <div class="icon">⊞</div>
+                  <p>Hit <strong>Scan Apps</strong> to list installed applications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-danger" id="appsUninstallBtn" disabled>Move to Trash</button>
+          <button class="btn btn-ghost"  id="appsFolderBtn">Open Applications Folder</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="appsFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="appsExportBtn">Export ↑</button>
+            <div class="export-menu" id="appsExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ Processes ════════════════════════════════════════════ -->
+      <div id="panel-processes" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="procRefreshBtn">Refresh</button>
+          <input class="search-input" type="text" id="procSearch" placeholder="Search processes…" />
+          <select id="procGroupMode">
+            <option value="individual">Each process individually</option>
+            <option value="grouped">Group by application</option>
+          </select>
+          <div class="spacer"></div>
+          <span class="status-text" id="procStatus">Ready</span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-index">#</span>
+                <span class="col-pid       sortable" data-sort="pid"  id="procPidHeader">PID<span class="sort-ind"></span></span>
+                <span class="col-mem       sortable" data-sort="mem">Memory<span class="sort-ind"> ▼</span></span>
+                <span class="col-proc-name sortable" data-sort="name">Process<span class="sort-ind"></span></span>
+                <span class="col-proc-desc">Description</span>
+              </div>
+              <div class="table-body" id="procBody">
+                <div class="empty-state" id="procEmpty">
+                  <div class="icon">⚡</div>
+                  <p>Hit <strong>Refresh</strong> to list running processes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-danger" id="killBtn"     disabled>Kill Process</button>
+          <button class="btn btn-ghost"  id="killTreeBtn" disabled>Kill Tree</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="procFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="procExportBtn">Export ↑</button>
+            <div class="export-menu" id="procExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ Services (launchd) ════════════════════════════════════ -->
+      <div id="panel-services" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="svcRefreshBtn">Refresh</button>
+          <input class="search-input" type="text" id="svcSearch" placeholder="Search services…" />
+          <div class="spacer"></div>
+          <span class="status-text" id="svcStatus">Ready</span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <div class="table-inner">
+              <div class="table-header">
+                <span class="col-dot"></span>
+                <span class="col-svc-status sortable" data-sort="status">Status<span class="sort-ind"></span></span>
+                <span class="col-svc-name   sortable" data-sort="name">Label<span class="sort-ind"> ▲</span></span>
+                <span class="col-svc-dname  sortable" data-sort="displayName">Description<span class="sort-ind"></span></span>
+                <span class="col-svc-type   sortable" data-sort="type">Type<span class="sort-ind"></span></span>
+              </div>
+              <div class="table-body" id="svcBody">
+                <div class="empty-state" id="svcEmpty">
+                  <div class="icon">⚙</div>
+                  <p>Hit <strong>Refresh</strong> to list macOS launchd services</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-success" id="startSvcBtn" disabled>Start Service</button>
+          <button class="btn btn-danger"  id="stopSvcBtn"  disabled>Stop Service</button>
+          <div class="spacer"></div>
+          <span class="panel-footer-info" id="svcFooter"></span>
+          <div class="export-wrap">
+            <button class="btn btn-export" id="svcExportBtn">Export ↑</button>
+            <div class="export-menu" id="svcExportMenu">
+              <button data-format="csv">Export as CSV</button>
+              <button data-format="txt">Export as TXT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ Cleaner ══════════════════════════════════════════════ -->
+      <div id="panel-cleaner" class="panel">
+        <div class="controls">
+          <button class="btn btn-accent" id="cleanerRunBtn">Run Selected</button>
+          <button class="btn btn-ghost"  id="cleanerSelectAllBtn">Select All</button>
+          <button class="btn btn-ghost"  id="cleanerDeselectBtn">Deselect All</button>
+          <div class="spacer"></div>
+          <span class="status-text" id="cleanerStatus">Select tasks and click Run</span>
+        </div>
+        <div class="cleaner-body">
+          <div class="cleaner-scroll" id="cleanerTaskList"></div>
+          <div class="cleaner-log-section">
+            <div class="cleaner-log-label">Output</div>
+            <div class="cleaner-log" id="cleanerLog">
+              <span class="cleaner-log-placeholder">Output will appear here when tasks run.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- .panels -->
+  </div><!-- .main-layout -->
+
+  <div class="global-footer">
+    <div class="footer-links">
+      <span>Made by</span>
+      <a id="linkEerie" href="#">EERIE</a>
+      <span class="sep">·</span>
+      <a id="linkCoffee" href="#">Buy Me a Coffee</a>
+    </div>
+  </div>
+</div><!-- #app -->
+
+<!-- Right-click context menu (shared) -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-menu-item" id="ctxCopyPath">
+    <svg viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M2 11V3a1 1 0 011-1h8"/></svg>
+    Copy Full Path
+  </div>
+  <div class="ctx-menu-sep"></div>
+  <div class="ctx-menu-item" id="ctxRevealFinder">
+    <svg viewBox="0 0 16 16"><path d="M2 12V5a1 1 0 011-1h4l2 2h4a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1z"/></svg>
+    Reveal in Finder
+  </div>
+  <div class="ctx-menu-item" id="ctxMoveTrash">
+    <svg viewBox="0 0 16 16"><polyline points="2,4 14,4"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><rect x="4" y="4" width="8" height="10" rx="1"/><line x1="6" y1="7" x2="6" y2="11"/><line x1="10" y1="7" x2="10" y2="11"/></svg>
+    Move to Trash
+  </div>
+</div>
+
+<!-- Right-click context menu (cleaner log) -->
+<div class="ctx-menu" id="cleanerLogCtxMenu">
+  <div class="ctx-menu-item" id="cleanerLogCtxCopy">
+    <svg viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M2 11V3a1 1 0 011-1h8"/></svg>
+    Copy Output
+  </div>
+  <div class="ctx-menu-item" id="cleanerLogCtxClear">
+    <svg viewBox="0 0 16 16"><polyline points="2,4 14,4"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><rect x="4" y="4" width="8" height="10" rx="1"/></svg>
+    Clear Output
+  </div>
+</div>
+
+<!-- Right-click context menu (processes) -->
+<div class="ctx-menu" id="procCtxMenu">
+  <div class="ctx-menu-item" id="procCtxCopyName">
+    <svg viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M2 11V3a1 1 0 011-1h8"/></svg>
+    Copy Name
+  </div>
+  <div class="ctx-menu-item" id="procCtxCopyPid">
+    <svg viewBox="0 0 16 16"><path d="M4 4h8M4 8h8M4 12h4"/></svg>
+    Copy PID
+  </div>
+  <div class="ctx-menu-item" id="procCtxCopyCmd">
+    <svg viewBox="0 0 16 16"><polyline points="4,6 2,8 4,10"/><polyline points="12,6 14,8 12,10"/><line x1="8" y1="4" x2="6" y2="12"/></svg>
+    Copy Command
+  </div>
+  <div class="ctx-menu-sep"></div>
+  <div class="ctx-menu-item ctx-danger" id="procCtxKill">
+    <svg viewBox="0 0 16 16"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>
+    Kill Process
+  </div>
+  <div class="ctx-menu-item ctx-danger" id="procCtxKillTree">
+    <svg viewBox="0 0 16 16"><path d="M8 2v4M4 10h8M4 14h8M6 10V8M10 10V8M8 6v2"/><line x1="3" y1="3" x2="13" y2="13"/></svg>
+    Kill Tree
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+
+  // ── Custom confirm dialog ─────────────────────────────────────
+  function customConfirm(message) {
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'dialog-overlay';
+      overlay.innerHTML = `
+        <div class="dialog-box">
+          <div class="dialog-message">${esc(message)}</div>
+          <div class="dialog-actions">
+            <button class="btn btn-ghost"  id="dlgCancel">Cancel</button>
+            <button class="btn btn-danger" id="dlgOk">Confirm</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const done = val => { overlay.remove(); resolve(val); };
+      overlay.querySelector('#dlgOk').addEventListener('click', () => done(true));
+      overlay.querySelector('#dlgCancel').addEventListener('click', () => done(false));
+      overlay.addEventListener('click', e => { if (e.target === overlay) done(false); });
+      overlay.querySelector('#dlgOk').focus();
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+  function fmtSize(bytes) {
+    if (!bytes) return '—';
+    const u = ['B','KB','MB','GB','TB','PB'];
+    let i = 0, v = bytes;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return i === 0 ? `${v} B` : `${v.toFixed(1)} ${u[i]}`;
+  }
+  function fmtNum(n) { return n.toLocaleString('en-US'); }
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Column resizing ───────────────────────────────────────────
+  const colWidths = {};
+
+  function setW(el, w) {
+    el.style.width = el.style.minWidth = el.style.maxWidth = w + 'px';
+    el.style.flex = 'none';
+  }
+  function clearW(el) {
+    el.style.width = el.style.minWidth = el.style.maxWidth = el.style.flex = '';
+  }
+
+  function applyColWidths(panelId) {
+    const widths = colWidths[panelId]; if (!widths) return;
+    const panel  = document.getElementById(panelId); if (!panel) return;
+    const header = panel.querySelector('.table-header'); if (!header) return;
+    Object.entries(widths).forEach(([idxStr, w]) => {
+      const idx = parseInt(idxStr);
+      const th = header.children[idx];
+      if (th) setW(th, w);
+      panel.querySelectorAll('.table-body .row').forEach(row => {
+        const cell = row.children[idx]; if (cell) setW(cell, w);
+      });
+    });
+  }
+
+  function fitColumnsToContent(panelId) {
+    const panel  = document.getElementById(panelId); if (!panel) return;
+    // Skip if panel is not visible — scrollWidth/offsetWidth will be 0 and produce bad measurements
+    if (getComputedStyle(panel).display === 'none') return;
+    const header = panel.querySelector('.table-header'); if (!header) return;
+    const count  = header.children.length;
+    if (!colWidths[panelId]) colWidths[panelId] = {};
+
+    for (let i = 0; i < count; i++) {
+      const th = header.children[i]; if (!th) continue; clearW(th);
+      panel.querySelectorAll('.table-body .row').forEach(row => { const c = row.children[i]; if (c) clearW(c); });
+    }
+    for (let i = 0; i < count; i++) {
+      const th = header.children[i]; if (!th) continue;
+      // cssFloor: the natural width the element has from its CSS class after clearW.
+      // scrollWidth can measure near-zero in some Electron layouts; offsetWidth is
+      // more reliable as a minimum because it reflects the actual rendered box size.
+      const cssFloor = th.offsetWidth || 0;
+      let maxW = Math.max(th.scrollWidth + 10, cssFloor);
+      panel.querySelectorAll('.table-body .row').forEach(row => {
+        const c = row.children[i]; if (c) maxW = Math.max(maxW, c.scrollWidth + 10, c.offsetWidth);
+      });
+      colWidths[panelId][i] = Math.max(maxW, 40);
+    }
+    applyColWidths(panelId);
+  }
+
+  function initResizable(panelId) {
+    const panel  = document.getElementById(panelId); if (!panel) return;
+    const header = panel.querySelector('.table-header'); if (!header) return;
+    [...header.children].forEach((th, colIdx) => {
+      th.querySelectorAll('.col-resize-handle').forEach(h => h.remove());
+      if (th.classList.contains('col-dot')) return;
+      const handle = document.createElement('div');
+      handle.className = 'col-resize-handle';
+      th.appendChild(handle);
+      handle.addEventListener('dblclick', e => {
+        e.preventDefault(); e.stopPropagation();
+        clearW(th);
+        panel.querySelectorAll('.table-body .row').forEach(row => { const c = row.children[colIdx]; if (c) clearW(c); });
+        let maxW = th.scrollWidth + 10;
+        panel.querySelectorAll('.table-body .row').forEach(row => { const c = row.children[colIdx]; if (c) maxW = Math.max(maxW, c.scrollWidth + 10); });
+        if (!colWidths[panelId]) colWidths[panelId] = {};
+        colWidths[panelId][colIdx] = Math.max(maxW, 40);
+        applyColWidths(panelId);
+      });
+      handle.addEventListener('mousedown', e => {
+        e.preventDefault(); e.stopPropagation();
+        handle.classList.add('resizing');
+        const startX = e.clientX, startW = th.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        const onMove = ev => {
+          const newW = Math.max(40, startW + ev.clientX - startX);
+          if (!colWidths[panelId]) colWidths[panelId] = {};
+          colWidths[panelId][colIdx] = newW;
+          applyColWidths(panelId);
+        };
+        const onUp = () => {
+          handle.classList.remove('resizing');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          th.addEventListener('click', e2 => e2.stopPropagation(), { capture: true, once: true });
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  }
+
+  ['panel-files','panel-apps','panel-processes','panel-services'].forEach(initResizable);
+
+  // ── Navigation ────────────────────────────────────────────────
+  document.querySelectorAll('.nav-item[data-panel]').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      item.classList.add('active');
+      document.getElementById('panel-' + item.dataset.panel).classList.add('active');
+    });
+  });
+
+  $('#linkEerie').addEventListener('click',  e => { e.preventDefault(); window.api.openExternal('https://eeriegoesd.com'); });
+  $('#linkCoffee').addEventListener('click', e => { e.preventDefault(); window.api.openExternal('https://buymeacoffee.com/eeriegoesd'); });
+
+  // ── Export ────────────────────────────────────────────────────
+  let activeMenu = null;
+  document.addEventListener('click', e => {
+    if (activeMenu && !e.target.closest('.export-wrap')) { activeMenu.classList.remove('open'); activeMenu = null; }
+  });
+  function toggleExport(btn) {
+    const menu = btn.parentElement.querySelector('.export-menu');
+    if (activeMenu && activeMenu !== menu) activeMenu.classList.remove('open');
+    menu.classList.toggle('open');
+    activeMenu = menu.classList.contains('open') ? menu : null;
+  }
+  async function runExport(format, getDataFn) {
+    const { filename, headers, rows } = getDataFn();
+    if (!rows.length) return;
+    const r = await window.api.exportData({ format, filename: filename + '.' + format, headers, rows });
+    if (!r.ok && r.error && r.error !== 'Cancelled') alert('Export failed:\n' + r.error);
+  }
+  function wireExport(btnId, menuId, getDataFn) {
+    const btn  = $('#' + btnId);
+    const menu = $('#' + menuId);
+    btn.addEventListener('click', () => toggleExport(btn));
+    menu.querySelectorAll('button[data-format]').forEach(b => {
+      b.addEventListener('click', () => {
+        menu.classList.remove('open'); activeMenu = null;
+        runExport(b.dataset.format, getDataFn);
+      });
+    });
+  }
+
+  // ── Context menu ─────────────────────────────────────────────
+  const ctxMenu        = $('#ctxMenu');
+  const ctxCopyPath    = $('#ctxCopyPath');
+  const ctxRevealFinder = $('#ctxRevealFinder');
+  const ctxMoveTrash   = $('#ctxMoveTrash');
+  let ctxTargetPath    = null;
+
+  function showCtxMenu(x, y, path) {
+    ctxTargetPath = path;
+    // Position — keep inside viewport
+    ctxMenu.classList.add('open');
+    const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+    const vw = window.innerWidth,   vh = window.innerHeight;
+    ctxMenu.style.left = (x + mw > vw ? vw - mw - 6 : x) + 'px';
+    ctxMenu.style.top  = (y + mh > vh ? y - mh       : y) + 'px';
+  }
+
+  function hideCtxMenu() {
+    ctxMenu.classList.remove('open');
+    ctxTargetPath = null;
+  }
+
+  document.addEventListener('click',       () => { hideCtxMenu(); hideProcCtxMenu(); hideCleanerLogCtxMenu(); });
+  document.addEventListener('contextmenu', e  => {
+    if (!e.target.closest('.ctx-menu'))          hideCtxMenu();
+    if (!e.target.closest('#procCtxMenu'))       hideProcCtxMenu();
+    if (!e.target.closest('#cleanerLogCtxMenu')) hideCleanerLogCtxMenu();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { hideCtxMenu(); hideProcCtxMenu(); hideCleanerLogCtxMenu(); }
+  });
+
+  ctxCopyPath.addEventListener('click', () => {
+    if (ctxTargetPath) { window.api.copyToClipboard(ctxTargetPath); hideCtxMenu(); }
+  });
+  ctxRevealFinder.addEventListener('click', () => {
+    if (ctxTargetPath) { window.api.showInFinder(ctxTargetPath); hideCtxMenu(); }
+  });
+  ctxMoveTrash.addEventListener('click', async () => {
+    if (!ctxTargetPath) return;
+    const p = ctxTargetPath; hideCtxMenu();
+    if (!await customConfirm(`Move to Trash?\n\n${p}`)) return;
+    const results = await window.api.deleteFiles([p]);
+    if (results[0].ok) {
+      const idx = fileItems.findIndex(it => it.path === p);
+      if (idx !== -1) fileItems.splice(idx, 1);
+      fileSelected.clear();
+      renderFiles();
+      filesStatus.textContent = 'Moved 1 item to Trash';
+    } else {
+      alert(`Could not trash:\n${results[0].error}`);
+    }
+  });
+
+  // ── Process context menu ─────────────────────────────────────
+  const procCtxMenu     = $('#procCtxMenu');
+  let procCtxTarget     = null;
+
+  function showProcCtxMenu(x, y, proc) {
+    procCtxTarget = proc;
+    procCtxMenu.classList.add('open');
+    const mw = procCtxMenu.offsetWidth, mh = procCtxMenu.offsetHeight;
+    const vw = window.innerWidth,        vh = window.innerHeight;
+    procCtxMenu.style.left = (x + mw > vw ? vw - mw - 6 : x) + 'px';
+    procCtxMenu.style.top  = (y + mh > vh ? y - mh       : y) + 'px';
+    // Show/hide Kill items based on whether there's a killable pid
+    const canKill = proc && (proc.pid || (proc.pids && proc.pids.length));
+    $('#procCtxKill').style.display     = canKill ? '' : 'none';
+    $('#procCtxKillTree').style.display = canKill ? '' : 'none';
+    $('#procCtxMenu .ctx-menu-sep:last-of-type').style.display = canKill ? '' : 'none';
+  }
+
+  function hideProcCtxMenu() {
+    procCtxMenu.classList.remove('open');
+    procCtxTarget = null;
+  }
+
+  $('#procCtxCopyName').addEventListener('click', () => {
+    if (procCtxTarget) window.api.copyToClipboard(procCtxTarget.name);
+    hideProcCtxMenu();
+  });
+  $('#procCtxCopyPid').addEventListener('click', () => {
+    if (procCtxTarget) {
+      const pids = procCtxTarget.pids ? procCtxTarget.pids.join(', ') : String(procCtxTarget.pid ?? '—');
+      window.api.copyToClipboard(pids);
+    }
+    hideProcCtxMenu();
+  });
+  $('#procCtxCopyCmd').addEventListener('click', () => {
+    if (procCtxTarget) window.api.copyToClipboard(procCtxTarget.description || procCtxTarget.name);
+    hideProcCtxMenu();
+  });
+  $('#procCtxKill').addEventListener('click', async () => {
+    const proc = procCtxTarget; hideProcCtxMenu();
+    if (!proc) return;
+    const pids = proc.pids || (proc.pid ? [proc.pid] : []);
+    if (!pids.length) return;
+    if (!await customConfirm(`Kill "${proc.name}" (PID ${pids.join(', ')})?`)) return;
+    for (const pid of pids) {
+      const r = await window.api.killProcess({ pid, killTree: false });
+      if (!r.ok) alert(`Failed to kill PID ${pid}:\n${r.error}`);
+    }
+    procSelected = null;
+    await loadProcs();
+  });
+  $('#procCtxKillTree').addEventListener('click', async () => {
+    const proc = procCtxTarget; hideProcCtxMenu();
+    if (!proc) return;
+    const pids = proc.pids || (proc.pid ? [proc.pid] : []);
+    if (!pids.length) return;
+    if (!await customConfirm(`Kill process tree for "${proc.name}"?`)) return;
+    for (const pid of pids) {
+      const r = await window.api.killProcess({ pid, killTree: true });
+      if (!r.ok) alert(`Failed to kill tree for PID ${pid}:\n${r.error}`);
+    }
+    procSelected = null;
+    await loadProcs();
+  });
+
+  // ── Cleaner log context menu ─────────────────────────────────
+  const cleanerLogCtxMenu = $('#cleanerLogCtxMenu');
+
+  function showCleanerLogCtxMenu(x, y) {
+    cleanerLogCtxMenu.classList.add('open');
+    const mw = cleanerLogCtxMenu.offsetWidth, mh = cleanerLogCtxMenu.offsetHeight;
+    cleanerLogCtxMenu.style.left = (x + mw > window.innerWidth  ? window.innerWidth  - mw - 6 : x) + 'px';
+    cleanerLogCtxMenu.style.top  = (y + mh > window.innerHeight ? y - mh               : y) + 'px';
+  }
+  function hideCleanerLogCtxMenu() { cleanerLogCtxMenu.classList.remove('open'); }
+
+  $('#cleanerLogCtxCopy').addEventListener('click', () => {
+    const lines = [...$('#cleanerLog').querySelectorAll('.cleaner-log-entry')].map(el => {
+      const ts  = el.querySelector('.cleaner-log-ts')?.textContent  || '';
+      const msg = el.querySelector('.cleaner-log-msg')?.textContent || '';
+      return ts ? `${ts}  ${msg}` : msg;
+    });
+    if (lines.length) window.api.copyToClipboard(lines.join('\n'));
+    hideCleanerLogCtxMenu();
+  });
+
+  $('#cleanerLogCtxClear').addEventListener('click', () => {
+    const log = $('#cleanerLog');
+    log.innerHTML = '<span class="cleaner-log-placeholder">Output will appear here when tasks run.</span>';
+    hideCleanerLogCtxMenu();
+  });
+
+  // ── Sort helper ───────────────────────────────────────────────
+  function makeSortable(panelSel, state, renderFn) {
+    document.querySelectorAll(panelSel + ' .table-header [data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (state.col === col) {
+          state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          state.col = col;
+          state.dir = (col === 'size' || col === 'mem' || col === 'pid') ? 'desc' : 'asc';
+        }
+        document.querySelectorAll(panelSel + ' .table-header .sort-ind').forEach(s => s.textContent = '');
+        th.querySelector('.sort-ind').textContent = state.dir === 'asc' ? ' ▲' : ' ▼';
+        renderFn();
+      });
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // LARGE FILES
+  // ══════════════════════════════════════════════════════════════
+  const countInput  = $('#count');
+  const modeSelect  = $('#mode');
+  const scanBtn     = $('#scanBtn');
+  const pauseBtn    = $('#pauseBtn');
+  const stopBtn     = $('#stopBtn');
+  const filesStatus = $('#filesStatus');
+  const progressBar = $('#progressBar');
+  const filesBody   = $('#filesBody');
+  const filesEmpty  = $('#filesEmpty');
+  const deleteBtn   = $('#deleteBtn');
+  const finderBtn   = $('#finderBtn');
+  const filesFooter = $('#filesFooter');
+
+  let fileItems = [], fileSelected = new Set(), fileLastClick = null;
+  const filesSort = { col: 'size', dir: 'desc' };
+
+  function sortedFileItems() {
+    return [...fileItems].sort((a, b) => {
+      if (filesSort.col === 'size') return filesSort.dir === 'desc' ? b.size - a.size : a.size - b.size;
+      if (filesSort.col === 'path') return filesSort.dir === 'asc' ? a.path.localeCompare(b.path) : b.path.localeCompare(a.path);
+      return 0;
+    });
+  }
+
+  const filesTableScroll = document.querySelector('#panel-files .table-scroll');
+
+  function renderFiles() {
+    filesBody.innerHTML = '';
+    if (!fileItems.length) {
+      // Clear stored column widths and reset scroll so the empty state
+      // is centered, not buried off to the right from a previous scan
+      delete colWidths['panel-files'];
+      if (filesTableScroll) filesTableScroll.scrollLeft = 0;
+      filesBody.appendChild(filesEmpty);
+      filesEmpty.querySelector('p').innerHTML = 'Hit <strong>Scan All Drives</strong> to find the largest ' + modeSelect.value;
+      return;
+    }
+    sortedFileItems().forEach((item, i) => {
+      const origIdx = fileItems.indexOf(item);
+      const row = document.createElement('div');
+      row.className = 'row' + (fileSelected.has(origIdx) ? ' selected' : '');
+      row.style.animationDelay = `${Math.min(i * 15, 400)}ms`;
+      row.dataset.origidx = origIdx;
+      row.innerHTML = `
+        <span class="col-index">${i + 1}</span>
+        <span class="col-size">${fmtSize(item.size)}</span>
+        <span class="col-path" title="${esc(item.path)}">${esc(item.path)}</span>`;
+      row.addEventListener('click', e => {
+        if (e.metaKey || e.ctrlKey) {
+          fileSelected.has(origIdx) ? fileSelected.delete(origIdx) : fileSelected.add(origIdx);
+        } else if (e.shiftKey && fileLastClick !== null) {
+          const lo = Math.min(fileLastClick, origIdx), hi = Math.max(fileLastClick, origIdx);
+          for (let k = lo; k <= hi; k++) fileSelected.add(k);
+        } else {
+          fileSelected.clear(); fileSelected.add(origIdx);
+        }
+        fileLastClick = origIdx;
+        filesBody.querySelectorAll('.row').forEach(r =>
+          r.classList.toggle('selected', fileSelected.has(parseInt(r.dataset.origidx))));
+      });
+      row.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Also select the right-clicked row if not already selected
+        if (!fileSelected.has(origIdx)) {
+          fileSelected.clear(); fileSelected.add(origIdx);
+          fileLastClick = origIdx;
+          filesBody.querySelectorAll('.row').forEach(r =>
+            r.classList.toggle('selected', fileSelected.has(parseInt(r.dataset.origidx))));
+        }
+        showCtxMenu(e.clientX, e.clientY, item.path);
+      });
+      filesBody.appendChild(row);
+    });
+    applyColWidths('panel-files');
+  }
+
+  makeSortable('#panel-files', filesSort, renderFiles);
+
+  let removeProgressListener = null, paused = false, userStopped = false;
+
+  scanBtn.addEventListener('click', async () => {
+    const limit = parseInt(countInput.value) || 50;
+    const mode  = modeSelect.value;
+    userStopped = false;
+    fileItems = []; fileSelected.clear(); renderFiles();
+    scanBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
+    progressBar.classList.add('active');
+    filesStatus.textContent = 'Scanning…'; filesFooter.textContent = '';
+    removeProgressListener = window.api.onScanProgress(({ scanned, label }) => {
+      filesStatus.textContent = `${fmtNum(scanned)} ${label} scanned…`;
+    });
+    try {
+      const result = await window.api.startScan({ limit, mode });
+      if (!userStopped) {
+        fileItems = result.items;
+        renderFiles();
+        requestAnimationFrame(() => fitColumnsToContent('panel-files'));
+        filesStatus.textContent = `Done — ${fmtNum(result.scanned)} ${result.label} scanned`;
+        const totalSize = fileItems.reduce((s, it) => s + it.size, 0);
+        filesFooter.textContent = `${fileItems.length} ${result.label}  ·  ${fmtSize(totalSize)} total`;
+      } else {
+        filesStatus.textContent = 'Scan stopped';
+      }
+    } catch (e) {
+      if (!userStopped) filesStatus.textContent = 'Scan failed: ' + (e?.message || e);
+    }
+    progressBar.classList.remove('active');
+    scanBtn.disabled = false; pauseBtn.disabled = true; pauseBtn.textContent = 'Pause'; stopBtn.disabled = true;
+    if (removeProgressListener) { removeProgressListener(); removeProgressListener = null; }
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    if (!paused) {
+      window.api.pauseScan(); paused = true; pauseBtn.textContent = 'Resume';
+      progressBar.classList.remove('active');
+      filesStatus.textContent = filesStatus.textContent.replace('scanned…', 'scanned (paused)');
+    } else {
+      window.api.resumeScan(); paused = false; pauseBtn.textContent = 'Pause';
+      progressBar.classList.add('active');
+      filesStatus.textContent = filesStatus.textContent.replace(' (paused)', '…');
+    }
+  });
+
+  stopBtn.addEventListener('click', () => {
+    userStopped = true;
+    progressBar.classList.remove('active'); // stop animation immediately
+    window.api.stopScan(); stopBtn.disabled = true; pauseBtn.disabled = true;
+    paused = false; pauseBtn.textContent = 'Pause'; filesStatus.textContent = 'Stopped';
+    scanBtn.disabled = false; // re-enable scan button right away
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    if (!fileSelected.size) return;
+    const paths  = [...fileSelected].sort((a,b)=>a-b).map(i => fileItems[i].path);
+    const label  = modeSelect.value === 'folders' ? 'folder' : 'file';
+    const plural = paths.length > 1 ? label + 's' : label;
+    if (!await customConfirm(`Move ${paths.length} ${plural} to Trash?`)) return;
+    const results = await window.api.deleteFiles(paths);
+    let deleted = 0;
+    for (const r of results) {
+      if (r.ok) { const idx = fileItems.findIndex(it => it.path === r.path); if (idx !== -1) { fileItems.splice(idx,1); deleted++; } }
+      else alert(`Could not trash:\n${r.path}\n\n${r.error}`);
+    }
+    fileSelected.clear(); renderFiles();
+    if (deleted) filesStatus.textContent = `Moved ${deleted} ${plural} to Trash`;
+  });
+
+  finderBtn.addEventListener('click', () => {
+    if (!fileSelected.size) return;
+    window.api.showInFinder(fileItems[Math.min(...fileSelected)].path);
+  });
+
+  wireExport('filesExportBtn', 'filesExportMenu', () => ({
+    filename: 'large-files',
+    headers:  ['#', 'Size', 'Path'],
+    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), f.path]),
+  }));
+
+  // ══════════════════════════════════════════════════════════════
+  // INSTALLED APPS
+  // ══════════════════════════════════════════════════════════════
+  const appsRefreshBtn   = $('#appsRefreshBtn');
+  const appsStatus       = $('#appsStatus');
+  const appsBody         = $('#appsBody');
+  const appsEmpty        = $('#appsEmpty');
+  const appsFolderBtn    = $('#appsFolderBtn');
+  const appsUninstallBtn = $('#appsUninstallBtn');
+  const appsSearchInput  = $('#appsSearch');
+  const appsSizeModeEl   = $('#appsSizeMode');
+  const appsCalcTrack    = $('#appsCalcTrack');
+  const appsFooter       = $('#appsFooter');
+
+  let appsData = [], appsSelected = null, appsSearchTerm = '', appsSizeMode = 'total';
+  const appsSort = { col: 'size', dir: 'desc' };
+  let removeSizeListener = null;
+
+  function getAppSize(app) {
+    const a = app.appSizeBytes  || 0;
+    const d = app.dataSizeBytes || 0;
+    if (appsSizeMode === 'app')  return a;
+    if (appsSizeMode === 'data') return d;
+    return a + d;
+  }
+
+  function renderApps() {
+    appsBody.innerHTML = '';
+    const term = appsSearchTerm.toLowerCase();
+    let filtered = term
+      ? appsData.filter(a => a.name.toLowerCase().includes(term) || (a.publisher||'').toLowerCase().includes(term))
+      : [...appsData];
+
+    filtered.sort((a, b) => {
+      let av, bv;
+      switch (appsSort.col) {
+        case 'size':      av = getAppSize(a);             bv = getAppSize(b);             break;
+        case 'name':      av = a.name.toLowerCase();      bv = b.name.toLowerCase();      break;
+        case 'publisher': av = (a.publisher||'').toLowerCase(); bv = (b.publisher||'').toLowerCase(); break;
+        case 'version':   av = (a.version||'').toLowerCase();   bv = (b.version||'').toLowerCase();   break;
+        default:          av = getAppSize(a);             bv = getAppSize(b);
+      }
+      if (av < bv) return appsSort.dir === 'asc' ? -1 :  1;
+      if (av > bv) return appsSort.dir === 'asc' ?  1 : -1;
+      return 0;
+    });
+
+    if (!filtered.length) { appsBody.appendChild(appsEmpty); return; }
+
+    filtered.forEach((app, displayIdx) => {
+      const origIdx = appsData.indexOf(app);
+      const row = document.createElement('div');
+      row.className = 'row' + (appsSelected === app ? ' selected' : '');
+      row.style.animationDelay = `${Math.min(displayIdx * 6, 250)}ms`;
+      row.dataset.appindex = origIdx;
+      row.innerHTML = `
+        <span class="col-index">${displayIdx + 1}</span>
+        <span class="col-app-name"  title="${esc(app.name)}">${esc(app.name)}</span>
+        <span class="col-app-size">${fmtSize(getAppSize(app))}</span>
+        <span class="col-version">${esc(app.version) || '—'}</span>
+        <span class="col-publisher" title="${esc(app.publisher)}">${esc(app.publisher) || '—'}</span>`;
+      row.addEventListener('click', () => {
+        appsSelected = appsSelected === app ? null : app;
+        appsBody.querySelectorAll('.row').forEach(r =>
+          r.classList.toggle('selected', appsData[parseInt(r.dataset.appindex)] === appsSelected));
+        appsUninstallBtn.disabled = !appsSelected;
+      });
+      appsBody.appendChild(row);
+    });
+    applyColWidths('panel-apps');
+  }
+
+  function updateAppSizeCell(origIdx) {
+    const row = appsBody.querySelector(`[data-appindex="${origIdx}"]`);
+    if (!row) return;
+    const cell = row.querySelector('.col-app-size');
+    if (cell) cell.textContent = fmtSize(getAppSize(appsData[origIdx]));
+  }
+
+  async function loadApps() {
+    if (removeSizeListener) { removeSizeListener(); removeSizeListener = null; }
+    window.api.stopSizeCalc();
+    appsRefreshBtn.disabled = true;
+    appsSelected = null;
+    appsUninstallBtn.disabled = true;
+    appsStatus.textContent = 'Scanning /Applications…';
+    appsBody.innerHTML = '';
+
+    try {
+      appsData = await window.api.getInstalledApps();
+      renderApps();
+      requestAnimationFrame(() => fitColumnsToContent('panel-apps'));
+
+      const jobs = [];
+      appsData.forEach((a, i) => {
+        if (a.installLocation) jobs.push({ index: i, path: a.installLocation, kind: 'app' });
+        if (a.dataLocation)    jobs.push({ index: i, path: a.dataLocation,    kind: 'data' });
+      });
+
+      if (jobs.length) {
+        appsStatus.textContent = `${fmtNum(appsData.length)} apps found  ·  calculating sizes…`;
+        appsCalcTrack.style.display = '';
+
+        removeSizeListener = window.api.onAppSizeUpdate(({ index, kind, sizeBytes }) => {
+          if (!appsData[index]) return;
+          if (kind === 'app')  appsData[index].appSizeBytes  = sizeBytes;
+          if (kind === 'data') appsData[index].dataSizeBytes = sizeBytes;
+          updateAppSizeCell(index);
+        });
+
+        await window.api.startSizeCalc(jobs);
+
+        if (removeSizeListener) { removeSizeListener(); removeSizeListener = null; }
+        appsCalcTrack.style.display = 'none';
+      }
+
+      renderApps();
+      requestAnimationFrame(() => fitColumnsToContent('panel-apps'));
+      const total = appsData.reduce((s, a) => s + getAppSize(a), 0);
+      appsStatus.textContent = `${fmtNum(appsData.length)} apps found`;
+      appsFooter.textContent = `${appsData.length} apps  ·  ${fmtSize(total)} total`;
+    } catch (e) {
+      appsStatus.textContent = 'Failed to scan apps: ' + (e?.message || e);
+    }
+    appsRefreshBtn.disabled = false;
+  }
+
+  makeSortable('#panel-apps', appsSort, renderApps);
+  appsSearchInput.addEventListener('input', () => {
+    appsSearchTerm = appsSearchInput.value;
+    appsSelected = null;
+    appsUninstallBtn.disabled = true;
+    renderApps();
+  });
+  appsSizeModeEl.addEventListener('change', () => {
+    appsSizeMode = appsSizeModeEl.value;
+    renderApps();
+    const total = appsData.reduce((s, a) => s + getAppSize(a), 0);
+    appsFooter.textContent = `${appsData.length} apps  ·  ${fmtSize(total)} total`;
+  });
+  appsRefreshBtn.addEventListener('click', loadApps);
+  appsFolderBtn.addEventListener('click', () => window.api.openFolder('/Applications'));
+
+  appsUninstallBtn.addEventListener('click', async () => {
+    if (!appsSelected) return;
+    if (!await customConfirm(`Move "${appsSelected.name}" to Trash?\n\nThis removes the .app bundle only.`)) return;
+    appsUninstallBtn.disabled = true;
+    const r = await window.api.uninstallApp(appsSelected.bundlePath);
+    if (!r.ok) {
+      alert(`Could not move to Trash:\n${r.error}`);
+      appsUninstallBtn.disabled = false;
+    } else {
+      appsStatus.textContent = `Moved "${appsSelected.name}" to Trash — rescan when done`;
+      appsData = appsData.filter(a => a !== appsSelected);
+      appsSelected = null;
+      renderApps();
+    }
+  });
+
+  wireExport('appsExportBtn', 'appsExportMenu', () => {
+    const term = appsSearchTerm.toLowerCase();
+    let items = term ? appsData.filter(a => a.name.toLowerCase().includes(term) || (a.publisher||'').toLowerCase().includes(term)) : [...appsData];
+    items.sort((a, b) => getAppSize(b) - getAppSize(a));
+    return {
+      filename: 'installed-apps',
+      headers:  ['#','Application','Size','Version','Publisher','App Size','Data Size','Total'],
+      rows:     items.map((a, i) => [
+        i + 1, a.name, fmtSize(getAppSize(a)), a.version, a.publisher,
+        fmtSize(a.appSizeBytes), fmtSize(a.dataSizeBytes),
+        fmtSize((a.appSizeBytes||0)+(a.dataSizeBytes||0)),
+      ]),
+    };
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // PROCESSES
+  // ══════════════════════════════════════════════════════════════
+  const procRefreshBtn = $('#procRefreshBtn');
+  const procStatus     = $('#procStatus');
+  const procBody       = $('#procBody');
+  const procEmpty      = $('#procEmpty');
+  const killBtn        = $('#killBtn');
+  const killTreeBtn    = $('#killTreeBtn');
+  const procFooter     = $('#procFooter');
+  const procGroupSel   = $('#procGroupMode');
+  const procSearchInput = $('#procSearch');
+  const procPidHeader  = $('#procPidHeader');
+
+  let procData = [], procSelected = null, procSearchTerm = '', procGroupMode = 'individual';
+  const procSort = { col: 'mem', dir: 'desc' };
+
+  function groupProcesses(procs) {
+    const map = new Map();
+    for (const p of procs) {
+      const key = p.name;
+      if (!map.has(key)) {
+        map.set(key, { pid: null, pids: [], mem: 0, name: key, description: p.description });
+      }
+      const g = map.get(key);
+      g.mem  += p.mem;
+      g.pids.push(p.pid);
+    }
+    return [...map.values()].map(g => ({
+      ...g,
+      pid:         g.pids.length === 1 ? g.pids[0] : null,
+      pidsDisplay: g.pids.length > 1 ? `${g.pids.length} procs` : String(g.pids[0]),
+    }));
+  }
+
+  function renderProcs() {
+    procBody.innerHTML = '';
+    const term = procSearchTerm.toLowerCase();
+    let filtered = term
+      ? procData.filter(p => p.name.toLowerCase().includes(term) || p.description.toLowerCase().includes(term))
+      : [...procData];
+
+    // Group if needed
+    let display = procGroupMode === 'grouped' ? groupProcesses(filtered) : filtered;
+
+    // Update PID header text
+    procPidHeader.innerHTML = procGroupMode === 'grouped'
+      ? 'Count<span class="sort-ind"></span>'
+      : 'PID<span class="sort-ind"></span>';
+
+    display.sort((a, b) => {
+      let av, bv;
+      switch (procSort.col) {
+        case 'mem':  av = a.mem;  bv = b.mem;  break;
+        case 'pid':  av = a.pid || 0; bv = b.pid || 0; break;
+        case 'name': av = a.name.toLowerCase(); bv = b.name.toLowerCase(); break;
+        default:     av = a.mem;  bv = b.mem;
+      }
+      if (av < bv) return procSort.dir === 'asc' ? -1 :  1;
+      if (av > bv) return procSort.dir === 'asc' ?  1 : -1;
+      return 0;
+    });
+
+    if (!display.length) { procBody.appendChild(procEmpty); return; }
+
+    display.forEach((proc, i) => {
+      const row = document.createElement('div');
+      row.className = 'row' + (procSelected === proc || (procSelected && proc.pids && proc.pids.includes(procSelected.pid)) ? ' selected' : '');
+      row.style.animationDelay = `${Math.min(i * 4, 250)}ms`;
+
+      const pidText = procGroupMode === 'grouped'
+        ? (proc.pids ? proc.pids.length : 1)
+        : (proc.pid != null ? proc.pid : '—');
+
+      row.innerHTML = `
+        <span class="col-index">${i + 1}</span>
+        <span class="col-pid">${pidText}</span>
+        <span class="col-mem">${fmtSize(proc.mem)}</span>
+        <span class="col-proc-name" title="${esc(proc.name)}">${esc(proc.name)}</span>
+        <span class="col-proc-desc" title="${esc(proc.description)}">${esc(proc.description)}</span>`;
+      row.addEventListener('click', () => {
+        procSelected = procSelected === proc ? null : proc;
+        procBody.querySelectorAll('.row').forEach(r => r.classList.remove('selected'));
+        if (procSelected) row.classList.add('selected');
+        const canKill = procSelected && (procSelected.pid || (procSelected.pids && procSelected.pids.length));
+        killBtn.disabled     = !canKill;
+        killTreeBtn.disabled = !canKill;
+      });
+      row.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Select the right-clicked row
+        procSelected = proc;
+        procBody.querySelectorAll('.row').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+        const canKill = proc.pid || (proc.pids && proc.pids.length);
+        killBtn.disabled     = !canKill;
+        killTreeBtn.disabled = !canKill;
+        showProcCtxMenu(e.clientX, e.clientY, proc);
+      });
+      procBody.appendChild(row);
+    });
+    applyColWidths('panel-processes');
+  }
+
+  async function loadProcs() {
+    procRefreshBtn.disabled = true;
+    procStatus.textContent = 'Loading…';
+    procSelected = null;
+    killBtn.disabled = killTreeBtn.disabled = true;
+    try {
+      procData = await window.api.getProcesses();
+      renderProcs();
+      requestAnimationFrame(() => fitColumnsToContent('panel-processes'));
+      const total = procData.reduce((s, p) => s + p.mem, 0);
+      procStatus.textContent = `${fmtNum(procData.length)} processes`;
+      procFooter.textContent = `${procData.length} processes  ·  ${fmtSize(total)} RAM`;
+    } catch (e) {
+      procStatus.textContent = 'Failed: ' + (e?.message || e);
+    }
+    procRefreshBtn.disabled = false;
+  }
+
+  makeSortable('#panel-processes', procSort, renderProcs);
+
+  procSearchInput.addEventListener('input', () => {
+    procSearchTerm = procSearchInput.value;
+    procSelected = null;
+    killBtn.disabled = killTreeBtn.disabled = true;
+    renderProcs();
+  });
+  procGroupSel.addEventListener('change', () => {
+    procGroupMode = procGroupSel.value;
+    procSelected = null;
+    killBtn.disabled = killTreeBtn.disabled = true;
+    renderProcs();
+    applyColWidths('panel-processes');
+  });
+  procRefreshBtn.addEventListener('click', loadProcs);
+
+  async function doKill(killTree) {
+    if (!procSelected) return;
+    const pids = procSelected.pids || (procSelected.pid ? [procSelected.pid] : []);
+    if (!pids.length) return;
+    const label = killTree ? `Kill process tree for "${procSelected.name}"?` : `Kill "${procSelected.name}" (PID ${pids.join(', ')})?`;
+    if (!await customConfirm(label)) return;
+
+    killBtn.disabled = killTreeBtn.disabled = true;
+    let killed = 0;
+    for (const pid of pids) {
+      const r = await window.api.killProcess({ pid, killTree });
+      if (r.ok) killed++;
+      else alert(`Failed to kill PID ${pid}:\n${r.error}`);
+    }
+    procStatus.textContent = `Killed ${killed} process${killed !== 1 ? 'es' : ''}`;
+    procSelected = null;
+    await loadProcs();
+  }
+
+  killBtn.addEventListener('click',     () => doKill(false));
+  killTreeBtn.addEventListener('click', () => doKill(true));
+
+  wireExport('procExportBtn', 'procExportMenu', () => ({
+    filename: 'processes',
+    headers:  ['#','PID','Memory','Process','Description'],
+    rows:     procData.map((p, i) => [i+1, p.pid, fmtSize(p.mem), p.name, p.description]),
+  }));
+
+  // ══════════════════════════════════════════════════════════════
+  // SERVICES (launchd)
+  // ══════════════════════════════════════════════════════════════
+  const svcRefreshBtn = $('#svcRefreshBtn');
+  const svcStatus     = $('#svcStatus');
+  const svcBody       = $('#svcBody');
+  const svcEmpty      = $('#svcEmpty');
+  const startSvcBtn   = $('#startSvcBtn');
+  const stopSvcBtn    = $('#stopSvcBtn');
+  const svcSearchInput = $('#svcSearch');
+  const svcFooter     = $('#svcFooter');
+
+  let svcData = [], svcSelected = null, svcSearchTerm = '';
+  const svcSort = { col: 'name', dir: 'asc' };
+
+  function renderServices() {
+    svcBody.innerHTML = '';
+    const term = svcSearchTerm.toLowerCase();
+    let filtered = term
+      ? svcData.filter(s => s.label.toLowerCase().includes(term) || (s.description||'').toLowerCase().includes(term))
+      : [...svcData];
+
+    filtered.sort((a, b) => {
+      let av, bv;
+      switch (svcSort.col) {
+        case 'status':      av = a.status;      bv = b.status;      break;
+        case 'name':        av = a.label;       bv = b.label;       break;
+        case 'displayName': av = a.description || a.label; bv = b.description || b.label; break;
+        case 'type':        av = a.type;        bv = b.type;        break;
+        default:            av = a.label;       bv = b.label;
+      }
+      return svcSort.dir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+    });
+
+    if (!filtered.length) { svcBody.appendChild(svcEmpty); return; }
+
+    filtered.forEach((svc, i) => {
+      const origIdx = svcData.indexOf(svc);
+      const row = document.createElement('div');
+      row.className = 'row' + (svcSelected === svc ? ' selected' : '');
+      row.style.animationDelay = `${Math.min(i * 4, 200)}ms`;
+      row.dataset.svcindex = origIdx;
+
+      const dotClass   = svc.status === 'running' ? 'dot-running' : 'dot-stopped';
+      const statusText = svc.status === 'running' ? 'Running' : 'Stopped';
+      const statusColor = svc.status === 'running' ? 'var(--success)' : 'var(--text-dim)';
+
+      row.innerHTML = `
+        <span class="col-dot"><span class="dot ${dotClass}"></span></span>
+        <span class="col-svc-status" style="color:${statusColor}">${statusText}</span>
+        <span class="col-svc-name"  title="${esc(svc.label)}">${esc(svc.label)}</span>
+        <span class="col-svc-dname" title="${esc(svc.description)}">${esc(svc.description) || '—'}</span>
+        <span class="col-svc-type">${esc(svc.type)}</span>`;
+      row.addEventListener('click', () => {
+        svcSelected = svcSelected === svc ? null : svc;
+        svcBody.querySelectorAll('.row').forEach(r =>
+          r.classList.toggle('selected', svcData[parseInt(r.dataset.svcindex)] === svcSelected));
+        updateSvcButtons();
+      });
+      svcBody.appendChild(row);
+    });
+    applyColWidths('panel-services');
+  }
+
+  function updateSvcButtons() {
+    if (!svcSelected) {
+      startSvcBtn.disabled = stopSvcBtn.disabled = true;
+    } else {
+      startSvcBtn.disabled = svcSelected.status === 'running';
+      stopSvcBtn.disabled  = svcSelected.status !== 'running';
+    }
+  }
+
+  async function loadServices() {
+    svcRefreshBtn.disabled = true;
+    svcStatus.textContent = 'Loading launchd services…';
+    svcSelected = null;
+    updateSvcButtons();
+    svcBody.innerHTML = '';
+    try {
+      svcData = await window.api.getServices();
+      renderServices();
+      requestAnimationFrame(() => fitColumnsToContent('panel-services'));
+      const running = svcData.filter(s => s.status === 'running').length;
+      svcStatus.textContent = `${fmtNum(svcData.length)} services  ·  ${running} running`;
+      svcFooter.textContent = `${svcData.length} services`;
+    } catch (e) {
+      svcStatus.textContent = 'Failed: ' + (e?.message || e);
+    }
+    svcRefreshBtn.disabled = false;
+  }
+
+  makeSortable('#panel-services', svcSort, renderServices);
+  svcSearchInput.addEventListener('input', () => {
+    svcSearchTerm = svcSearchInput.value;
+    svcSelected = null;
+    updateSvcButtons();
+    renderServices();
+  });
+  svcRefreshBtn.addEventListener('click', loadServices);
+
+  startSvcBtn.addEventListener('click', async () => {
+    if (!svcSelected) return;
+    startSvcBtn.disabled = stopSvcBtn.disabled = true;
+    svcStatus.textContent = `Starting "${svcSelected.label}"…`;
+    const r = await window.api.startService({ label: svcSelected.label, plistPath: svcSelected.plistPath });
+    if (r.ok) {
+      svcSelected.status = 'running';
+      svcStatus.textContent = `Started "${svcSelected.label}"`;
+    } else {
+      svcStatus.textContent = `Failed to start: ${r.error}`;
+    }
+    renderServices();
+    updateSvcButtons();
+  });
+
+  stopSvcBtn.addEventListener('click', async () => {
+    if (!svcSelected) return;
+    startSvcBtn.disabled = stopSvcBtn.disabled = true;
+    svcStatus.textContent = `Stopping "${svcSelected.label}"…`;
+    const r = await window.api.stopService({ label: svcSelected.label, plistPath: svcSelected.plistPath });
+    if (r.ok) {
+      svcSelected.status = 'stopped';
+      svcStatus.textContent = `Stopped "${svcSelected.label}"`;
+    } else {
+      svcStatus.textContent = `Failed to stop: ${r.error}`;
+    }
+    renderServices();
+    updateSvcButtons();
+  });
+
+  wireExport('svcExportBtn', 'svcExportMenu', () => ({
+    filename: 'services',
+    headers:  ['Status','Label','Description','Type'],
+    rows:     svcData.map(s => [s.status, s.label, s.description, s.type]),
+  }));
+
+  // ══════════════════════════════════════════════════════════════
+  // CLEANER
+  // ══════════════════════════════════════════════════════════════
+  const CLEANER_TASKS = [
+    { id: 'ram',         name: 'Free Up RAM',                    admin: true,  desc: 'Purges inactive memory and disk cache to free up RAM for your active apps.' },
+    { id: 'purgeable',   name: 'Free Up Purgeable Space',        admin: false, desc: 'Trims local Time Machine snapshots to reclaim disk space marked as purgeable by macOS.' },
+    { id: 'maintenance', name: 'Run Maintenance Tasks',          admin: true,  desc: 'Clears user & system caches, purges temp files, rebuilds the Launch Services database, clears QuickLook thumbnails, rotates system logs, and removes hidden .DS_Store files from your home folder.' },
+    { id: 'dns',         name: 'Flush DNS Cache',                admin: true,  desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
+    { id: 'mail',        name: 'Speed Up Mail',                  admin: false, desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
+    { id: 'spotlight',   name: 'Reindex Spotlight',              admin: true,  desc: 'Erases and rebuilds the Spotlight index for faster, more accurate searches. Rebuilding runs in the background.' },
+    { id: 'permissions', name: 'Repair Disk Permissions',        admin: false, desc: 'Verifies the startup volume for filesystem errors that can cause crashes and sluggish performance.' },
+    { id: 'timemachine', name: 'Time Machine Snapshot Trimming', admin: false, desc: 'Deletes all local Time Machine snapshots to maximise available disk space.' },
+  ];
+
+  const cleanerRunBtn       = $('#cleanerRunBtn');
+  const cleanerSelectAllBtn = $('#cleanerSelectAllBtn');
+  const cleanerDeselectBtn  = $('#cleanerDeselectBtn');
+  const cleanerStatus       = $('#cleanerStatus');
+  const cleanerTaskList     = $('#cleanerTaskList');
+  const cleanerLog          = $('#cleanerLog');
+
+  cleanerLog.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    showCleanerLogCtxMenu(e.clientX, e.clientY);
+  });
+
+  // Build task list UI
+  CLEANER_TASKS.forEach(task => {
+    const item = document.createElement('div');
+    item.className = 'cleaner-item';
+    item.innerHTML = `
+      <input type="checkbox" class="cleaner-cb" id="ccb-${task.id}" data-id="${task.id}">
+      <div class="cleaner-item-info">
+        <div class="cleaner-item-header">
+          <span class="cleaner-item-name">${esc(task.name)}</span>
+          ${task.admin ? '<span class="cleaner-badge">Admin</span>' : ''}
+        </div>
+        <div class="cleaner-item-desc">${esc(task.desc)}</div>
+      </div>
+      <div class="cleaner-state" data-cstate="${task.id}"></div>`;
+    // Click anywhere on the row to toggle
+    item.addEventListener('click', e => {
+      if (e.target.type === 'checkbox') return;
+      const cb = item.querySelector('.cleaner-cb');
+      cb.checked = !cb.checked;
+      item.classList.toggle('selected', cb.checked);
+    });
+    item.querySelector('.cleaner-cb').addEventListener('change', function() {
+      item.classList.toggle('selected', this.checked);
+    });
+    cleanerTaskList.appendChild(item);
+  });
+
+  function setTaskState(taskId, state) {
+    const el = cleanerTaskList.querySelector(`[data-cstate="${taskId}"]`);
+    if (!el) return;
+    el.className = `cleaner-state ${state}`;
+    el.textContent = state === 'done' ? '✓' : state === 'error' ? '✗' : '';
+  }
+
+  function logEntry(taskName, state, message) {
+    cleanerLog.querySelector('.cleaner-log-placeholder')?.remove();
+    const now = new Date().toTimeString().slice(0, 8);
+    const msgClass = state === 'done' ? 'ok' : state === 'error' ? 'err' : '';
+    const entry = document.createElement('div');
+    entry.className = 'cleaner-log-entry';
+    entry.innerHTML = `<span class="cleaner-log-ts">${now}</span><span class="cleaner-log-msg ${msgClass}">${esc(taskName + ': ' + message)}</span>`;
+    cleanerLog.appendChild(entry);
+    cleanerLog.scrollTop = cleanerLog.scrollHeight;
+  }
+
+  cleanerSelectAllBtn.addEventListener('click', () => {
+    cleanerTaskList.querySelectorAll('.cleaner-item').forEach(item => {
+      item.querySelector('.cleaner-cb').checked = true;
+      item.classList.add('selected');
+    });
+  });
+
+  cleanerDeselectBtn.addEventListener('click', () => {
+    cleanerTaskList.querySelectorAll('.cleaner-item').forEach(item => {
+      item.querySelector('.cleaner-cb').checked = false;
+      item.classList.remove('selected');
+    });
+  });
+
+  cleanerRunBtn.addEventListener('click', async () => {
+    const selected = [...cleanerTaskList.querySelectorAll('.cleaner-cb:checked')].map(cb => cb.dataset.id);
+    if (!selected.length) { cleanerStatus.textContent = 'No tasks selected.'; return; }
+
+    cleanerRunBtn.disabled = cleanerSelectAllBtn.disabled = cleanerDeselectBtn.disabled = true;
+    cleanerStatus.textContent = `Running ${selected.length} task${selected.length !== 1 ? 's' : ''}…`;
+
+    let ok = 0, fail = 0;
+    for (const id of selected) {
+      const task = CLEANER_TASKS.find(t => t.id === id);
+      setTaskState(id, 'running');
+      const result = await window.api.runCleanerTask(id);
+      setTaskState(id, result.ok ? 'done' : 'error');
+      logEntry(task.name, result.ok ? 'done' : 'error', result.output || (result.ok ? 'Done.' : 'Failed.'));
+      result.ok ? ok++ : fail++;
+    }
+
+    cleanerStatus.textContent = `Done — ${ok} succeeded${fail ? `, ${fail} failed` : ''}.`;
+    cleanerRunBtn.disabled = cleanerSelectAllBtn.disabled = cleanerDeselectBtn.disabled = false;
+  });
+
+})(); // end IIFE
+</script>
+</body>
+</html>
