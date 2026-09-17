@@ -1,23 +1,43 @@
-const { ipcMain } = require("electron");
+const { ipcMain, BrowserWindow } = require("electron");
 const { execFile } = require("child_process");
-const path = require("path");
+const fs = require("fs");
+const { scriptPath } = require("./script-path");
+const { runElevatedBatch } = require("./run-elevated");
 
-function runPS(scriptPath, args) {
+function emitLog(event, text, level) {
+  if (!text) return;
+  try {
+    const win = event && event.sender
+      ? BrowserWindow.fromWebContents(event.sender)
+      : BrowserWindow.getAllWindows()[0];
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("startup-log", { text, level: level || "info" });
+    }
+  } catch {}
+}
+
+function runPS(event, scriptName, args) {
+  const script = scriptPath(scriptName);
+  const exists = fs.existsSync(script);
+  emitLog(event, `Running ${scriptName} (exists=${exists}) at ${script}`, "info");
   return new Promise((resolve) => {
-    const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath, ...(args || [])];
-    execFile("powershell", psArgs,
-      { maxBuffer: 5 * 1024 * 1024 },
-      (err, stdout) => {
-        if (err) return resolve(null);
-        resolve(stdout);
+    const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...(args || [])];
+    execFile("powershell", psArgs, { maxBuffer: 5 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+      if (err) {
+        emitLog(event, `${scriptName} failed: ${err.message}`, "err");
+        if (stderr) emitLog(event, `stderr: ${String(stderr).trim()}`, "err");
+        return resolve(null);
       }
-    );
+      if (stderr && String(stderr).trim()) {
+        emitLog(event, `${scriptName} stderr: ${String(stderr).trim()}`, "warn");
+      }
+      resolve(stdout);
+    });
   });
 }
 
-async function getStartupItems() {
-  const script = path.join(__dirname, "scripts", "get-startup.ps1");
-  const stdout = await runPS(script);
+async function getStartupItems(event) {
+  const stdout = await runPS(event, "get-startup.ps1");
   if (!stdout) return [];
   try {
     const raw = JSON.parse(stdout.trim());
@@ -31,22 +51,59 @@ async function getStartupItems() {
       uwpPath: i.UwpPath || "",
     }));
     items.sort((a, b) => a.name.localeCompare(b.name));
+    emitLog(event, `get-startup.ps1 returned ${items.length} item(s)`, "ok");
     return items;
-  } catch { return []; }
+  } catch (e) {
+    emitLog(event, `get-startup.ps1 JSON parse failed: ${e.message}`, "err");
+    emitLog(event, `stdout (first 300 chars): ${String(stdout).slice(0, 300)}`, "err");
+    return [];
+  }
 }
 
-async function setStartupEnabled(name, source, enabled, uwpPath) {
-  const script = path.join(__dirname, "scripts", "set-startup.ps1");
+async function setStartupEnabled(event, name, source, enabled, uwpPath) {
+  // Never pass -UwpPath with an empty value: an empty argument is dropped when
+  // the command is relayed to the elevated PowerShell, which then binds
+  // -Enabled as the value for -UwpPath and fails with exit 1.
   const args = [
     "-Name", name,
     "-Source", source,
-    "-UwpPath", uwpPath || "",
+    ...(uwpPath ? ["-UwpPath", uwpPath] : []),
     "-Enabled", enabled ? "1" : "0",
   ];
-  const stdout = await runPS(script, args);
+
+  // Machine-wide (HKLM) startup entries can only be changed by an admin. The
+  // Store build never runs elevated, so ask for elevation for those instead of
+  // failing with "Requested registry access is not allowed".
+  const needsAdmin =
+    source === "HKLM" ||
+    source === "HKLM32" ||
+    source === "CommonStartupFolder" ||
+    /HKEY_LOCAL_MACHINE|^HKLM/i.test(String(uwpPath || ""));
+
+  if (needsAdmin) {
+    const script = scriptPath("set-startup.ps1");
+    emitLog(event, `${name}: machine-wide entry, requesting admin permission...`, "info");
+    const results = await runElevatedBatch([{
+      id: "set-startup",
+      cmd: "powershell",
+      args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...args],
+    }]);
+    const r = results[0];
+    if (!r || !r.ok) {
+      const err = (r && r.error) || `exit ${r && r.exitCode}`;
+      emitLog(event, `set-startup.ps1 failed: ${err}`, "err");
+      return { ok: false, error: err };
+    }
+    emitLog(event, `${name}: ${enabled ? "enabled" : "disabled"}.`, "ok");
+    return { ok: true };
+  }
+
+  const stdout = await runPS(event, "set-startup.ps1", args);
   if (stdout === null) return { ok: false, error: "PowerShell command failed" };
   return { ok: true };
 }
 
-ipcMain.handle("get-startup-items", () => getStartupItems());
-ipcMain.handle("set-startup-enabled", (_, { name, source, enabled, uwpPath }) => setStartupEnabled(name, source, enabled, uwpPath));
+ipcMain.handle("get-startup-items", (event) => getStartupItems(event));
+ipcMain.handle("set-startup-enabled", (event, { name, source, enabled, uwpPath }) =>
+  setStartupEnabled(event, name, source, enabled, uwpPath)
+);

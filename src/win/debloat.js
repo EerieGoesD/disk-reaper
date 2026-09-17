@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { runPsJson, readRegValue, writeRegValue } = require("./cleaner");
+const { runElevatedBatch, runElevatedPs } = require("./run-elevated");
 
 // ─────────────────────────────────────────────────────────────────────────
 // Preinstalled UWP "bloat" list (curated; excludes apps users actually need
@@ -409,10 +410,16 @@ async function setTelemetryTasksState(disable) {
     "  catch { $fail++ }" +
     "}" +
     "[PSCustomObject]@{ Ok = $ok; Fail = $fail } | ConvertTo-Json -Compress";
-  const r = await runPsJson(ps, 60 * 1000);
-  if (!r.ok) return { ok: false, error: r.error };
-  const d = r.data || {};
-  return { ok: true, succeeded: d.Ok || 0, failed: d.Fail || 0 };
+  const r = await runElevatedPs(ps);
+  if (!r.ok) return { ok: false, error: r.error || `elevation failed (exit ${r.exitCode})` };
+  try {
+    const m = (r.stdout || "").match(/\{[\s\S]*\}/);
+    if (!m) return { ok: true, succeeded: 0, failed: 0 };
+    const d = JSON.parse(m[0]);
+    return { ok: true, succeeded: d.Ok || 0, failed: d.Fail || 0 };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -522,12 +529,12 @@ async function getHibernationState() {
 
 async function setHibernationState(disable) {
   const arg = disable ? "off" : "on";
-  return new Promise((resolve) => {
-    execFile("powercfg", ["/hibernate", arg], { windowsHide: true, timeout: 30 * 1000 }, (err, stdout, stderr) => {
-      if (err) return resolve({ ok: false, error: (stderr || err.message).toString().trim() });
-      resolve({ ok: true });
-    });
-  });
+  const results = await runElevatedBatch([
+    { id: "powercfg-hibernate", cmd: "powercfg", args: ["/hibernate", arg] },
+  ]);
+  const r = results[0];
+  if (!r.ok) return { ok: false, error: r.error || `powercfg exit ${r.exitCode}` };
+  return { ok: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

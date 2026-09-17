@@ -2,6 +2,7 @@ $items = @()
 
 $paths = @(
   'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run',
+  'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run',
   'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 )
 foreach ($p in $paths) {
@@ -12,7 +13,7 @@ foreach ($p in $paths) {
         $items += [PSCustomObject]@{
           Name    = $_.Name
           Command = $_.Value
-          Source  = if ($p -like 'HKLM*') { 'HKLM' } else { 'HKCU' }
+          Source  = if ($p -like '*WOW6432Node*') { 'HKLM32' } elseif ($p -like 'HKLM*') { 'HKLM' } else { 'HKCU' }
           Type    = 'Registry'
         }
       }
@@ -32,8 +33,22 @@ if (Test-Path $startupFolder) {
   }
 }
 
+$commonStartup = [System.Environment]::GetFolderPath('CommonStartup')
+if ($commonStartup -and (Test-Path $commonStartup)) {
+  Get-ChildItem $commonStartup -File | ForEach-Object {
+    $items += [PSCustomObject]@{
+      Name    = $_.BaseName
+      Command = $_.FullName
+      Source  = 'CommonStartupFolder'
+      Type    = 'Folder'
+    }
+  }
+}
+
 $approvedPaths = @(
   'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run',
+  'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32',
+  'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder',
   'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run',
   'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder'
 )
@@ -46,6 +61,8 @@ foreach ($ap in $approvedPaths) {
         $val = $key.GetValue($name)
         if ($val -and $val.Length -ge 1 -and $val[0] -ne 2) {
           $disabledSet[$name] = $true
+          # Folder entries are stored as "AnyDesk.lnk" but listed as "AnyDesk".
+          $disabledSet[[System.IO.Path]::GetFileNameWithoutExtension($name)] = $true
         }
       }
     }

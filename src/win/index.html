@@ -43,6 +43,12 @@
   .app-title { display: flex; align-items: center; gap: 8px; padding: 12px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
   .app-title span { font-size: 14px; font-weight: 700; color: var(--accent-h); letter-spacing: -0.3px; }
   .app-title-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent-h); filter: drop-shadow(0 0 6px rgba(99,102,241,0.5)); }
+  .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; width: 28px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; transition: color 0.12s, background 0.12s; flex-shrink: 0; -webkit-app-region: no-drag; }
+  .theme-btn:hover { color: var(--text); background: var(--surface); }
+  .theme-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .theme-btn .icon-moon { display: none; }
+  html[data-theme="light"] .theme-btn .icon-sun  { display: none; }
+  html[data-theme="light"] .theme-btn .icon-moon { display: inline; }
 
   /* ── Panels ── */
   .panels { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -59,6 +65,12 @@
   .controls select { padding: 7px 28px 7px 12px; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2363636e'/%3E%3C/svg%3E") no-repeat right 10px center; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; appearance: none; outline: none; cursor: pointer; transition: border-color 0.2s; }
   .controls select:focus { border-color: var(--accent); }
 
+  /* ── Scan scope (Large Files) ── */
+  .scope-row { display: flex; align-items: center; gap: 10px; padding: 0 20px 10px; flex-wrap: wrap; flex-shrink: 0; }
+  .scope-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; user-select: none; }
+  .scope-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .scope-path { font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   /* ── Buttons ── */
   .btn { padding: 7px 16px; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; -webkit-app-region: no-drag; }
   .btn:active { transform: scale(0.97); }
@@ -66,6 +78,7 @@
   .btn-fixed-width { display: inline-grid; place-items: center; }
   .btn-fixed-width::before { content: attr(data-longest); grid-area: 1 / 1; visibility: hidden; white-space: nowrap; pointer-events: none; }
   .btn-fixed-width > span { grid-area: 1 / 1; }
+  .btn-fixed-width[hidden] { display: none; }
   .btn-accent:hover { background: var(--accent-h); }
   .btn-accent:disabled { background: #2a2a40; color: #555; cursor: default; transform: none; }
   .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
@@ -210,8 +223,10 @@
   /* ── Column widths (defaults — overridden by JS fit-to-content) ── */
   .col-index      { width: 56px;  text-align: center; flex-shrink: 0; }
   .col-size       { width: 110px; flex-shrink: 0; }
+  .col-modified   { width: 150px; flex-shrink: 0; }
   .col-path       { width: 480px; flex-shrink: 0; }
   .col-mem        { width: 110px; flex-shrink: 0; }
+  .col-cpu        { width: 80px;  flex-shrink: 0; }
   .col-pid        { width: 72px;  flex-shrink: 0; }
   .col-proc-name  { width: 200px; flex-shrink: 0; }
   .col-proc-desc  { width: 320px; flex-shrink: 0; }
@@ -219,6 +234,7 @@
   .col-svc-status { width: 110px; flex-shrink: 0; }
   .col-svc-name   { width: 220px; flex-shrink: 0; }
   .col-svc-dname  { width: 320px; flex-shrink: 0; }
+  .col-svc-start  { width: 170px; flex-shrink: 0; }
   .col-su-status  { width: 90px;  flex-shrink: 0; }
   .col-su-name    { width: 200px; flex-shrink: 0; }
   .col-su-command { width: 360px; flex-shrink: 0; }
@@ -244,8 +260,11 @@
 
   .row .col-index     { color: var(--text-dim); font-family: var(--mono); font-size: 11px; text-align: center; }
   .row .col-size      { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-modified  { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
   .row .col-path      { direction: rtl; text-align: left; }
   .row .col-mem       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-cpu       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+  .row .col-cpu.idle  { color: var(--text-dim); font-weight: 400; }
   .row .col-pid       { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
   .row .col-proc-desc { color: var(--text-dim); font-size: 12px; }
   .row .col-svc-status{ font-size: 12px; font-weight: 500; }
@@ -303,6 +322,12 @@
   .context-menu .ctx-item.disabled { opacity: 0.35; pointer-events: none; }
   .context-menu .ctx-item svg { width: 14px; height: 14px; flex-shrink: 0; }
   .context-menu .ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
+  .context-menu .ctx-label { padding: 4px 12px 2px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+  .context-menu .ctx-choice .ctx-tick { visibility: hidden; }
+  .context-menu .ctx-choice.is-current .ctx-tick { visibility: visible; color: var(--accent); }
+  .context-menu .ctx-choice.is-current { color: var(--accent); font-weight: 600; }
+  .context-menu .ctx-choice.is-current:hover { background: var(--accent); color: #fff; }
+  .context-menu .ctx-choice.is-current:hover .ctx-tick { color: #fff; }
 
   /* ── System Info ── */
   .sysinfo-content { padding: 0 20px 20px; overflow-y: auto; flex: 1; }
@@ -578,6 +603,16 @@
   .bloat-table-body::-webkit-scrollbar-track { background: var(--surface2); }
   .bloat-table-body::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
   .bloat-table-body::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  /* Single scroll region that holds BOTH the process table and the services
+     table in the Kill Bloatware dialog, so the whole list (including the
+     services-to-disable section) is reachable with one scrollbar. */
+  .bloat-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .bloat-scroll::-webkit-scrollbar { width: 6px; }
+  .bloat-scroll::-webkit-scrollbar-track { background: var(--surface2); }
+  .bloat-scroll::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .bloat-scroll::-webkit-scrollbar-thumb:hover { background: #5a5a62; }
+  .bloat-scroll .bloat-table { flex: none; }
+  .bloat-scroll .bloat-table-body { max-height: none; overflow: visible; }
   .bloat-row { display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--border); font-size: 12.5px; transition: background 0.1s; }
   .bloat-row:last-child { border-bottom: none; }
   .bloat-row:hover { background: var(--surface2); }
@@ -625,6 +660,73 @@
   .dialog-actions { display: flex; justify-content: center; gap: 8px; }
   @keyframes dialogFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 
+  /* ── Exclude folders dialog ── */
+  .exclude-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px 16px; width: 560px; max-width: 92vw; max-height: 82vh; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 12px; }
+  .exclude-dialog h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+  .exclude-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .exclude-list { flex: 1; min-height: 90px; max-height: 340px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .exclude-list::-webkit-scrollbar { width: 6px; }
+  .exclude-list::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .exclude-empty { padding: 26px 16px; text-align: center; color: var(--text-dim); font-size: 12.5px; }
+  .exclude-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .exclude-item:last-child { border-bottom: none; }
+  .exclude-item input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; flex-shrink: 0; margin: 0; width: 15px; height: 15px; }
+  .exclude-item-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  .exclude-item-remove { flex-shrink: 0; width: 22px; height: 22px; border: none; background: transparent; color: var(--text-dim); font-size: 17px; line-height: 1; border-radius: 5px; cursor: pointer; transition: background 0.1s, color 0.1s; }
+  .exclude-item-remove:hover { background: var(--danger); color: #fff; }
+  .exclude-row-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* ─────────────────────────────────────────────────────────────
+     LIGHT THEME — overrides only. The default (dark) rules above are
+     left untouched; these apply only when <html data-theme="light">.
+     ───────────────────────────────────────────────────────────── */
+  html[data-theme="light"] {
+    --bg:       #f4f4f6;
+    --surface:  #ffffff;
+    --surface2: #ececf1;
+    --border:   #d9d9e0;
+    --text:     #1b1b20;
+    --text-dim: #65656f;
+    --accent:   #6366f1;
+    --accent-h: #4f46e5;
+    --danger:   #dc2626;
+    --danger-h: #ef4444;
+    --success:  #16a34a;
+    --warning:  #d97706;
+    --orange:   #ea580c;
+  }
+  /* Secondary text greys originally tuned for a dark background */
+  html[data-theme="light"] .cleaner-hero-text p,
+  html[data-theme="light"] .cleaner-card-text p,
+  html[data-theme="light"] .cleaner-row-desc,
+  html[data-theme="light"] .cleaner-row-meta,
+  html[data-theme="light"] .cleaner-row-path,
+  html[data-theme="light"] .cleaner-row-lastrun,
+  html[data-theme="light"] .drv-notice,
+  html[data-theme="light"] .ns-details,
+  html[data-theme="light"] .net-empty,
+  html[data-theme="light"] .net-running { color: #5a5a64; }
+  html[data-theme="light"] .drv-notice strong,
+  html[data-theme="light"] .cleaner-card-text h3,
+  html[data-theme="light"] .cleaner-hero-text h3 { color: var(--text); }
+  /* Scrollbar thumbs readable on a light track */
+  html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c4c4cc; }
+  html[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a8a8b2; }
+  /* Disabled buttons */
+  html[data-theme="light"] .btn-accent:disabled { background: #d6d6e2; color: #9a9aa6; }
+  html[data-theme="light"] .btn-danger:disabled { background: #f0d8d8; color: #c29494; }
+  html[data-theme="light"] .btn-success:disabled { background: #d4e9d8; color: #8caa92; }
+  html[data-theme="light"] .btn-warning:disabled { background: #ecdfc2; color: #b3a06e; }
+  html[data-theme="light"] .btn-ghost:disabled:hover { background: transparent; color: var(--text-dim); }
+  /* Decorative borders / hover lines that were near-black on dark */
+  html[data-theme="light"] .cleaner-row-title { border-bottom-color: var(--border); }
+  html[data-theme="light"] .cleaner-row:hover { border-color: #c4c4cc; }
+  html[data-theme="light"] .logs-btn,
+  html[data-theme="light"] .log-collapse-btn { border-color: var(--border); }
+  html[data-theme="light"] .log-box .log-time { color: #9a9aa6; }
+  /* Pickier mid-greys used for hints/values */
+  html[data-theme="light"] .cleaner-row-meta.is-busy { color: var(--accent-h); }
+
 </style>
 </head>
 <body>
@@ -653,6 +755,11 @@
           </svg>
         </div>
         <span>Disk Reaper</span>
+        <div class="spacer"></div>
+        <button class="theme-btn" id="themeBtn" title="Toggle light / dark theme">
+          <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
       </div>
       <div class="nav-item active" data-panel="files">
         <svg viewBox="0 0 16 16"><path d="M3 13V4.5L6.5 2H12a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M6.5 2v2.5H3"/></svg>
@@ -713,6 +820,13 @@
           <div class="spacer"></div>
           <span class="status-text" id="filesStatus">Ready</span>
         </div>
+        <div class="scope-row">
+          <label class="scope-toggle"><input type="checkbox" id="wholeSystem" checked /> Scan Whole System</label>
+          <button class="btn btn-ghost" id="folderBtn" disabled>Choose folder…</button>
+          <span class="scope-path" id="folderPath" style="display:none" title=""></span>
+          <button class="btn btn-ghost" id="excludeBtn" disabled>Exclude…</button>
+          <span class="scope-path" id="excludePaths" style="display:none" title=""></span>
+        </div>
         <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
         <div class="table-wrap">
           <div class="table-scroll">
@@ -720,6 +834,7 @@
               <div class="table-header">
                 <span class="col-index">#</span>
                 <span class="col-size sortable" data-sort="size">Size<span class="sort-ind"> ▼</span></span>
+                <span class="col-modified sortable" data-sort="modified">Modified<span class="sort-ind"></span></span>
                 <span class="col-path sortable" data-sort="path">Path<span class="sort-ind"></span></span>
               </div>
               <div class="table-body" id="filesBody">
@@ -815,6 +930,7 @@
                 <span class="col-index">#</span>
                 <span class="col-pid       sortable" data-sort="pid" id="procPidHeader">PID<span class="sort-ind"></span></span>
                 <span class="col-mem       sortable" data-sort="mem">Memory<span class="sort-ind"> ▼</span></span>
+                <span class="col-cpu       sortable" data-sort="cpu">CPU<span class="sort-ind"></span></span>
                 <span class="col-proc-name sortable" data-sort="name">Process<span class="sort-ind"></span></span>
                 <span class="col-proc-desc">Description</span>
               </div>
@@ -855,13 +971,14 @@
               <div class="table-header">
                 <span class="col-dot"></span>
                 <span class="col-svc-status sortable" data-sort="status">Status<span class="sort-ind"></span></span>
+                <span class="col-svc-start  sortable" data-sort="startType">Startup Type<span class="sort-ind"></span></span>
                 <span class="col-svc-name   sortable" data-sort="name">Service Name<span class="sort-ind"></span></span>
                 <span class="col-svc-dname  sortable" data-sort="displayName">Display Name<span class="sort-ind"> ▲</span></span>
               </div>
               <div class="table-body" id="svcBody">
                 <div class="empty-state" id="svcEmpty">
                   <div class="icon">⚙</div>
-                  <p>Hit <strong>Refresh</strong> to list Windows services</p>
+                  <p id="svcEmptyText">Scanning...</p>
                 </div>
               </div>
             </div>
@@ -903,12 +1020,13 @@
               <div class="table-body" id="suBody">
                 <div class="empty-state" id="suEmpty">
                   <div class="icon">⚡</div>
-                  <p>Hit <strong>Refresh</strong> to list startup items</p>
+                  <p id="suEmptyText">Scanning...</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        <div id="startupLog" class="log-store" hidden></div>
         <div class="panel-actions">
           <button class="btn btn-success" id="suEnableBtn" disabled>Enable</button>
           <button class="btn btn-danger"  id="suDisableBtn" disabled>Disable</button>
@@ -935,6 +1053,7 @@
         <div class="sysinfo-content" id="siContent">
           <div class="si-loading"><span>Click <strong>System Info</strong> in the sidebar to load</span></div>
         </div>
+        <div id="sysinfoLog" class="log-store" hidden></div>
         <div class="panel-actions">
           <div class="spacer"></div>
           <div class="export-wrap">
@@ -2087,6 +2206,7 @@
               </div>
               <div class="cleaner-card-action align-left">
                 <button class="btn btn-accent" id="netRunDiagBtn" title="Pings your router and the public internet to test your connection.">Run Diagnostics</button>
+                <button class="btn btn-danger btn-fixed-width" id="netAutoFixBtn" data-longest="Run Diagnostics" title="Runs the repairs for the problem diagnostics found." hidden><span>Fix</span></button>
               </div>
             </div>
 
@@ -2307,6 +2427,31 @@
   </div>
 
   <!-- Startup Context Menu -->
+  <div class="context-menu" id="svcContextMenu" style="display:none">
+    <div class="ctx-item" id="svcCtxToggle">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l9 5-9 5z"/></svg>
+      <span id="svcCtxToggleLabel">Start Service</span>
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-label" id="svcCtxStartHeading">Startup type</div>
+    <div class="ctx-item ctx-choice" data-svc-start="Automatic">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Automatic
+    </div>
+    <div class="ctx-item ctx-choice" data-svc-start="AutomaticDelayed">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Automatic (Delayed Start)
+    </div>
+    <div class="ctx-item ctx-choice" data-svc-start="Manual">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Manual
+    </div>
+    <div class="ctx-item ctx-choice" data-svc-start="Disabled">
+      <svg class="ctx-tick" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+      Disabled
+    </div>
+  </div>
+
   <div class="context-menu" id="suContextMenu" style="display:none">
     <div class="ctx-item" data-su-copy="name">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
@@ -2378,6 +2523,12 @@
     let i = 0, v = bytes;
     while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
     return i === 0 ? `${v} B` : `${v.toFixed(1)} ${u[i]}`;
+  }
+  function fmtDate(ms) {
+    if (!ms) return "—";
+    const d = new Date(ms);
+    if (isNaN(d)) return "—";
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
   }
   function fmtNum(n) { return n.toLocaleString("en-US"); }
   function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -2565,7 +2716,7 @@
   // Opens a separate Electron window with the same look as the inline log,
   // plus a header carrying Copy / Export / Clear / Auto-scroll. Future log
   // lines are appended live into the popout's #popout-log via DOM access.
-  const popouts = { cleaner: [], network: [] };
+  const popouts = { cleaner: [], network: [], sysinfo: [], startup: [] };
   function buildPopoutHtml(title) {
     return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + title + "</title>" +
       "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');</style>" +
@@ -2616,13 +2767,18 @@
       "</body></html>";
   }
   function popoutLog(panelKey) {
-    const sourceLog = panelKey === "cleaner"
-      ? document.getElementById("cleanerLog")
-      : document.getElementById("netLog");
+    const sourceLog =
+      panelKey === "cleaner"  ? document.getElementById("cleanerLog")  :
+      panelKey === "network"  ? document.getElementById("netLog")      :
+      panelKey === "sysinfo"  ? document.getElementById("sysinfoLog")  :
+      panelKey === "startup"  ? document.getElementById("startupLog")  : null;
     if (!sourceLog) return;
-    const title = panelKey === "cleaner"
-      ? "Activity Log - Performance/Cleaner"
-      : "Activity Log - Networking";
+    const title =
+      panelKey === "cleaner"  ? "Activity Log - Performance/Cleaner" :
+      panelKey === "network"  ? "Activity Log - Networking"          :
+      panelKey === "sysinfo"  ? "Debug Log - System Info"             :
+      panelKey === "startup"  ? "Debug Log - Startup"                  :
+      "Activity Log";
     const w = window.open("", "_blank", "width=720,height=520");
     if (!w) {
       alert("Could not open popout window. The main process needs a setWindowOpenHandler.");
@@ -2648,8 +2804,8 @@
   // Tracks unread counts per panel. The single titlebar button is shown
   // only when the active panel is cleaner or network, and reflects that
   // panel's unread state. Clicking pops out the active panel's log.
-  const logsUnread = { cleaner: 0, network: 0 };
-  let activeLogPanel = null;                  // "cleaner" | "network" | null
+  const logsUnread = { cleaner: 0, network: 0, sysinfo: 0, startup: 0 };
+  let activeLogPanel = null;                  // "cleaner" | "network" | "sysinfo" | "startup" | null
   function hasOpenPopout(panelKey) {
     const list = popouts[panelKey];
     if (!list) return false;
@@ -2676,7 +2832,7 @@
     }
   }
   function setActiveLogPanel(panel) {
-    activeLogPanel = (panel === "cleaner" || panel === "network") ? panel : null;
+    activeLogPanel = (panel === "cleaner" || panel === "network" || panel === "sysinfo" || panel === "startup") ? panel : null;
     renderTitlebarLogsBtn();
   }
   function bumpLogsUnread(panelKey) {
@@ -2786,12 +2942,24 @@
     });
   }
 
+  // Panels that finished loading while hidden: their columns could not be
+  // measured (a hidden element reports zero width), so re-fit them the next
+  // time the panel is shown.
+  const pendingColFit = {};
+
   // Measure content widths, store, apply. Call after first load.
   function fitColumnsToContent(panelId) {
     const panel = document.getElementById(panelId);
     if (!panel) return;
     const header = panel.querySelector('.table-header');
     if (!header) return;
+    // Measuring a hidden panel yields 0 for every column and squashes the
+    // table. Defer until the panel is visible again.
+    if (!panel.offsetParent && panel.offsetWidth === 0) {
+      pendingColFit[panelId] = true;
+      return;
+    }
+    delete pendingColFit[panelId];
     const count = header.children.length;
     if (!colWidths[panelId]) colWidths[panelId] = {};
 
@@ -2888,6 +3056,10 @@
       item.classList.add("active");
       document.getElementById("panel-" + item.dataset.panel).classList.add("active");
       const panel = item.dataset.panel;
+      // A table that finished loading while this panel was hidden could not be
+      // measured; fit it now that it is on screen.
+      const panelId = "panel-" + panel;
+      if (pendingColFit[panelId]) requestAnimationFrame(() => fitColumnsToContent(panelId));
       if (typeof setActiveLogPanel === "function") setActiveLogPanel(panel);
       if (autoLoadPanels[panel]) autoLoadPanels[panel]();
     });
@@ -2898,6 +3070,24 @@
   $("#linkReport").addEventListener("click",    e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/issues/new?template=bug-report.md"); });
   $("#linkFeedback").addEventListener("click",  e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/discussions/new/choose"); });
   $("#linkFeature").addEventListener("click",   e => { e.preventDefault(); window.api.openExternal("https://github.com/EerieGoesD/disk-reaper/issues/new?template=feature-request.md"); });
+
+  // ── Theme (dark / light) ──
+  const themeBtn = $("#themeBtn");
+  function applyTheme(theme) {
+    const t = theme === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("diskreaper.theme", t); } catch {}
+    if (window.api.setTitlebarTheme) window.api.setTitlebarTheme(t);
+  }
+  themeBtn?.addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme");
+    applyTheme(cur === "light" ? "dark" : "light");
+  });
+  (function initTheme() {
+    let saved = "dark";
+    try { saved = localStorage.getItem("diskreaper.theme") || "dark"; } catch {}
+    applyTheme(saved);
+  })();
 
   // ── Export ─────────────────────────────────────────────────────
   let activeMenu = null;
@@ -2937,7 +3127,7 @@
           state.dir = state.dir === "asc" ? "desc" : "asc";
         } else {
           state.col = col;
-          state.dir = (col === "size" || col === "mem" || col === "pid") ? "desc" : "asc";
+          state.dir = (col === "size" || col === "mem" || col === "cpu" || col === "pid" || col === "modified") ? "desc" : "asc";
         }
         document.querySelectorAll(panelSel + " .table-header .sort-ind").forEach(s => s.textContent = "");
         th.querySelector(".sort-ind").textContent = state.dir === "asc" ? " ▲" : " ▼";
@@ -2963,11 +3153,13 @@
   const filesFooter = $("#filesFooter");
 
   let fileItems = [], fileSelected = new Set(), fileLastClick = null;
+  let filesLabel = "files";
   const filesSort = { col: "size", dir: "desc" };
 
   function sortedFileItems() {
     return [...fileItems].sort((a, b) => {
       if (filesSort.col === "size") return filesSort.dir === "desc" ? b.size - a.size : a.size - b.size;
+      if (filesSort.col === "modified") { const av = a.modified || 0, bv = b.modified || 0; return filesSort.dir === "desc" ? bv - av : av - bv; }
       if (filesSort.col === "path") return filesSort.dir === "asc"  ? a.path.localeCompare(b.path) : b.path.localeCompare(a.path);
       return 0;
     });
@@ -2977,7 +3169,7 @@
     filesBody.innerHTML = "";
     if (!fileItems.length) {
       filesBody.appendChild(filesEmpty);
-      const btnLabel = modeSelect.value === "folders" ? "Scan All Folders" : "Scan All Files";
+      const btnLabel = scanBtn.querySelector("span").textContent;
       filesEmpty.querySelector("p").innerHTML = 'Hit <strong>' + btnLabel + '</strong> to find the largest ' + modeSelect.value;
       return;
     }
@@ -2990,6 +3182,7 @@
       row.innerHTML = `
         <span class="col-index">${i + 1}</span>
         <span class="col-size">${fmtSize(item.size)}</span>
+        <span class="col-modified">${fmtDate(item.modified)}</span>
         <span class="col-path" title="${esc(item.path)}">${esc(item.path)}</span>
       `;
       row.addEventListener("click", e => {
@@ -3018,17 +3211,114 @@
 
   makeSortable("#panel-files", filesSort, renderFiles);
 
-  modeSelect.addEventListener("change", () => {
+  // ── Scan scope (whole system vs a chosen folder) ──
+  const wholeSystem  = $("#wholeSystem");
+  const folderBtn    = $("#folderBtn");
+  const folderPath   = $("#folderPath");
+  const excludeBtn   = $("#excludeBtn");
+  const excludePaths = $("#excludePaths");
+  let chosenFolder    = null;
+  let excludedFolders = [];
+
+  function updateScanLabel() {
     const span = scanBtn.querySelector("span");
-    if (span) span.textContent = modeSelect.value === "folders" ? "Scan All Folders" : "Scan All Files";
+    if (!span) return;
+    const noun = modeSelect.value === "folders" ? "Folders" : "Files";
+    span.textContent = wholeSystem.checked ? `Scan All ${noun}` : `Scan ${noun}`;
+  }
+  function renderExcludes() {
+    const specific = !wholeSystem.checked;
+    const active = excludedFolders.filter(e => e.enabled).length;
+    if (!specific || !active) { excludePaths.style.display = "none"; return; }
+    excludePaths.style.display = "";
+    excludePaths.textContent = active === 1 ? "1 folder excluded" : active + " folders excluded";
+    excludePaths.title = excludedFolders.filter(e => e.enabled).map(e => e.path).join("\n");
+  }
+  function updateScopeUI() {
+    const specific = !wholeSystem.checked;
+    folderBtn.disabled  = !specific;                      // always visible, greyed when whole-system
+    excludeBtn.disabled = !specific;
+    folderPath.style.display = specific && chosenFolder ? "" : "none";
+    renderExcludes();
+    updateScanLabel();
+  }
+  wholeSystem.addEventListener("change", updateScopeUI);
+  folderBtn.addEventListener("click", async () => {
+    const f = await window.api.pickFolder();
+    if (f) { chosenFolder = f; folderPath.textContent = f; folderPath.title = f; }
+    updateScopeUI();
+  });
+
+  excludeBtn.addEventListener("click", () => { if (!excludeBtn.disabled) openExcludeDialog(); });
+  excludePaths.addEventListener("click", () => { if (!wholeSystem.checked) openExcludeDialog(); });
+
+  function openExcludeDialog() {
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `
+      <div class="exclude-dialog">
+        <h3>Exclude folders from scans</h3>
+        <p class="exclude-hint">Ticked folders, and everything inside them, are skipped when you scan a chosen folder. Untick one to keep it in the list without excluding it.</p>
+        <div class="exclude-list" id="excludeList"></div>
+        <div class="exclude-row-actions">
+          <button class="btn btn-ghost" id="excludeAdd">Add Folder…</button>
+          <div class="spacer"></div>
+          <button class="btn btn-accent" id="excludeDone">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const listEl = overlay.querySelector("#excludeList");
+
+    function renderList() {
+      listEl.innerHTML = "";
+      if (!excludedFolders.length) {
+        listEl.innerHTML = '<div class="exclude-empty">No folders yet. Click "Add Folder…" to choose one.</div>';
+        return;
+      }
+      excludedFolders.forEach((entry, i) => {
+        const row = document.createElement("div");
+        row.className = "exclude-item";
+        row.innerHTML = `
+          <input type="checkbox" ${entry.enabled ? "checked" : ""} />
+          <span class="exclude-item-path" title="${esc(entry.path)}">${esc(entry.path)}</span>
+          <button class="exclude-item-remove" title="Remove from list">&times;</button>`;
+        row.querySelector("input").addEventListener("change", ev => { entry.enabled = ev.target.checked; });
+        row.querySelector(".exclude-item-remove").addEventListener("click", () => { excludedFolders.splice(i, 1); renderList(); });
+        listEl.appendChild(row);
+      });
+    }
+    renderList();
+
+    overlay.querySelector("#excludeAdd").addEventListener("click", async () => {
+      const f = await window.api.pickFolder();
+      if (f && !excludedFolders.some(e => e.path.toLowerCase() === f.toLowerCase())) {
+        excludedFolders.push({ path: f, enabled: true });
+        renderList();
+      }
+    });
+    const close = () => { overlay.remove(); updateScopeUI(); };
+    overlay.querySelector("#excludeDone").addEventListener("click", close);
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  }
+
+  modeSelect.addEventListener("change", () => {
+    updateScanLabel();
     if (!fileItems.length) renderFiles();
   });
+  updateScopeUI();
 
   let removeProgressListener = null, paused = false;
 
   scanBtn.addEventListener("click", async () => {
     const limit = parseInt(countInput.value) || 50;
     const mode  = modeSelect.value;
+    let root = null;
+    let exclude = [];
+    if (!wholeSystem.checked) {
+      if (!chosenFolder) { alert("Pick a folder first, or tick 'Scan Whole System' to scan everything."); return; }
+      root = chosenFolder;
+      exclude = excludedFolders.filter(e => e.enabled).map(e => e.path);
+    }
     fileItems = []; fileSelected.clear(); renderFiles();
     scanBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
     progressBar.classList.add("active");
@@ -3037,13 +3327,19 @@
       filesStatus.textContent = `${fmtNum(scanned)} ${label} scanned…`;
     });
     try {
-      const result = await window.api.startScan({ limit, mode });
+      const result = await window.api.startScan({ limit, mode, root, exclude });
       fileItems = result.items;
+      filesLabel = result.label;
       renderFiles();
       requestAnimationFrame(() => fitColumnsToContent('panel-files'));
-      filesStatus.textContent = `Done — ${fmtNum(result.scanned)} ${result.label} scanned`;
-      const totalSize = fileItems.reduce((s, it) => s + it.size, 0);
-      filesFooter.textContent = `${fileItems.length} ${result.label}  ·  ${fmtSize(totalSize)} total`;
+      filesStatus.textContent = `Done - ${fmtNum(result.scanned)} ${result.label} scanned`;
+      if (result.label === "folders") {
+        // Folders nest inside each other, so summing their sizes double-counts. Show count only.
+        filesFooter.textContent = `${fileItems.length} folders`;
+      } else {
+        const totalSize = fileItems.reduce((s, it) => s + it.size, 0);
+        filesFooter.textContent = `${fileItems.length} files  ·  ${fmtSize(totalSize)} total`;
+      }
     } catch { filesStatus.textContent = "Scan failed"; }
     progressBar.classList.remove("active");
     scanBtn.disabled = false; pauseBtn.disabled = true; pauseBtn.textContent = "Pause"; stopBtn.disabled = true;
@@ -3089,9 +3385,9 @@
   });
 
   wireExport("filesExportBtn", "filesExportMenu", () => ({
-    filename: "large-files",
-    headers:  ["#", "Size", "Path"],
-    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), f.path]),
+    filename: filesLabel === "folders" ? "largest-folders" : "largest-files",
+    headers:  ["#", "Size", "Modified", "Path"],
+    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), fmtDate(f.modified), f.path]),
   }));
 
   // ══════════════════════════════════════════════════════════════
@@ -3374,6 +3670,29 @@
   let procData = [], procSelectedPid = null, procGrouped = false, procSearchTerm = "";
   const procSort = { col: "mem", dir: "desc" };
 
+  const fmtCpu = v => (v > 0 ? v.toFixed(1) : "0") + "%";
+
+  function sortProcs(items) {
+    return items.sort((a, b) => {
+      if (procSort.col === "mem")  return procSort.dir === "desc" ? b.memBytes - a.memBytes : a.memBytes - b.memBytes;
+      if (procSort.col === "cpu")  return procSort.dir === "desc" ? b.cpuPct   - a.cpuPct   : a.cpuPct   - b.cpuPct;
+      if (procSort.col === "name") return procSort.dir === "asc"  ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+      if (procSort.col === "pid")  return procSort.dir === "asc"  ? (a.pid|0) - (b.pid|0) : (b.pid|0) - (a.pid|0);
+      return 0;
+    });
+  }
+
+  function groupProcs(source) {
+    const map = new Map();
+    for (const p of source) {
+      const key = p.name.toLowerCase();
+      if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, cpuPct: 0, instances: 0, description: p.description });
+      const g = map.get(key); g.memBytes += p.memBytes; g.cpuPct += p.cpuPct; g.instances++;
+    }
+    for (const g of map.values()) g.cpuPct = Math.round(g.cpuPct * 10) / 10;
+    return [...map.values()];
+  }
+
   function renderProcesses() {
     procBody.innerHTML = "";
 
@@ -3382,13 +3701,7 @@
       const source = procSearchTerm
         ? procData.filter(p => p.name.toLowerCase().includes(procSearchTerm) || (p.description||"").toLowerCase().includes(procSearchTerm))
         : procData;
-      const map = new Map();
-      for (const p of source) {
-        const key = p.name.toLowerCase();
-        if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, instances: 0, description: p.description });
-        const g = map.get(key); g.memBytes += p.memBytes; g.instances++;
-      }
-      const groups = [...map.values()].sort((a, b) => b.memBytes - a.memBytes);
+      const groups = sortProcs(groupProcs(source).map(g => ({ ...g, pid: g.instances })));
       if (!groups.length) { procBody.appendChild(procEmpty); return; }
       groups.forEach((g, i) => {
         const row = document.createElement("div");
@@ -3398,6 +3711,7 @@
           <span class="col-index">${i + 1}</span>
           <span class="col-pid">${g.instances}×</span>
           <span class="col-mem">${fmtSize(g.memBytes)}</span>
+          <span class="col-cpu${g.cpuPct > 0 ? "" : " idle"}">${fmtCpu(g.cpuPct)}</span>
           <span class="col-proc-name" title="${esc(g.name)}">${esc(g.name)}</span>
           <span class="col-proc-desc" title="${esc(g.description)}">${esc(g.description) || "—"}</span>
         `;
@@ -3419,12 +3733,7 @@
       let items = procSearchTerm
         ? procData.filter(p => p.name.toLowerCase().includes(procSearchTerm) || (p.description||"").toLowerCase().includes(procSearchTerm))
         : [...procData];
-      items.sort((a, b) => {
-        if (procSort.col === "mem")  return procSort.dir === "desc" ? b.memBytes - a.memBytes : a.memBytes - b.memBytes;
-        if (procSort.col === "name") return procSort.dir === "asc"  ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-        if (procSort.col === "pid")  return procSort.dir === "asc"  ? a.pid - b.pid : b.pid - a.pid;
-        return 0;
-      });
+      sortProcs(items);
       if (!items.length) { procBody.appendChild(procEmpty); return; }
       items.forEach((proc, i) => {
         const row = document.createElement("div");
@@ -3435,6 +3744,7 @@
           <span class="col-index">${i + 1}</span>
           <span class="col-pid">${proc.pid}</span>
           <span class="col-mem">${fmtSize(proc.memBytes)}</span>
+          <span class="col-cpu${proc.cpuPct > 0 ? "" : " idle"}">${fmtCpu(proc.cpuPct)}</span>
           <span class="col-proc-name" title="${esc(proc.name)}">${esc(proc.name)}</span>
           <span class="col-proc-desc" title="${esc(proc.description)}">${esc(proc.description) || "—"}</span>
         `;
@@ -3455,7 +3765,7 @@
     procRefreshBtn.disabled = true; killBtn.disabled = true; procSelectedPid = null;
     procStatus.textContent = "Loading…";
     try {
-      procData = await window.api.getProcesses();
+      procData = await window.api.getProcesses(true);
       renderProcesses();
       requestAnimationFrame(() => fitColumnsToContent('panel-processes'));
       procStatus.textContent = `${fmtNum(procData.length)} processes`;
@@ -3471,7 +3781,7 @@
     renderProcesses();
   });
 
-  makeSortable("#panel-processes", procSort, () => { if (!procGrouped) renderProcesses(); });
+  makeSortable("#panel-processes", procSort, renderProcesses);
 
   procGroupSel.addEventListener("change", () => {
     procGrouped = procGroupSel.value === "grouped";
@@ -3506,20 +3816,14 @@
 
   wireExport("procExportBtn", "procExportMenu", () => {
     if (procGrouped) {
-      const map = new Map();
-      for (const p of procData) {
-        const key = p.name.toLowerCase();
-        if (!map.has(key)) map.set(key, { name: p.name, memBytes: 0, instances: 0, description: p.description });
-        const g = map.get(key); g.memBytes += p.memBytes; g.instances++;
-      }
-      const rows = [...map.values()].sort((a,b) => b.memBytes - a.memBytes)
-        .map((g, i) => [i+1, `${g.instances}×`, fmtSize(g.memBytes), g.name, g.description || ""]);
-      return { filename: "processes", headers: ["#","Instances","Memory","Application","Description"], rows };
+      const rows = sortProcs(groupProcs(procData).map(g => ({ ...g, pid: g.instances })))
+        .map((g, i) => [i+1, `${g.instances}×`, fmtSize(g.memBytes), fmtCpu(g.cpuPct), g.name, g.description || ""]);
+      return { filename: "processes", headers: ["#","Instances","Memory","CPU","Application","Description"], rows };
     }
     return {
       filename: "processes",
-      headers:  ["#","PID","Memory","Process","Description"],
-      rows:     [...procData].sort((a,b) => b.memBytes - a.memBytes).map((p,i) => [i+1, p.pid, fmtSize(p.memBytes), p.name, p.description||""]),
+      headers:  ["#","PID","Memory","CPU","Process","Description"],
+      rows:     sortProcs([...procData]).map((p,i) => [i+1, p.pid, fmtSize(p.memBytes), fmtCpu(p.cpuPct), p.name, p.description||""]),
     };
   });
 
@@ -3563,11 +3867,21 @@
       let av, bv;
       if (svcSort.col === "status")    { av = a.status;      bv = b.status; }
       else if (svcSort.col === "name") { av = a.name;        bv = b.name; }
+      else if (svcSort.col === "startType") { av = a.startTypeLabel || ""; bv = b.startTypeLabel || ""; }
       else                             { av = a.displayName; bv = b.displayName; }
       return svcSort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
 
-    if (!items.length) { svcBody.appendChild(svcEmpty); return; }
+    if (!items.length) {
+      const t = document.getElementById("svcEmptyText");
+      if (t) {
+        t.textContent = svcScanning ? "Scanning..."
+          : svcSearchTerm ? "No services match your search"
+          : "No services found";
+      }
+      svcBody.appendChild(svcEmpty);
+      return;
+    }
 
     items.forEach((svc, i) => {
       const origIdx = svcData.indexOf(svc);
@@ -3578,6 +3892,7 @@
       row.innerHTML = `
         <span class="col-dot"><span class="dot ${svcDotClass(svc.status)}"></span></span>
         <span class="col-svc-status" style="color:${svcColor(svc.status)}">${esc(svc.status)}</span>
+        <span class="col-svc-start"  title="${esc(svc.startTypeLabel || "")}">${esc(svc.startTypeLabel || "")}</span>
         <span class="col-svc-name"   title="${esc(svc.name)}">${esc(svc.name)}</span>
         <span class="col-svc-dname"  title="${esc(svc.displayName)}">${esc(svc.displayName)}</span>
       `;
@@ -3586,6 +3901,14 @@
         svcBody.querySelectorAll(".row").forEach(r =>
           r.classList.toggle("selected", parseInt(r.dataset.origidx) === svcSelected));
         updateSvcButtons();
+      });
+      row.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        svcSelected = origIdx;
+        svcBody.querySelectorAll(".row").forEach(r =>
+          r.classList.toggle("selected", parseInt(r.dataset.origidx) === svcSelected));
+        updateSvcButtons();
+        showSvcContextMenu(e, svc);
       });
       svcBody.appendChild(row);
     });
@@ -3600,17 +3923,23 @@
     stopSvcBtn.disabled  = s === "stopped";
   }
 
+  let svcScanning = false;
+
   async function loadServices() {
     svcRefreshBtn.disabled = true; startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
-    svcSelected = null; svcStatus.textContent = "Loading…";
+    svcSelected = null; svcStatus.textContent = "Scanning...";
+    svcScanning = true;
+    renderServices();
     try {
       svcData = await window.api.getServices();
+      svcScanning = false;
       renderServices();
       requestAnimationFrame(() => fitColumnsToContent('panel-services'));
       const running = svcData.filter(s => s.status.toLowerCase() === "running").length;
       svcStatus.textContent = `${fmtNum(svcData.length)} services`;
       svcFooter.textContent = `${svcData.length} services  ·  ${running} running`;
     } catch { svcStatus.textContent = "Failed"; }
+    svcScanning = false;
     svcRefreshBtn.disabled = false;
   }
 
@@ -3624,33 +3953,102 @@
 
   makeSortable("#panel-services", svcSort, renderServices);
   svcRefreshBtn.addEventListener("click", loadServices);
+  let svcLoaded = false;
+  autoLoadPanels["services"] = () => { if (!svcLoaded) { svcLoaded = true; loadServices(); } };
 
-  startSvcBtn.addEventListener("click", async () => {
-    if (svcSelected === null) return;
-    const svc = svcData[svcSelected];
-    svcStatus.textContent = `Starting "${svc.name}"…`;
+  async function startServiceItem(svc) {
+    if (!svc) return;
+    svcStatus.textContent = `Starting "${svc.name}"...`;
     startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
     const r = await window.api.controlService(svc.name, "start");
     if (!r.ok) alert(`Could not start:\n${r.error}`);
     await loadServices();
-  });
+  }
 
-  stopSvcBtn.addEventListener("click", async () => {
-    if (svcSelected === null) return;
-    const svc = svcData[svcSelected];
+  async function stopServiceItem(svc) {
+    if (!svc) return;
     if (!await customConfirm(`Stop "${svc.displayName}"?`)) return;
-    svcStatus.textContent = `Stopping "${svc.name}"…`;
+    svcStatus.textContent = `Stopping "${svc.name}"...`;
     startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
     const r = await window.api.controlService(svc.name, "stop");
     if (!r.ok) alert(`Could not stop:\n${r.error}`);
     await loadServices();
+  }
+
+  startSvcBtn.addEventListener("click", () => {
+    if (svcSelected === null) return;
+    startServiceItem(svcData[svcSelected]);
   });
+
+  stopSvcBtn.addEventListener("click", () => {
+    if (svcSelected === null) return;
+    stopServiceItem(svcData[svcSelected]);
+  });
+
+  // -- Services Context Menu --
+  const svcCtxMenu   = $("#svcContextMenu");
+  const svcCtxToggle = $("#svcCtxToggle");
+  const svcCtxLabel  = $("#svcCtxToggleLabel");
+  let svcCtxItem = null;
+
+  function hideSvcContextMenu() { svcCtxMenu.style.display = "none"; }
+
+  function showSvcContextMenu(e, svc) {
+    hideAllContextMenus();
+    svcCtxItem = svc;
+    svcCtxLabel.textContent = svc.status.toLowerCase() === "running" ? "Stop Service" : "Start Service";
+    const heading = document.getElementById("svcCtxStartHeading");
+    if (heading) heading.textContent = `Startup type: ${svc.startTypeLabel || "Unknown"}`;
+    svcCtxMenu.querySelectorAll("[data-svc-start]").forEach(b => {
+      b.classList.toggle("is-current", b.dataset.svcStart === svc.startType);
+    });
+    svcCtxMenu.style.display = "block";
+    const mx = e.clientX, my = e.clientY;
+    const mw = svcCtxMenu.offsetWidth, mh = svcCtxMenu.offsetHeight;
+    const ww = window.innerWidth, wh = window.innerHeight;
+    svcCtxMenu.style.left = (mx + mw > ww ? mx - mw : mx) + "px";
+    svcCtxMenu.style.top  = (my + mh > wh ? my - mh : my) + "px";
+  }
+
+  svcCtxToggle.addEventListener("click", () => {
+    hideSvcContextMenu();
+    const svc = svcCtxItem;
+    if (!svc) return;
+    if (svc.status.toLowerCase() === "running") stopServiceItem(svc);
+    else startServiceItem(svc);
+  });
+
+  // Startup type: stopping a service only lasts until the next boot, this is
+  // what decides whether it starts again.
+  svcCtxMenu.querySelectorAll("[data-svc-start]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      hideSvcContextMenu();
+      const svc = svcCtxItem;
+      if (!svc) return;
+      const type = btn.dataset.svcStart;
+      if (type === svc.startType) return;
+      svcStatus.textContent = `Setting startup type for "${svc.name}"...`;
+      startSvcBtn.disabled = true; stopSvcBtn.disabled = true;
+      const r = await window.api.setServiceStartType(svc.name, type);
+      if (!r.ok) alert(`Could not change startup type:
+${r.error}`);
+      await loadServices();
+    });
+  });
+
+  document.addEventListener("click", e => {
+    if (!svcCtxMenu.contains(e.target)) hideSvcContextMenu();
+  });
+  document.addEventListener("contextmenu", e => {
+    if (!svcCtxMenu.contains(e.target) && !e.target.closest("#svcBody .row")) hideSvcContextMenu();
+  });
+  window.addEventListener("blur", hideSvcContextMenu);
 
   wireExport("svcExportBtn", "svcExportMenu", () => ({
     filename: "services",
-    headers:  ["Status", "Service Name", "Display Name"],
+    headers:  ["Status", "Startup Type", "Service Name", "Display Name"],
     rows:     [...svcData].sort((a,b) => a.displayName.localeCompare(b.displayName))
-                          .map(s => [s.status, s.name, s.displayName]),
+                          .map(s => [s.status, s.startTypeLabel || "", s.name, s.displayName]),
   }));
 
   // ══════════════════════════════════════════════════════════════
@@ -3916,7 +4314,16 @@
       return suSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
 
-    if (!items.length) { suBody.appendChild(suEmpty); return; }
+    if (!items.length) {
+      const t = document.getElementById("suEmptyText");
+      if (t) {
+        t.textContent = suScanning ? "Scanning..."
+          : suSearchTerm ? "No startup items match your search"
+          : "No startup items found";
+      }
+      suBody.appendChild(suEmpty);
+      return;
+    }
 
     items.forEach((item, i) => {
       const origIdx = suData.indexOf(item);
@@ -3958,17 +4365,23 @@
     suDisableBtn.disabled = !item.enabled;
   }
 
+  let suScanning = false;
+
   async function loadStartup() {
     suRefreshBtn.disabled = true; suEnableBtn.disabled = true; suDisableBtn.disabled = true;
-    suSelected = null; suStatus.textContent = "Loading...";
+    suSelected = null; suStatus.textContent = "Scanning...";
+    suScanning = true;
+    renderStartup();
     try {
       suData = await window.api.getStartupItems();
+      suScanning = false;
       renderStartup();
       requestAnimationFrame(() => fitColumnsToContent('panel-startup'));
       const enabled = suData.filter(s => s.enabled).length;
       suStatus.textContent = `${fmtNum(suData.length)} startup items`;
       suFooter.textContent = `${suData.length} items  ·  ${enabled} enabled  ·  ${suData.length - enabled} disabled`;
     } catch { suStatus.textContent = "Failed"; }
+    suScanning = false;
     suRefreshBtn.disabled = false;
   }
 
@@ -3984,6 +4397,23 @@
   suRefreshBtn.addEventListener("click", loadStartup);
   let suLoaded = false;
   autoLoadPanels["startup"] = () => { if (!suLoaded) { suLoaded = true; loadStartup(); } };
+
+  // ── Startup: Debug Log ────────────────────────────────────────
+  const startupLog = $("#startupLog");
+  function stlog(msg, level) {
+    if (!startupLog) return;
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
+    const cls = level === "ok" ? "log-ok" : level === "warn" ? "log-warn" : level === "err" ? "log-err" : level === "info" ? "log-info" : "";
+    const line = document.createElement("div");
+    line.innerHTML = `<span class="log-time">[${ts}]</span> <span class="${cls}">${esc(msg)}</span>`;
+    startupLog.appendChild(line);
+    if (typeof forwardLogToPopouts === "function") forwardLogToPopouts("startup", line);
+    bumpLogsUnread("startup");
+  }
+  stlog("Startup debug log ready.", "info");
+  if (window.api && window.api.onStartupLog) {
+    window.api.onStartupLog(({ text, level }) => stlog(text, level));
+  }
 
   suEnableBtn.addEventListener("click", async () => {
     if (suSelected === null) return;
@@ -4246,6 +4676,23 @@
   $("#siRefreshBtn").addEventListener("click", loadSysInfo);
   let siLoaded = false;
   autoLoadPanels["sysinfo"] = () => { if (!siLoaded) { siLoaded = true; loadSysInfo(); } };
+
+  // ── System Info: Debug Log ────────────────────────────────────
+  const sysinfoLog = $("#sysinfoLog");
+  function silog(msg, level) {
+    if (!sysinfoLog) return;
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
+    const cls = level === "ok" ? "log-ok" : level === "warn" ? "log-warn" : level === "err" ? "log-err" : level === "info" ? "log-info" : "";
+    const line = document.createElement("div");
+    line.innerHTML = `<span class="log-time">[${ts}]</span> <span class="${cls}">${esc(msg)}</span>`;
+    sysinfoLog.appendChild(line);
+    if (typeof forwardLogToPopouts === "function") forwardLogToPopouts("sysinfo", line);
+    bumpLogsUnread("sysinfo");
+  }
+  silog("System Info debug log ready.", "info");
+  if (window.api && window.api.onSysInfoLog) {
+    window.api.onSysInfoLog(({ text, level }) => silog(text, level));
+  }
 
   function getSysInfoExportData() {
     if (!siData) return { filename: "system-info", headers: ["Section", "Property", "Value"], rows: [] };
@@ -5591,9 +6038,8 @@
           }
           if (!found.length) return { ok: true };
           const services = [...new Set(found.map(f => f.service).filter(Boolean))];
-          if (services.length) await window.api.stopDisableServices(services);
           const pids = found.flatMap(f => f.pids);
-          if (pids.length) await window.api.killBloatware(pids);
+          if (services.length || pids.length) await window.api.killBloatwareElevated(services, pids);
           return { ok: true };
         } catch (e) { return { ok: false, error: e.message || String(e) }; }
       } },
@@ -5766,57 +6212,96 @@
   }
 
   async function applyBoostActions() {
-    const keys = selectedBoostKeys();
-    if (!keys.size) return;
+    const keys = Array.from(selectedBoostKeys());
+    if (!keys.length) return;
     const applyBtn = document.getElementById("boostApply");
     applyBtn.disabled = true;
     const origText = applyBtn.textContent;
     const wantRestore = !!document.getElementById("boostCreateRestorePoint")?.checked;
     closeBoostDialog();
     setBoostButtonsRunning(true);
-    clog(`Boost PC: starting ${keys.size} action(s)...`, "info");
+    clog(`Boost PC: ${keys.length} action(s) selected. Requesting elevation...`, "info");
     setLogJobRunning("panel-cleaner", true);
-    // Total steps for the progress bar = the optional restore point + each ticked action.
-    const totalSteps = keys.size + (wantRestore ? 1 : 0);
-    let stepsDone = 0;
+    const totalSteps = keys.length + (wantRestore ? 1 : 0);
     setBoostProgress(0, totalSteps);
-    if (wantRestore) {
-      clog("  → Creating System Restore Point first...", "info");
+
+    // Pre-resolve OEM bloatware kill: needs renderer-side process list.
+    let bloatwareServices = [], bloatwarePids = [];
+    if (keys.includes("killAllBloatware")) {
       try {
-        const rr = await window.api.createRestorePoint("Disk Reaper Boost PC");
-        if (rr && rr.ok) clog("     restore point created.", "ok");
-        else clog(`     restore point failed: ${(rr && rr.error) || "unknown"} - continuing anyway.`, "warn");
-      } catch (e) { clog(`     restore point error: ${e.message || e} - continuing anyway.`, "warn"); }
+        const [list, procs] = await Promise.all([window.api.getBloatwareList(), window.api.getProcesses()]);
+        const procByName = new Map();
+        for (const p of procs) {
+          const k = (p.name || "").toLowerCase();
+          if (!procByName.has(k)) procByName.set(k, []);
+          procByName.get(k).push(p);
+        }
+        for (const bw of list) {
+          const m = procByName.get(bw.process.toLowerCase()) || [];
+          if (m.length) {
+            if (bw.service) bloatwareServices.push(bw.service);
+            for (const p of m) bloatwarePids.push(p.pid);
+          }
+        }
+        bloatwareServices = [...new Set(bloatwareServices)];
+        clog(`  bloatware pre-scan: ${bloatwarePids.length} PIDs, ${bloatwareServices.length} services`, "info");
+      } catch (e) { clog(`  bloatware pre-scan failed: ${e.message || e}`, "warn"); }
+    }
+
+    const t0 = Date.now();
+    let result;
+    try {
+      result = await window.api.runBoostBatch(keys, {
+        createRestorePoint: wantRestore,
+        bloatwareServices,
+        bloatwarePids,
+      });
+    } catch (e) {
+      clog(`Boost PC: elevated process error - ${e.message || e}`, "err");
+      result = { ok: false, error: e.message || String(e), perAction: {} };
+    }
+
+    // Walk per-action results, log each, advance the progress bar.
+    let ok = 0, fail = 0, stepsDone = 0;
+    const order = wantRestore ? ["restorePoint", ...keys] : keys;
+    const labelByKey = Object.fromEntries(BOOST_ACTIONS.map(a => [a.key, a.label]));
+    labelByKey["restorePoint"] = "Create System Restore Point";
+    for (const k of order) {
+      const label = labelByKey[k] || k;
+      clog(`  → ${label}`, "info");
+      const pa = (result.perAction || {})[k];
+      if (pa && pa.ok) {
+        // Some actions run multiple sub-operations and report "N ok, M failed"
+        // (e.g. the telemetry scheduled tasks). Count each sub-operation so
+        // partial failures are reflected in the final summary instead of the
+        // whole action counting as a single success.
+        const sub = pa.output && pa.output.match(/(\d+)\s+ok,\s+(\d+)\s+failed/i);
+        const subOk = sub ? parseInt(sub[1], 10) : 0;
+        const subFail = sub ? parseInt(sub[2], 10) : 0;
+        if (sub && (subOk + subFail) > 0) {
+          ok += subOk;
+          fail += subFail;
+          clog(`     ${pa.output}`, subFail > 0 ? "warn" : "ok");
+        } else {
+          ok++;
+          if (pa.output) clog(`     ${pa.output}`, "ok");
+          else clog("     done.", "ok");
+        }
+      } else {
+        fail++;
+        const reason = (pa && pa.output) || (result && result.error) || "no result captured";
+        clog(`     failed: ${reason}`, "err");
+      }
       stepsDone++;
       setBoostProgress(stepsDone, totalSteps);
     }
-    const t0 = Date.now();
-    let ok = 0, fail = 0;
-    try {
-      for (const a of BOOST_ACTIONS) {
-        if (!keys.has(a.key)) continue;
-        clog(`  → ${a.label}`, "info");
-        try {
-          const r = await a.run();
-          if (r && r.ok === false) { fail++; clog(`     failed: ${r.error || "unknown"}`, "err"); }
-          else { ok++; clog(`     done.`, "ok"); }
-        } catch (e) {
-          fail++;
-          clog(`     error: ${e.message || e}`, "err");
-        }
-        stepsDone++;
-        setBoostProgress(stepsDone, totalSteps);
-      }
-    } finally {
-      setLogJobRunning("panel-cleaner", false);
-      setBoostButtonsRunning(false);
-    }
+
+    setLogJobRunning("panel-cleaner", false);
+    setBoostButtonsRunning(false);
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     clog(`Boost PC: ${ok} succeeded, ${fail} failed. ${elapsed}s total.`, fail ? "warn" : "ok");
     applyBtn.disabled = false;
     applyBtn.textContent = origText;
-    // Refresh state for sections the user has open. Closed sections will
-    // refetch their state the next time they're expanded.
     if (typeof reloadAllOpenedSections === "function") reloadAllOpenedSections();
   }
 
@@ -5858,6 +6343,11 @@
     window.api.onPerfCmdOutput(({ key, text, level }) => {
       const prefix = PERF_CMD_LABELS[key] || key;
       clog(`  ${prefix}: ${text}`, level || "info");
+    });
+  }
+  if (window.api.onElevationLog) {
+    window.api.onElevationLog(({ text, level }) => {
+      clog(`     [elev] ${text}`, level || "info");
     });
   }
 
@@ -6106,18 +6596,20 @@
           <div class="spacer"></div>
           <span class="bloat-summary" id="bloatSummary">${found.length} processes - ${fmtSize(totalMem)}</span>
         </div>
-        <div class="bloat-table">
-          <div class="bloat-table-header">
-            <span style="width:28px"></span>
-            <span style="width:180px">Name</span>
-            <span style="width:80px">Category</span>
-            <span style="width:40px;text-align:right">Qty</span>
-            <span style="width:80px;text-align:right">Memory</span>
-            <span style="flex:1;padding-left:10px">Process</span>
+        <div class="bloat-scroll">
+          <div class="bloat-table">
+            <div class="bloat-table-header">
+              <span style="width:28px"></span>
+              <span style="width:180px">Name</span>
+              <span style="width:80px">Category</span>
+              <span style="width:40px;text-align:right">Qty</span>
+              <span style="width:80px;text-align:right">Memory</span>
+              <span style="flex:1;padding-left:10px">Process</span>
+            </div>
+            <div class="bloat-table-body">${tableRows}</div>
           </div>
-          <div class="bloat-table-body">${tableRows}</div>
+          ${servicesSection}
         </div>
-        ${servicesSection}
         <div class="bloat-actions">
           <button class="btn btn-ghost" id="bloatCancel">Cancel</button>
           <button class="btn btn-danger" id="bloatConfirm">Kill Selected</button>
@@ -6163,52 +6655,62 @@
 
       const confirmBtn = overlay.querySelector("#bloatConfirm");
       confirmBtn.disabled = true;
-      confirmBtn.textContent = "Stopping services...";
+      confirmBtn.textContent = "Killing bloatware...";
 
-      // 1. Stop and disable underlying services so they don't respawn
-      const serviceNames = selected.map(f => f.service).filter(Boolean);
-      let svcStopped = 0, svcFailed = 0;
-      if (serviceNames.length > 0) {
-        clog("Phase 1: Stopping and disabling " + serviceNames.length + " service(s): [" + serviceNames.join(", ") + "]", "info");
-        clog("  Requesting UAC elevation...", "info");
-        const svcResults = await runWithLogIndicator("panel-cleaner", () => window.api.stopDisableServices(serviceNames));
-        for (const r of svcResults) {
-          if (r.ok) {
-            clog("  Service '" + r.name + "' stopped and set to Disabled.", "ok");
-            svcStopped++;
-          } else {
-            clog("  Service '" + r.name + "' FAILED: " + r.error, "err");
-            svcFailed++;
-          }
-        }
-        clog("Phase 1 complete: " + svcStopped + " stopped, " + svcFailed + " failed.", svcFailed > 0 ? "warn" : "ok");
-      } else {
-        clog("Phase 1: No backing services to stop. Skipping.", "info");
-      }
-
-      // 2. Kill any remaining processes (those without a service, or service stop failed)
-      confirmBtn.textContent = "Killing processes...";
+      // Stop+disable the backing services AND kill the leftover PIDs in a
+      // single elevated run (one UAC prompt). Killing PIDs elevated is what
+      // prevents the "Access is denied" failures on SYSTEM-owned processes.
+      const serviceNames = [...new Set(selected.map(f => f.service).filter(Boolean))];
       const pidsToKill = [];
       selected.forEach(f => pidsToKill.push(...f.pids));
-      clog("Phase 2: Killing " + pidsToKill.length + " process(es) by PID: [" + pidsToKill.join(", ") + "]", "info");
-      const killResults = await runWithLogIndicator("panel-cleaner", () => window.api.killBloatware(pidsToKill));
-      let killed = 0, killFailed = 0;
-      for (const r of killResults) {
+
+      if (serviceNames.length > 0) {
+        clog("Stopping + disabling " + serviceNames.length + " service(s): [" + serviceNames.join(", ") + "]", "info");
+      } else {
+        clog("No backing services to stop.", "info");
+      }
+      clog("Killing " + pidsToKill.length + " process(es) by PID: [" + pidsToKill.join(", ") + "]", "info");
+      clog("  Requesting UAC elevation...", "info");
+
+      // Call directly (not via runWithLogIndicator) so the log popout does NOT
+      // auto-open over this dialog. The user can open it from the Logs button.
+      const res = await window.api.killBloatwareElevated(serviceNames, pidsToKill);
+
+      let svcStopped = 0, svcFailed = 0, svcMissing = 0;
+      for (const r of (res.services || [])) {
         if (r.ok) {
-          clog("  PID " + r.pid + " killed.", "ok");
-          killed++;
-        } else if (r.error && r.error.includes("not found")) {
+          clog("  Service '" + r.name + "' stopped and set to Disabled.", "ok");
+          svcStopped++;
+        } else if (r.missing) {
+          clog("  Service '" + r.name + "' not installed - skipped (its process is still killed below).", "info");
+          svcMissing++;
+        } else {
+          clog("  Service '" + r.name + "' FAILED: " + r.error, "err");
+          svcFailed++;
+        }
+      }
+
+      let killed = 0, killFailed = 0;
+      for (const r of (res.pids || [])) {
+        if (r.ok && r.gone) {
           clog("  PID " + r.pid + " already terminated (service stop handled it).", "ok");
+          killed++;
+        } else if (r.ok) {
+          clog("  PID " + r.pid + " killed.", "ok");
           killed++;
         } else {
           clog("  PID " + r.pid + " FAILED: " + (r.error || "unknown error"), "err");
           killFailed++;
         }
       }
-      clog("Phase 2 complete: " + killed + " killed, " + killFailed + " failed.", killFailed > 0 ? "warn" : "ok");
+
+      if (!res.ok) clog("Bloatware kill failed: " + (res.error || "unknown error"), "err");
 
       const totalFreed = selected.reduce((s, f) => s + f.memBytes, 0);
-      clog("Bloatware kill complete. Estimated memory freed: " + fmtSize(totalFreed) + ".", svcFailed + killFailed > 0 ? "warn" : "ok");
+      clog("Bloatware kill complete: " + svcStopped + " services disabled" +
+        (svcMissing ? " (" + svcMissing + " not installed)" : "") + ", " + killed + " processes killed" +
+        ((svcFailed + killFailed) ? ", " + (svcFailed + killFailed) + " failed" : "") +
+        ". Estimated memory freed: " + fmtSize(totalFreed) + ".", (svcFailed + killFailed) > 0 ? "warn" : "ok");
 
       markLastRun("bloat.kill");
       overlay.remove();
@@ -6244,21 +6746,262 @@
     bumpLogsUnread("network");
   }
 
-  function renderDiag(data) {
+  // After diagnostics, offer a single Fix button that runs the repairs for
+  // whatever failed, in order, and re-checks when it is done.
+  let netFixPlan = null;
+
+  function clearNetFixSuggestions() {
+    netFixPlan = null;
+    const btn = document.getElementById("netAutoFixBtn");
+    if (btn) btn.hidden = true;
+  }
+
+  // Things that sit between this PC and the internet and can cause exactly
+  // these symptoms. Named so the user knows what to switch off.
+  function netBlockers(extra) {
+    const out = [];
+    if (extra && extra.vpnAdapters && extra.vpnAdapters.length) out.push(`VPN connection (${extra.vpnAdapters.join(", ")})`);
+    if (extra && extra.proxyEnabled) out.push(`proxy (${extra.proxyServer || "unnamed"})`);
+    if (extra && extra.autoConfigUrl) out.push("automatic proxy script");
+    if (extra && extra.firewallBlockingOutbound && extra.firewallBlockingOutbound.length) out.push(`firewall blocking outgoing traffic (${extra.firewallBlockingOutbound.join(", ")})`);
+    return out;
+  }
+
+  function suggestNetFixes({ adapterOk, gwOk, ipOk, dnsOk, extra }, opts) {
+    const quiet = !!(opts && opts.quiet);
+    const btn = document.getElementById("netAutoFixBtn");
+    netFixPlan = null;
+    if (btn) btn.hidden = true;
+    const blockers = netBlockers(extra);
+    if (!adapterOk || !gwOk) {
+      netFixPlan = { label: "no connection to your router", steps: ["renewIp"], blockers };
+    } else if (!ipOk) {
+      netFixPlan = { label: "no internet", steps: ["flushDns", "renewIp"], blockers };
+    } else if (!dnsOk) {
+      netFixPlan = { label: "DNS not working", steps: ["flushDns", "fixDns"], blockers };
+    }
+    if (!netFixPlan) return;
+    if (btn) btn.hidden = false;
+    if (quiet) return;
+    nlog(`Found a problem: ${netFixPlan.label}. Click Fix to repair it automatically.`, "warn");
+    if (blockers.length) nlog(`Also present: ${blockers.join("; ")}. Fix will test whether this is involved.`, "info");
+  }
+
+  // Each repair the Fix button can run on its own, with no prompts.
+  const NET_AUTO_FIXES = {
+    flushDns: {
+      label: "Flush DNS cache",
+      run: async () => {
+        const r = await window.api.netFlushDns();
+        markLastRun("net.flushDns");
+        return r;
+      },
+    },
+    renewIp: {
+      label: "Renew IP address",
+      run: async () => {
+        const r = await window.api.netRenewIp();
+        markLastRun("net.renewIp");
+        return r;
+      },
+    },
+    fixDns: {
+      label: "Switch to Google + Cloudflare DNS",
+      run: async () => {
+        const adapter = await ensureAdapter();
+        if (!adapter) return { ok: false, error: "No active adapter detected." };
+        const r = await window.api.netFixDns({ adapter, primary: "8.8.8.8", secondary: "1.1.1.1" });
+        markLastRun("net.fixDns");
+        return r;
+      },
+    },
+  };
+
+  function netSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function netQuickCheck() {
+    const data = await window.api.netDiagnostics();
+    return {
+      data,
+      adapterOk: !!(data && data.primary),
+      gwOk:  !!(data && data.gateway && data.gateway.ok),
+      ipOk:  !!(data && data.publicIp && data.publicIp.ok),
+      dnsOk: !!(data && data.dnsResolve && data.dnsResolve.ok),
+    };
+  }
+
+  async function runNetAutoFix() {
+    if (!netFixPlan) return;
+    const plan = netFixPlan;
+    const btn = document.getElementById("netAutoFixBtn");
+    const runBtn = document.getElementById("netRunDiagBtn");
+    const btnLabel = btn ? btn.querySelector("span") : null;
+    const orig = btnLabel ? btnLabel.textContent : "";
+    if (btn) btn.disabled = true;
+    if (runBtn) runBtn.disabled = true;
+    if (btnLabel) btnLabel.textContent = "Fixing...";
+    setLogJobRunning("panel-network", true);
+    nlog(`Fixing ${plan.label}...`, "info");
+    let last = null;
+    let sawRouterOk = false;
+    try {
+      // 1. Apply the repairs for what was found.
+      for (const key of plan.steps) {
+        const step = NET_AUTO_FIXES[key];
+        if (!step) continue;
+        nlog(`Step: ${step.label}`, "info");
+        const r = await step.run();
+        logSteps(r);
+        nlog(`${step.label}: ${r && r.ok ? "done" : "failed"}`, r && r.ok ? "ok" : "err");
+      }
+
+      // 2. The network needs time to come back after a renew, so wait and
+      //    keep checking instead of testing right away.
+      nlog("Repairs applied. Waiting for the connection to come back - this can take a minute...", "info");
+      if (btnLabel) btnLabel.textContent = "Checking...";
+      const deadline = Date.now() + 90 * 1000;
+      let attempt = 0;
+      await netSleep(8000);
+      while (Date.now() < deadline) {
+        attempt++;
+        nlog(`Check ${attempt}: testing the connection...`, "info");
+        try { last = await netQuickCheck(); } catch { last = null; }
+        if (last) {
+          if (last.gwOk) sawRouterOk = true;
+          nlog(`Check ${attempt}: router ${last.gwOk ? "OK" : "not responding"}, internet ${last.ipOk ? "OK" : "down"}, DNS ${last.dnsOk ? "OK" : "down"}.`, (last.gwOk && last.ipOk && last.dnsOk) ? "ok" : "warn");
+          if (last.adapterOk && last.gwOk && last.ipOk && last.dnsOk) break;
+        } else {
+          nlog(`Check ${attempt}: could not test the connection.`, "warn");
+        }
+        if (Date.now() >= deadline) break;
+        await netSleep(10000);
+      }
+
+      // 3. Still broken and a VPN is running? Prove whether the VPN is the
+      //    cause by switching it off and testing again, instead of guessing.
+      let vpnWasTheCause = false;
+      let vpnTested = false;
+      const stillDown = !last || !last.ipOk || !last.dnsOk;
+      const vpnAdapters = (last && last.data && last.data.extra && last.data.extra.vpnAdapters) || [];
+      const vpnServices = (last && last.data && last.data.extra && last.data.extra.vpnServices) || [];
+      if (stillDown && last && last.gwOk && (vpnAdapters.length || vpnServices.length)) {
+        vpnTested = true;
+        if (btnLabel) btnLabel.textContent = "Testing...";
+        nlog(`Still no internet and a VPN is active (${[...vpnAdapters, ...vpnServices].join(", ")}). Turning it off to test whether it is the cause...`, "info");
+        const off = await window.api.netSetVpnEnabled(false, vpnAdapters, vpnServices);
+        if (!off || !off.ok) {
+          nlog(`Could not turn the VPN off: ${(off && off.error) || "unknown"}. Turn it off in the VPN app and run diagnostics again.`, "err");
+        } else {
+          nlog("VPN turned off. Waiting, then testing again...", "ok");
+          await netSleep(6000);
+          let afterVpn = null;
+          for (let i = 1; i <= 3; i++) {
+            nlog(`VPN test check ${i}...`, "info");
+            try { afterVpn = await netQuickCheck(); } catch { afterVpn = null; }
+            if (afterVpn) {
+              nlog(`VPN test check ${i}: internet ${afterVpn.ipOk ? "OK" : "down"}, DNS ${afterVpn.dnsOk ? "OK" : "down"}.`, afterVpn.ipOk ? "ok" : "warn");
+              if (afterVpn.ipOk && afterVpn.dnsOk) break;
+            }
+            if (i < 3) await netSleep(8000);
+          }
+          if (afterVpn && afterVpn.ipOk && afterVpn.dnsOk) {
+            vpnWasTheCause = true;
+            last = afterVpn;
+            nlog("Internet came back with the VPN off, so the VPN was blocking it. It is now off. Reconnect it from the VPN app when you want it back.", "ok");
+          } else {
+            nlog("Still no internet with the VPN off, so the VPN was not the cause. Turning it back on...", "info");
+            const on = await window.api.netSetVpnEnabled(true, vpnAdapters, vpnServices);
+            nlog(on && on.ok ? "VPN turned back on." : `Could not turn the VPN back on: ${(on && on.error) || "unknown"}. Start it from the VPN app.`, on && on.ok ? "ok" : "warn");
+            // The adapters come back one at a time, so a check straight after
+            // this reads as "no router". Wait, and keep the best reading.
+            await netSleep(10000);
+            let settled = null;
+            for (let i = 1; i <= 2; i++) {
+              try { settled = await netQuickCheck(); } catch { settled = null; }
+              if (settled && settled.gwOk) break;
+              if (i < 2) await netSleep(8000);
+            }
+            if (settled && settled.gwOk) last = settled;
+            else if (afterVpn) last = afterVpn;
+          }
+        }
+      }
+
+      // 4. Verdict: where does the problem live?
+      if (last && last.data) {
+        netPrimaryAdapter = last.data.primary ? last.data.primary.InterfaceAlias : netPrimaryAdapter;
+        nlog("Final state after the repairs:", "info");
+        renderDiag(last.data, { noSuggest: true });
+      }
+      const allOk = last && last.adapterOk && last.gwOk && last.ipOk && last.dnsOk;
+      const blockers = netBlockers(last && last.data ? last.data.extra : null).filter(b => !/^VPN connection/.test(b) || !vpnTested);
+      if (allOk) {
+        nlog(vpnWasTheCause
+          ? "Internet is back. The VPN was the cause."
+          : "Internet is back. Everything checks out.", "ok");
+      } else if ((!last || !last.adapterOk || !last.gwOk) && !sawRouterOk) {
+        nlog("The fixes did not help: your PC still cannot reach your router. The problem is between this PC and the router - check Wi-Fi or the network cable, and restart the router.", "err");
+      } else if (blockers.length) {
+        nlog(`The fixes did not help, and something on this PC is sitting in the way: ${blockers.join("; ")}.`, "err");
+        nlog("Turn that off and run diagnostics again.", "warn");
+      } else if (!last.ipOk) {
+        const dp = (last.data && last.data.deep) || {};
+        const tr = (last.data && last.data.trace) || {};
+        if (dp.vpnBlockRules && dp.vpnBlockRules.length) {
+          nlog(`Traffic is still being blocked on this PC by VPN kill-switch rules that stayed behind: ${dp.vpnBlockRules.join("; ")}. Open the VPN app and turn its kill switch off, or uninstall the VPN.`, "err");
+        } else if (dp.routes && dp.routes.length > 1) {
+          nlog(`More than one connection is claiming the internet route (${dp.routes.map(r => r.iface).join(", ")}). Traffic is likely going into the wrong one instead of your router.`, "err");
+        } else if (tr.lastReplyingHop > 1 && !tr.hitHopLimit) {
+          nlog(`Ruled out: this PC and the VPN. Traffic leaves your router fine and dies ${tr.lastReplyingHop} hops out, last answer from ${tr.lastReplyingIp}. That is inside your provider's network, so this is your provider. Contact them with that address.`, "err");
+        } else if (tr.lastReplyingHop === 1) {
+          nlog("Ruled out: this PC and the VPN. Your router answers, but nothing past it does, so the router's internet side is down. Restart the router; if it stays down, it is your provider's line.", "err");
+        } else {
+          nlog(vpnTested
+            ? "Ruled out: this PC's settings and the VPN. Your PC reaches the router fine but nothing beyond it answers, so the problem is the router's internet connection or your provider. Restart the router; if it stays down, contact your provider."
+            : "The fixes did not help: your PC reaches the router fine, but nothing beyond the router answers, and nothing on this PC is blocking it. The problem is the router's internet connection or your provider. Restart the router; if it stays down, contact your provider.", "err");
+        }
+      } else {
+        nlog("The fixes did not help: the connection works but name lookups still fail, even on Google DNS. Restart the router; if it stays broken, contact your provider.", "err");
+      }
+      // Offer the Fix button again only if something is still wrong.
+      if (last && last.data && !allOk) {
+        const ex = last.data.extra || {};
+        suggestNetFixes({
+          adapterOk: last.adapterOk, gwOk: last.gwOk, ipOk: last.ipOk, dnsOk: last.dnsOk, extra: ex,
+        }, { quiet: true });
+      }
+      markLastRun("net.runDiag");
+    } finally {
+      setLogJobRunning("panel-network", false);
+      if (btn) btn.disabled = false;
+      if (btnLabel) btnLabel.textContent = orig || "Fix";
+      if (runBtn) runBtn.disabled = false;
+    }
+  }
+
+  function renderDiag(data, opts) {
+    const quiet = !!(opts && opts.quiet);
+    const noSuggest = quiet || !!(opts && opts.noSuggest);
     if (!data) {
       netDiag.innerHTML = `<div class="net-empty">Diagnostics failed to run.</div>`;
       return;
     }
-    const { primary, gateway, publicIp, publicDns } = data;
+    const { primary, gateway, publicIp, publicDns, dnsResolve } = data;
+    const extra     = data.extra || {};
     const adapterOk = !!primary;
     const gwOk      = gateway && gateway.ok;
-    const ipOk      = publicIp && publicIp.ok;
-    const dnsOk     = publicDns && publicDns.ok;
+    // Many networks and VPNs block ping while normal traffic works, so a real
+    // connection counts as internet even when the ping gets no reply.
+    const pingOk    = !!(publicIp && publicIp.ok);
+    const ipOk      = pingOk || !!extra.tcpOk;
+    // DNS health is name resolution, not the google.com ping (which fails when
+    // ICMP is blocked even though names resolve fine).
+    const dnsOk     = dnsResolve && dnsResolve.ok;
 
     const adapterValue = primary ? esc(primary.InterfaceAlias) : "None";
     const gwValue   = gateway ? (gwOk ? `${gateway.avgMs ?? "?"} ms` : "no reply") : "skipped";
-    const ipValue   = publicIp ? (ipOk ? `${publicIp.avgMs ?? "?"} ms` : "no reply") : "skipped";
-    const dnsValue  = publicDns ? (dnsOk ? `${publicDns.avgMs ?? "?"} ms` : "failed") : "skipped";
+    const ipValue   = ipOk ? (pingOk ? `${publicIp.avgMs ?? "?"} ms` : "OK (ping blocked)") : "no reply";
+    const dnsValue  = dnsResolve ? (dnsOk ? `${dnsResolve.ms ?? "?"} ms` : "failed") : "skipped";
     const dnsDotClass = dnsOk ? "ok" : (ipOk ? "err" : "warn");
 
     const statusRow =
@@ -6292,15 +7035,78 @@
 
     netDiag.innerHTML = `<div class="ns-row">${statusRow}</div>${detailsRow}`;
 
+    // Log every measurement, not just the verdict.
+    if (quiet) return;
+    nlog(`Adapter: ${primary ? primary.InterfaceAlias : "none found"}${primary && primary.IPv4Address ? " (IP " + primary.IPv4Address + ")" : ""}`, adapterOk ? "ok" : "err");
+    if (primary && primary.IPv4Gateway) nlog(`Router address: ${primary.IPv4Gateway}`, "info");
+    if (primary && primary.DnsServers && primary.DnsServers.length) nlog(`DNS servers in use: ${primary.DnsServers.join(", ")}`, "info");
+    if (gateway) nlog(`Router ping: ${gateway.received}/${gateway.sent} replies${gwOk && gateway.avgMs != null ? ", " + gateway.avgMs + " ms average" : ""}${gateway.lossPct != null ? ", " + gateway.lossPct + "% loss" : ""}`, gwOk ? "ok" : "err");
+    if (publicIp) nlog(`Internet ping (8.8.8.8): ${publicIp.received}/${publicIp.sent} replies${ipOk && publicIp.avgMs != null ? ", " + publicIp.avgMs + " ms average" : ""}${publicIp.lossPct != null ? ", " + publicIp.lossPct + "% loss" : ""}`, ipOk ? "ok" : "err");
+    if (publicDns) nlog(`google.com ping: ${publicDns.received}/${publicDns.sent} replies`, publicDns.ok ? "ok" : "warn");
+    if (extra.tcp && extra.tcp.length) {
+      nlog(`Direct connection test: ${extra.tcp.map(t => `${t.target} ${t.ok ? "OK" : "blocked"}`).join(", ")}`, extra.tcpOk ? "ok" : "err");
+      if (!pingOk && extra.tcpOk) nlog("Ping gets no reply but real connections go through, so the internet is working and only ping is blocked.", "info");
+    }
+    if (extra.vpnAdapters && extra.vpnAdapters.length) nlog(`VPN connection active: ${extra.vpnAdapters.join(", ")}`, "warn");
+    if (extra.vpnServices && extra.vpnServices.length) nlog(`VPN software running: ${extra.vpnServices.join(", ")}`, "info");
+    if (extra.proxyEnabled) nlog(`Proxy is turned on: ${extra.proxyServer || "unnamed"}`, "warn");
+    if (extra.autoConfigUrl) nlog(`Automatic proxy script in use: ${extra.autoConfigUrl}`, "warn");
+    if (extra.firewallBlockingOutbound && extra.firewallBlockingOutbound.length) nlog(`Firewall is set to block outgoing traffic on: ${extra.firewallBlockingOutbound.join(", ")}`, "warn");
+
+    // Where traffic actually goes, and whether the router itself is alive.
+    const deep = data.deep || {};
+    const trace = data.trace || {};
+    if (deep.routes && deep.routes.length) {
+      nlog(`Internet traffic is being sent through: ${deep.routes.map(r => `${r.iface} via ${r.nextHop} (priority ${r.ifMetric + r.metric})`).join(" | ")}`, deep.routes.length > 1 ? "warn" : "info");
+      if (deep.routes.length > 1) nlog("More than one connection is claiming the internet route. If the top one is a VPN or a virtual adapter, traffic is going into it instead of your router.", "warn");
+    }
+    if (deep.gateway) {
+      nlog(`Router itself: admin page ${deep.routerHttp || deep.routerHttps ? "answers" : "no answer"}, acts as DNS ${deep.routerDns ? "yes" : "no"}`, (deep.routerHttp || deep.routerHttps || deep.routerDns) ? "ok" : "warn");
+    }
+    if (deep.vpnBlockRules && deep.vpnBlockRules.length) {
+      nlog(`VPN kill-switch style blocking rules are still active: ${deep.vpnBlockRules.join("; ")}`, "warn");
+    }
+    if (trace.hops && trace.hops.length) {
+      nlog(`Route trace to 8.8.8.8: ${trace.hops.map(h => `${h.hop}:${h.ip || "no reply"}`).join("  ")}`, "info");
+      // Only read the trace as a failure when the internet is actually down.
+      // A trace that simply ran out of hops proves nothing.
+      if (trace.reached) {
+        nlog("Traffic reaches the internet, so the path out is fine.", "ok");
+      } else if (ipOk) {
+        nlog(trace.hitHopLimit
+          ? `The trace stopped at the ${trace.maxHops} hop limit, not at a fault. The connection works.`
+          : "Some hops did not answer, which is normal. The connection works.", "info");
+      } else if (!trace.lastReplyingHop) {
+        nlog("Traffic does not get past this PC. Nothing on the way out answers, not even your router.", "err");
+      } else if (trace.lastReplyingHop === 1) {
+        nlog(`Traffic stops right after your router (${trace.lastReplyingIp}). Your router is reachable but its internet side is not passing traffic, so this is the router or your provider's line.`, "err");
+      } else {
+        nlog(`Traffic gets ${trace.lastReplyingHop} hops out, last answer from ${trace.lastReplyingIp}, then stops. That is inside your provider's network, past your router.`, "err");
+      }
+    } else if (trace.host) {
+      nlog("Route trace returned nothing.", "warn");
+    }
+    if (dnsResolve) {
+      nlog(`Name lookup for google.com: ${dnsOk ? "resolved to " + dnsResolve.ips.join(", ") : "FAILED" + (dnsResolve.error ? " (" + dnsResolve.error + ")" : "")}${dnsResolve.server ? " via " + dnsResolve.server : ""}${dnsResolve.ms != null ? " in " + dnsResolve.ms + " ms" : ""}`, dnsOk ? "ok" : "err");
+    }
+
+    if (!noSuggest) suggestNetFixes({ adapterOk, gwOk, ipOk, dnsOk, extra });
+
     // Verdict
     if (!adapterOk)      nlog("No active network adapter with a gateway found.", "err");
     else if (!gwOk)      nlog("Your router is not responding. Check Wi-Fi/Ethernet or reboot the router.", "err");
     else if (!ipOk)      nlog("No route to the internet. Connection is local only.", "err");
-    else if (!dnsOk)     nlog("Internet works but DNS is broken. Try 'Use Google + Cloudflare DNS'.", "warn");
-    else                 nlog("All checks passed. Network looks healthy.", "ok");
+    else if (!dnsOk)     nlog("Internet works but DNS is broken. Try 'Switch to Google + Cloudflare DNS'.", "warn");
+    else {
+      if (ipOk && publicDns && !publicDns.ok) {
+        nlog("DNS resolves fine; the google.com ping got no reply, which usually means ICMP is blocked, not a DNS problem.", "info");
+      }
+      nlog("All checks passed. Network looks healthy.", "ok");
+    }
   }
 
   async function runNetDiagnostics() {
+    clearNetFixSuggestions();
     netDiag.innerHTML = `<div class="net-running">Running diagnostics... this takes a few seconds.</div>`;
     nlog("Running diagnostics: adapter detection + ping 8.8.8.8 + ping google.com...", "info");
     try {
@@ -6353,6 +7159,7 @@
   }
 
   wireNetBtn("netRunDiagBtn", runNetDiagnostics);
+  wireNetBtn("netAutoFixBtn", runNetAutoFix);
 
   wireNetBtn("netFixDnsBtn", async () => {
     const adapter = await ensureAdapter();

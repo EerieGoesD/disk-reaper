@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld("api", {
   deleteFiles:   (paths)        => ipcRenderer.invoke("delete-files", paths),
   showInExplorer:(path)         => ipcRenderer.invoke("show-in-explorer", path),
   openExternal:  (url)          => ipcRenderer.invoke("open-external", url),
+  pickFolder:    ()            => ipcRenderer.invoke("pick-folder"),
+  setTitlebarTheme: (theme)     => ipcRenderer.invoke("set-titlebar-theme", theme),
   onScanProgress: (cb) => {
     const listener = (_event, data) => cb(data);
     ipcRenderer.on("scan-progress", listener);
@@ -29,15 +31,26 @@ contextBridge.exposeInMainWorld("api", {
   // System Info
   getSysInfo:   () => ipcRenderer.invoke("get-sysinfo"),
   getLiveStats: () => ipcRenderer.invoke("get-live-stats"),
+  onSysInfoLog: (cb) => {
+    const listener = (_event, data) => cb(data);
+    ipcRenderer.on("sysinfo-log", listener);
+    return () => ipcRenderer.removeListener("sysinfo-log", listener);
+  },
   // Startup
   getStartupItems:   ()     => ipcRenderer.invoke("get-startup-items"),
   setStartupEnabled: (opts) => ipcRenderer.invoke("set-startup-enabled", opts),
+  onStartupLog: (cb) => {
+    const listener = (_event, data) => cb(data);
+    ipcRenderer.on("startup-log", listener);
+    return () => ipcRenderer.removeListener("startup-log", listener);
+  },
   // Processes
-  getProcesses: ()    => ipcRenderer.invoke("get-processes"),
+  getProcesses: (withCpu) => ipcRenderer.invoke("get-processes", !!withCpu),
   killProcess:  (pid) => ipcRenderer.invoke("kill-process", pid),
   // Cleaner
   getBloatwareList:    ()      => ipcRenderer.invoke("get-bloatware-list"),
   killBloatware:       (pids)  => ipcRenderer.invoke("kill-bloatware", pids),
+  killBloatwareElevated: (services, pids) => ipcRenderer.invoke("kill-bloatware-elevated", { services, pids }),
   stopDisableServices: (names) => ipcRenderer.invoke("stop-disable-services", names),
   getFolderInfo:       (key)   => ipcRenderer.invoke("get-folder-info", key),
   clearTempFolder:     (key)   => ipcRenderer.invoke("clear-temp-folder", key),
@@ -47,6 +60,12 @@ contextBridge.exposeInMainWorld("api", {
   getDeliveryOptState: ()      => ipcRenderer.invoke("get-delivery-opt-state"),
   setDeliveryOptP2P:   (disable) => ipcRenderer.invoke("set-delivery-opt-p2p", { disable }),
   runPerfCommand:      (key)   => ipcRenderer.invoke("run-perf-command", key),
+  runBoostBatch:       (keys, opts) => ipcRenderer.invoke("run-boost-batch", { keys, opts }),
+  onElevationLog: (cb) => {
+    const listener = (_event, data) => cb(data);
+    ipcRenderer.on("elevation-log", listener);
+    return () => ipcRenderer.removeListener("elevation-log", listener);
+  },
   onPerfCmdOutput:     (cb)    => {
     const listener = (_event, data) => cb(data);
     ipcRenderer.on("perf-cmd-output", listener);
@@ -71,8 +90,10 @@ contextBridge.exposeInMainWorld("api", {
   // Services
   getServices:     ()              => ipcRenderer.invoke("get-services"),
   controlService:  (name, action)  => ipcRenderer.invoke("control-service", { name, action }),
+  setServiceStartType: (name, startType) => ipcRenderer.invoke("set-service-start-type", { name, startType }),
   // Networking
   netDiagnostics:   ()         => ipcRenderer.invoke("net-diagnostics"),
+  netSetVpnEnabled: (enabled, adapters, services) => ipcRenderer.invoke("net-set-vpn-enabled", { enabled, adapters, services }),
   netGetAdapters:   ()         => ipcRenderer.invoke("net-get-adapters"),
   netFixDns:        (opts)     => ipcRenderer.invoke("net-fix-dns", opts),
   netResetDns:      (opts)     => ipcRenderer.invoke("net-reset-dns", opts),
