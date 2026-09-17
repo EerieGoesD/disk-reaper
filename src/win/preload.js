@@ -16,6 +16,15 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on("scan-progress", listener);
     return () => ipcRenderer.removeListener("scan-progress", listener);
   },
+  onScanPartial: (cb) => {
+    const listener = (_event, data) => cb(data);
+    ipcRenderer.on("scan-partial", listener);
+    return () => ipcRenderer.removeListener("scan-partial", listener);
+  },
+  // App usage: [cpu, ram] as "0.3%" strings, "n/a" when a reading fails
+  appVersion: () => ipcRenderer.invoke("app-version"),
+  usage:      () => ipcRenderer.invoke("usage"),
+  cacheSize:  () => ipcRenderer.invoke("cache-size"),
   // Installed Apps
   exportData: (opts) => ipcRenderer.invoke("export-data", opts),
   getInstalledApps:  ()     => ipcRenderer.invoke("get-installed-apps"),

@@ -33,40 +33,55 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 // ── Large Files ──────────────────────────────────────────────────
+function sendToWindow(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data);
+}
+
 ipcMain.handle('startScan', (event, opts) => {
   if (scanWorker) { scanWorker.terminate(); scanWorker = null; }
 
-  return new Promise((resolve, reject) => {
-    scanWorker = new Worker(path.join(__dirname, 'scanner-worker.js'), {
-      workerData: opts,
-    });
+  const { limit, mode, root = null, exclude = [] } = opts || {};
+  const label = mode === 'folders' ? 'folders' : 'files';
 
-    scanWorker.on('message', msg => {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, 'scanner-worker.js'), {
+      workerData: { limit, mode, root, exclude },
+    });
+    scanWorker = worker;
+    const release = () => { if (scanWorker === worker) scanWorker = null; };
+
+    worker.on('message', msg => {
       if (msg.type === 'progress') {
-        mainWindow.webContents.send('scan-progress', { scanned: msg.scanned, label: msg.label || opts.mode });
-      } else if (msg.type === 'result' || msg.type === 'partial') {
+        sendToWindow('scan-progress', { scanned: msg.scanned, label: msg.label, bytes: msg.bytes, total: msg.total });
+      } else if (msg.type === 'partial') {
+        sendToWindow('scan-partial', msg.items);
+      } else if (msg.type === 'result') {
+        release();
         resolve({ items: msg.items, scanned: msg.scanned, label: msg.label });
-        scanWorker = null;
       } else if (msg.type === 'error') {
+        release();
         reject(new Error(msg.error));
-        scanWorker = null;
       }
     });
 
-    scanWorker.on('error', err => { reject(err); scanWorker = null; });
-    // exit fires when the worker is terminated — resolve with empty items so
-    // the renderer's await unblocks; the userStopped guard prevents rendering
-    scanWorker.on('exit', () => { resolve({ items: [], scanned: 0, label: opts.mode }); scanWorker = null; });
+    worker.on('error', err => { release(); reject(err); });
+    // Only reached without a result when the worker was replaced by a newer
+    // scan, so unblock the old await with an empty list.
+    worker.on('exit', () => { release(); resolve({ items: [], scanned: 0, label }); });
   });
 });
 
 ipcMain.on('pauseScan',  () => scanWorker?.postMessage({ cmd: 'pause' }));
 ipcMain.on('resumeScan', () => scanWorker?.postMessage({ cmd: 'resume' }));
-ipcMain.on('stopScan',   () => {
-  if (scanWorker) {
-    scanWorker.terminate(); // hard-kill immediately — don't wait for graceful wind-down
-    scanWorker = null;
-  }
+// The worker winds down at its next check and sends what it found so far,
+// the same way a finished scan does.
+ipcMain.on('stopScan',   () => scanWorker?.postMessage({ cmd: 'stop' }));
+
+ipcMain.handle('pickFolder', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+  });
+  return canceled || !filePaths.length ? null : filePaths[0];
 });
 
 // ── File operations ──────────────────────────────────────────────
@@ -583,6 +598,84 @@ ipcMain.handle('runCleanerTask', async (event, taskId) => {
   } catch (e) {
     return { ok: false, output: e.message || String(e) };
   }
+});
+
+// ── App usage (version, CPU, memory, cache) ──────────────────────
+ipcMain.handle('appVersion', () => app.getVersion());
+
+// Disk Reaper's own processes: the app itself, which also runs the scanner,
+// and the process drawing its window. Chromium's GPU and network helpers are
+// left out, the same way a Tauri app's readout leaves out WebKit's helpers.
+function ownProcessIds() {
+  const pids = new Set([process.pid]);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const pid = mainWindow.webContents.getOSProcessId();
+    if (pid) pids.add(pid);
+  }
+  return pids;
+}
+
+// CPU share is a difference between two readings, so the previous CPU seconds
+// of each process are kept here. The very first call has nothing to compare
+// with and reports 0.0, which is correct. Keyed by pid and start time, since a
+// pid can be reused after a process dies.
+let lastUsage = null;
+
+ipcMain.handle('usage', async () => {
+  const pids  = ownProcessIds();
+  const now   = Date.now();
+  const cores = Math.max(1, os.cpus().length);
+
+  let cpu = null;
+  const seconds = new Map();
+  let readable = true;
+  for (const m of app.getAppMetrics()) {
+    if (!pids.has(m.pid)) continue;
+    if (typeof m.cpu.cumulativeCPUUsage !== 'number') { readable = false; break; }
+    seconds.set(m.pid + ':' + m.creationTime, m.cpu.cumulativeCPUUsage);
+  }
+
+  if (readable) {
+    cpu = 0;
+    if (lastUsage) {
+      const elapsed = (now - lastUsage.at) / 1000;
+      if (elapsed > 0) {
+        let spent = 0;
+        for (const [key, s] of seconds) {
+          const was = lastUsage.seconds.get(key);
+          if (was !== undefined) spent += Math.max(0, s - was);
+        }
+        // Spread across every core, so 100% means the whole processor is busy.
+        cpu = Math.min(100, Math.max(0, spent / elapsed / cores * 100));
+      }
+    }
+    lastUsage = { at: now, seconds };
+  }
+
+  // Physical footprint, the same number Activity Monitor prints in its Memory
+  // column. The window's process adds its own reading on the other side.
+  let footprintKB = null;
+  try { footprintKB = (await process.getProcessMemoryInfo()).private; } catch {}
+
+  return { cpu, footprintKB, totalKB: os.totalmem() / 1024 };
+});
+
+// What Disk Reaper itself has saved: its settings, kept in Local Storage.
+// Chromium's own caches in the same folder (GPU, code, network) are left out,
+// since the app can't control them and Chromium clears them by itself.
+ipcMain.handle('cacheSize', () => {
+  const walk = dir => {
+    let sum = 0;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return 0; }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) sum += walk(full);
+      else if (e.isFile()) { try { sum += fs.statSync(full).size; } catch {} }
+    }
+    return sum;
+  };
+  return walk(path.join(app.getPath('userData'), 'Local Storage'));
 });
 
 // ── Misc ─────────────────────────────────────────────────────────

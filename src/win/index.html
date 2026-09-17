@@ -23,6 +23,10 @@
     --success:  #22c55e;
     --warning:  #eab308;
     --orange:   #f97316;
+    /* Selected rows need more tint on a near-black background than on a
+       white one, so both themes set their own. */
+    --select:   rgba(99,102,241,0.32);
+    --select-h: rgba(99,102,241,0.42);
     --radius:   10px;
     --font:     'DM Sans', system-ui, sans-serif;
     --mono:     'JetBrains Mono', monospace;
@@ -43,9 +47,13 @@
   .app-title { display: flex; align-items: center; gap: 8px; padding: 12px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
   .app-title span { font-size: 14px; font-weight: 700; color: var(--accent-h); letter-spacing: -0.3px; }
   .app-title-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent-h); filter: drop-shadow(0 0 6px rgba(99,102,241,0.5)); }
-  .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; width: 28px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; transition: color 0.12s, background 0.12s; flex-shrink: 0; -webkit-app-region: no-drag; }
+  /* Same 20px box as the app icon on the other side of the title. The theme
+     button and the settings gear share it, so both sit at one size and fit
+     the sidebar's title row together. */
+  .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; width: 20px; height: 20px; padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; transition: color 0.12s, background 0.12s; flex-shrink: 0; -webkit-app-region: no-drag; }
   .theme-btn:hover { color: var(--text); background: var(--surface); }
-  .theme-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .theme-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  #themeBtn { margin-left: auto; }
   .theme-btn .icon-moon { display: none; }
   html[data-theme="light"] .theme-btn .icon-sun  { display: none; }
   html[data-theme="light"] .theme-btn .icon-moon { display: inline; }
@@ -69,7 +77,7 @@
   .scope-row { display: flex; align-items: center; gap: 10px; padding: 0 20px 10px; flex-wrap: wrap; flex-shrink: 0; }
   .scope-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; user-select: none; }
   .scope-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
-  .scope-path { font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scope-path { font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── Buttons ── */
   .btn { padding: 7px 16px; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; -webkit-app-region: no-drag; }
@@ -127,6 +135,18 @@
 
   .spacer { flex: 1; }
   .status-text { font-size: 12px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; }
+  /* Fixed width, and the counter beside it keeps a fixed width too, so the bar
+     doesn't slide around as the numbers grow. */
+  .scan-progress { display: flex; align-items: center; gap: 8px; width: 190px; flex-shrink: 0; }
+  .scan-progress[hidden] { display: none !important; }
+  .scan-progress .bar { flex: 1 1 auto; min-width: 0; height: 8px; border-radius: 99px; background: var(--surface2); border: 1px solid var(--border); overflow: hidden; }
+  .scan-progress .bar-fill { display: block; height: 100%; width: 0; border-radius: 99px; transition: width 0.25s ease, background 0.25s ease; }
+  /* Exactly the width of "100%" in the mono font, left aligned, so the number
+     stays beside the bar. */
+  .scan-progress .pct { font-family: var(--mono); font-size: 12px; font-weight: 600; min-width: 4ch; text-align: left; }
+  /* Only the digits get a reserved width, so the counter doesn't shove the bar
+     about as it grows. */
+  .status-text .num { display: inline-block; min-width: 8ch; text-align: right; font-variant-numeric: tabular-nums; }
 
   /* ── Progress ── */
   .progress-track { height: 2px; background: var(--surface); margin: 0 20px 10px; border-radius: 1px; overflow: hidden; flex-shrink: 0; }
@@ -261,7 +281,7 @@
   .row .col-index     { color: var(--text-dim); font-family: var(--mono); font-size: 11px; text-align: center; }
   .row .col-size      { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
   .row .col-modified  { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
-  .row .col-path      { direction: rtl; text-align: left; }
+  .row .col-path      { direction: rtl; unicode-bidi: plaintext; text-align: left; }
   .row .col-mem       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
   .row .col-cpu       { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
   .row .col-cpu.idle  { color: var(--text-dim); font-weight: 400; }
@@ -304,6 +324,26 @@
 
   /* ── Footer ── */
   .global-footer { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 5px 20px 8px; flex-shrink: 0; border-top: 1px solid var(--border); }
+  /* Version, CPU, memory and cache. Pushed to the left edge, and allowed to
+     shrink, so its changing length never moves the links on the right. */
+  .footer-usage { margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-family: var(--mono); color: var(--text-dim); }
+
+  /* ── Large Files: same look as Size Scanner ── */
+  #panel-files .controls { padding-top: 10px; }
+  /* Bar down the left edge, so a selected row still reads as selected for
+     anyone who can't pick the tint out on its own. */
+  #panel-files .row.selected       { background: var(--select); box-shadow: inset 3px 0 0 var(--accent-h); }
+  #panel-files .row.selected:hover { background: var(--select-h); }
+  /* The list redraws every second during a scan; fading each redraw flickers. */
+  .table-body.live .row { animation: none; }
+  html[data-theme="light"] #panel-files .btn-accent:disabled { background: #dcdce4; color: #9292a0; }
+  html[data-theme="light"] #panel-files .btn-danger:disabled { background: #f0dada; color: #b39494; }
+
+  /* ── Settings dialog ── */
+  .settings-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px 16px; width: 520px; max-width: 92vw; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 12px; }
+  .settings-dialog h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+  .settings-dialog h4 { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .settings-dialog h4 + p { margin-top: -4px; }
   .footer-links { display: flex; align-items: center; gap: 6px; font-size: 12px; }
   .footer-links span { color: var(--text-dim); }
   .footer-links a { text-decoration: none; transition: color 0.15s; cursor: pointer; font-weight: 600; }
@@ -694,6 +734,8 @@
     --success:  #16a34a;
     --warning:  #d97706;
     --orange:   #ea580c;
+    --select:   rgba(99,102,241,0.20);
+    --select-h: rgba(99,102,241,0.30);
   }
   /* Secondary text greys originally tuned for a dark background */
   html[data-theme="light"] .cleaner-hero-text p,
@@ -755,10 +797,12 @@
           </svg>
         </div>
         <span>Disk Reaper</span>
-        <div class="spacer"></div>
         <button class="theme-btn" id="themeBtn" title="Toggle light / dark theme">
           <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
           <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+        <button class="theme-btn" id="settingsBtn" title="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
         </button>
       </div>
       <div class="nav-item active" data-panel="files">
@@ -826,6 +870,10 @@
           <span class="scope-path" id="folderPath" style="display:none" title=""></span>
           <button class="btn btn-ghost" id="excludeBtn" disabled>Exclude…</button>
           <span class="scope-path" id="excludePaths" style="display:none" title=""></span>
+          <div class="scan-progress" id="scanProgress" hidden>
+            <span class="bar"><span class="bar-fill" id="scanProgressFill"></span></span>
+            <strong class="pct" id="scanProgressPct">0%</strong>
+          </div>
         </div>
         <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
         <div class="table-wrap">
@@ -2365,6 +2413,7 @@
   </div>
 
   <div class="global-footer">
+    <span class="footer-usage" id="brandSub" title="Processor and memory used by Disk Reaper and its window, not your whole PC. Cache is the settings Disk Reaper has saved, not the built-in browser's temporary files."></span>
     <div class="footer-links">
       <a id="linkCoffee" href="#">Support This Project</a>
       <span class="sep">|</span>
@@ -2516,6 +2565,25 @@
         overlay.querySelector('#dlgOk').focus();
       });
     }
+
+  function customAlert(message) {
+    return new Promise(resolve => {
+      const overlay = document.createElement("div");
+      overlay.className = "dialog-overlay";
+      overlay.innerHTML = `
+        <div class="dialog-box">
+          <div class="dialog-message">${esc(message)}</div>
+          <div class="dialog-actions">
+            <button class="btn btn-accent" id="dlgOk">OK</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const cleanup = () => { overlay.remove(); resolve(); };
+      overlay.querySelector("#dlgOk").addEventListener("click", cleanup);
+      overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(); });
+      overlay.querySelector("#dlgOk").focus();
+    });
+  }
 
   function fmtSize(bytes) {
     if (!bytes) return "—";
@@ -2923,6 +2991,11 @@
     el.style.width = el.style.minWidth = el.style.maxWidth = el.style.flex = '';
   }
 
+  // Panels whose last column stretches to fill the window, as in Size Scanner,
+  // and the ones where the user has since sized that column themselves.
+  const STRETCH_LAST = new Set(['panel-files']);
+  const lastColManual = {};
+
   // Re-stamp stored widths onto header + all row cells. Call after EVERY render.
   function applyColWidths(panelId) {
     const widths = colWidths[panelId];
@@ -2940,6 +3013,15 @@
         if (cell) setW(cell, w);
       });
     });
+
+    // Let the last column (the path) soak up whatever width is left over,
+    // otherwise a maximised window leaves a dead strip down the right side.
+    // Once it's been dragged by hand, leave the chosen width alone.
+    if (!STRETCH_LAST.has(panelId) || lastColManual[panelId]) return;
+    const last = header.children.length - 1;
+    const stretch = el => { if (el) { el.style.maxWidth = ''; el.style.flex = '1 1 auto'; } };
+    stretch(header.children[last]);
+    panel.querySelectorAll('.table-body .row').forEach(row => stretch(row.children[last]));
   }
 
   // Panels that finished loading while hidden: their columns could not be
@@ -3013,6 +3095,9 @@
         });
         if (!colWidths[panelId]) colWidths[panelId] = {};
         colWidths[panelId][colIdx] = Math.max(maxW, 40);
+        // Double-click means "fit this to its text", which for the last column
+        // is a deliberate choice not to fill the window.
+        if (colIdx === header.children.length - 1) lastColManual[panelId] = true;
         applyColWidths(panelId);
       });
 
@@ -3028,6 +3113,7 @@
           const newW = Math.max(40, startW + ev.clientX - startX);
           if (!colWidths[panelId]) colWidths[panelId] = {};
           colWidths[panelId][colIdx] = newW;
+          if (colIdx === header.children.length - 1) lastColManual[panelId] = true;
           applyColWidths(panelId);
         };
         const onUp = () => {
@@ -3145,6 +3231,17 @@
   const pauseBtn    = $("#pauseBtn");
   const stopBtn     = $("#stopBtn");
   const filesStatus = $("#filesStatus");
+  const scanProgress = $("#scanProgress");
+
+  // 0% red, 50% amber, 100% green.
+  function setScanProgress(pct) {
+    const h = Math.round(pct * 1.2);
+    const fill = $("#scanProgressFill"), label = $("#scanProgressPct");
+    fill.style.width = pct + "%";
+    fill.style.background = `linear-gradient(90deg, hsl(${h} 72% 42%), hsl(${h} 80% 52%))`;
+    label.textContent = pct + "%";
+    label.style.color = `hsl(${h} 75% 55%)`;
+  }
   const progressBar = $("#progressBar");
   const filesBody   = $("#filesBody");
   const filesEmpty  = $("#filesEmpty");
@@ -3239,13 +3336,18 @@
     folderBtn.disabled  = !specific;                      // always visible, greyed when whole-system
     excludeBtn.disabled = !specific;
     folderPath.style.display = specific && chosenFolder ? "" : "none";
+    if (specific && chosenFolder) {
+      folderPath.textContent = chosenFolder;
+      folderPath.title = chosenFolder;
+    }
     renderExcludes();
     updateScanLabel();
   }
   wholeSystem.addEventListener("change", updateScopeUI);
   folderBtn.addEventListener("click", async () => {
+    if (folderBtn.disabled) return;
     const f = await window.api.pickFolder();
-    if (f) { chosenFolder = f; folderPath.textContent = f; folderPath.title = f; }
+    if (f) chosenFolder = f;
     updateScopeUI();
   });
 
@@ -3307,7 +3409,7 @@
   });
   updateScopeUI();
 
-  let removeProgressListener = null, paused = false;
+  let removeProgressListener = null, removePartialListener = null, paused = false, scanning = false;
 
   scanBtn.addEventListener("click", async () => {
     const limit = parseInt(countInput.value) || 50;
@@ -3315,7 +3417,7 @@
     let root = null;
     let exclude = [];
     if (!wholeSystem.checked) {
-      if (!chosenFolder) { alert("Pick a folder first, or tick 'Scan Whole System' to scan everything."); return; }
+      if (!chosenFolder) { await customAlert("Pick a folder first, or tick 'Scan Whole System' to scan everything."); return; }
       root = chosenFolder;
       exclude = excludedFolders.filter(e => e.enabled).map(e => e.path);
     }
@@ -3323,16 +3425,41 @@
     scanBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
     progressBar.classList.add("active");
     filesStatus.textContent = "Scanning…"; filesFooter.textContent = "";
-    removeProgressListener = window.api.onScanProgress(({ scanned, label }) => {
-      filesStatus.textContent = `${fmtNum(scanned)} ${label} scanned…`;
+    setScanProgress(0);
+    removeProgressListener = window.api.onScanProgress(({ scanned, label, bytes, total }) => {
+      filesStatus.innerHTML = `<span class="num">${fmtNum(scanned)}</span> ${label} scanned…`;
+      // Counted bytes against used space. Windows doesn't report a total, so
+      // the bar stays hidden there.
+      if (total > 0) {
+        scanProgress.hidden = false;
+        setScanProgress(Math.min(99, Math.floor(bytes / total * 100)));
+      }
+    });
+    // Show the largest items found so far while the scan runs. A whole-disk
+    // scan takes minutes; an empty table for that long reads as a broken app.
+    scanning = true;
+    filesBody.classList.add("live");
+    removePartialListener = window.api.onScanPartial(items => {
+      if (!scanning) return;
+      fileItems = items;
+      renderFiles();
+      // Same column sizing the finished list gets, or long paths stay cut off
+      // until the scan ends.
+      requestAnimationFrame(() => fitColumnsToContent('panel-files'));
     });
     try {
       const result = await window.api.startScan({ limit, mode, root, exclude });
+      // Stop taking partial lists before the final one lands, so a late update
+      // can't overwrite it.
+      scanning = false;
+      if (removePartialListener) { removePartialListener(); removePartialListener = null; }
+      filesBody.classList.remove("live");
       fileItems = result.items;
       filesLabel = result.label;
       renderFiles();
       requestAnimationFrame(() => fitColumnsToContent('panel-files'));
       filesStatus.textContent = `Done - ${fmtNum(result.scanned)} ${result.label} scanned`;
+      if (!scanProgress.hidden) setScanProgress(100);
       if (result.label === "folders") {
         // Folders nest inside each other, so summing their sizes double-counts. Show count only.
         filesFooter.textContent = `${fileItems.length} folders`;
@@ -3341,8 +3468,12 @@
         filesFooter.textContent = `${fileItems.length} files  ·  ${fmtSize(totalSize)} total`;
       }
     } catch { filesStatus.textContent = "Scan failed"; }
+    scanning = false;
+    if (removePartialListener) { removePartialListener(); removePartialListener = null; }
+    filesBody.classList.remove("live");
     progressBar.classList.remove("active");
     scanBtn.disabled = false; pauseBtn.disabled = true; pauseBtn.textContent = "Pause"; stopBtn.disabled = true;
+    paused = false;
     if (removeProgressListener) { removeProgressListener(); removeProgressListener = null; }
   });
 
@@ -3373,9 +3504,10 @@
     let deleted = 0;
     for (const r of results) {
       if (r.ok) { const idx = fileItems.findIndex(it => it.path === r.path); if (idx !== -1) { fileItems.splice(idx,1); deleted++; } }
-      else alert(`Could not delete:\n${r.path}\n\n${r.error}`);
+      else await customAlert(`Could not delete:\n${r.path}\n\n${r.error}`);
     }
     fileSelected.clear(); renderFiles();
+    scheduleCacheSize();
     if (deleted) filesStatus.textContent = `Moved ${deleted} ${plural} to Recycle Bin`;
   });
 
@@ -3387,7 +3519,7 @@
   wireExport("filesExportBtn", "filesExportMenu", () => ({
     filename: filesLabel === "folders" ? "largest-folders" : "largest-files",
     headers:  ["#", "Size", "Modified", "Path"],
-    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), fmtDate(f.modified), f.path]),
+    rows:     sortedFileItems().map((f, i) => [String(i + 1), fmtSize(f.size), fmtDate(f.modified), f.path]),
   }));
 
   // ══════════════════════════════════════════════════════════════
@@ -7229,6 +7361,102 @@ ${r.error}`);
 
   // Populate all "Last run: ..." tooltips from localStorage on startup.
   refreshAllLastRunTitles();
+
+  // ══════════════════════════════════════════════════════════════
+  // APP USAGE + SETTINGS
+  // ══════════════════════════════════════════════════════════════
+  let appVersionStr = "";
+  let cacheSizeStr  = "";
+  let cpuStr        = "";
+  let ramStr        = "";
+
+  function updateBrandSub() {
+    const parts = [];
+    if (appVersionStr) parts.push("v" + appVersionStr);
+    // All three are about Disk Reaper, not the whole PC. A reading that fails
+    // answers "n/a", and that part is left out rather than printed.
+    if (cpuStr && cpuStr !== "n/a") parts.push("CPU: " + cpuStr);
+    if (ramStr && ramStr !== "n/a") parts.push("RAM: " + ramStr);
+    if (cacheSizeStr) parts.push("Cache: " + cacheSizeStr);
+    $("#brandSub").textContent = parts.join(" | ");
+  }
+
+  // The three figures are on by default; one tickbox in Settings hides them all.
+  // An unset key means a first run, which must come out ON, hence !== "0".
+  let metricsOn = true;
+  try { metricsOn = localStorage.getItem("diskreaper.metrics") !== "0"; } catch {}
+
+  function refreshUsage() {
+    if (!metricsOn) return;
+    window.api.usage()
+      .then(([cpu, ram]) => { if (!metricsOn) return; cpuStr = cpu; ramStr = ram; updateBrandSub(); })
+      .catch(() => {});
+  }
+
+  function formatBytes(n) {
+    if (!n) return "0 KB";
+    if (n < 1024 * 1024) return Math.max(1, Math.round(n / 1024)) + " KB";
+    return (n / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  function refreshCacheSize() {
+    if (!metricsOn) return;
+    window.api.cacheSize()
+      .then(n => { if (!metricsOn) return; cacheSizeStr = formatBytes(n); updateBrandSub(); })
+      .catch(() => {});
+  }
+
+  // Walking the folder is not free, so a burst of writes turns into one recount.
+  let cacheTimer = null;
+  function scheduleCacheSize() {
+    clearTimeout(cacheTimer);
+    cacheTimer = setTimeout(refreshCacheSize, 50);
+  }
+
+  function applyMetrics(on) {
+    metricsOn = on;
+    try { localStorage.setItem("diskreaper.metrics", on ? "1" : "0"); } catch {}
+    if (on) {
+      refreshUsage();
+      scheduleCacheSize();
+    } else {
+      // Blanking the strings drops them from the line, and refreshUsage now
+      // returns early, so nothing keeps measuring behind a hidden readout.
+      cpuStr = ""; ramStr = ""; cacheSizeStr = "";
+      updateBrandSub();
+    }
+  }
+
+  function openSettingsDialog() {
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `
+      <div class="settings-dialog">
+        <h3>Settings</h3>
+        <h4>General</h4>
+        <label class="scope-toggle"><input type="checkbox" id="chkMetrics" /> Show app usage</label>
+        <p class="exclude-hint">The processor and memory figures beside the version at the bottom of the window, and the cache size. All three are about Disk Reaper itself, never your whole PC.</p>
+        <div class="exclude-row-actions">
+          <div class="spacer"></div>
+          <button class="btn btn-accent" id="settingsDone">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const chk = overlay.querySelector("#chkMetrics");
+    chk.checked = metricsOn;
+    chk.addEventListener("change", () => applyMetrics(chk.checked));
+    const close = () => overlay.remove();
+    overlay.querySelector("#settingsDone").addEventListener("click", close);
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  }
+  $("#settingsBtn").addEventListener("click", openSettingsDialog);
+
+  window.api.appVersion().then(v => { appVersionStr = v; updateBrandSub(); }).catch(() => {});
+  refreshUsage();
+  // Two seconds. Faster makes the numbers jitter and adds cost to the very
+  // thing being measured; slower feels dead.
+  setInterval(refreshUsage, 2000);
+  refreshCacheSize();
 
 })();
 </script>

@@ -22,6 +22,9 @@
     --success:  #22c55e;
     --warning:  #eab308;
     --orange:   #f97316;
+    /* Selected rows need a stronger tint than a hover on a near-black background. */
+    --select:   rgba(99,102,241,0.32);
+    --select-h: rgba(99,102,241,0.42);
     --radius:   10px;
     --font:     'DM Sans', system-ui, sans-serif;
     --mono:     'JetBrains Mono', monospace;
@@ -45,6 +48,11 @@
   .app-title { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
   .app-title span { font-size: 14px; font-weight: 700; color: var(--accent-h); letter-spacing: -0.3px; }
   .app-title-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent-h); filter: drop-shadow(0 0 6px rgba(99,102,241,0.5)); }
+  /* Same 20px box as the app icon on the other side of the title, so neither
+     stands taller than the title sitting between them. */
+  .settings-btn { margin-left: auto; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; transition: color 0.12s, background 0.12s; flex-shrink: 0; padding: 0; -webkit-app-region: no-drag; }
+  .settings-btn:hover { color: var(--text); background: var(--surface); }
+  .settings-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
   /* ── Panels ── */
   .panels { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -79,6 +87,11 @@
   .btn-success:disabled { background: #0e2a12; color: #3a5a3a; cursor: default; transform: none; }
   .btn-export { background: var(--warning); color: #0a0a0c; font-weight: 700; }
   .btn-export:hover { background: #f0c020; }
+  /* Sized to its longest label, so switching Files / Folders never moves the
+     buttons beside it. */
+  .btn-fixed-width { display: inline-grid; place-items: center; }
+  .btn-fixed-width::before { content: attr(data-longest); grid-area: 1 / 1; visibility: hidden; white-space: nowrap; pointer-events: none; }
+  .btn-fixed-width > span { grid-area: 1 / 1; }
 
   /* ── Export dropdown ── */
   .export-wrap { position: relative; }
@@ -90,6 +103,18 @@
 
   .spacer { flex: 1; }
   .status-text { font-size: 12px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; }
+  /* Fixed width, and the counter beside it keeps a fixed width too, so the bar
+     doesn't slide around as the numbers grow. */
+  .scan-progress { display: flex; align-items: center; gap: 8px; width: 190px; flex-shrink: 0; }
+  .scan-progress[hidden] { display: none !important; }
+  .scan-progress .bar { flex: 1 1 auto; min-width: 0; height: 8px; border-radius: 99px; background: var(--surface2); border: 1px solid var(--border); overflow: hidden; }
+  .scan-progress .bar-fill { display: block; height: 100%; width: 0; border-radius: 99px; transition: width 0.25s ease, background 0.25s ease; }
+  /* Exactly the width of "100%" in the mono font, left aligned, so the number
+     stays beside the bar. */
+  .scan-progress .pct { font-family: var(--mono); font-size: 12px; font-weight: 600; min-width: 4ch; text-align: left; }
+  /* Only the digits get a reserved width, so the counter doesn't shove the bar
+     about as it grows. */
+  .status-text .num { display: inline-block; min-width: 8ch; text-align: right; font-variant-numeric: tabular-nums; }
 
   /* ── Progress ── */
   .progress-track { height: 2px; background: var(--surface); margin: 0 20px 10px; border-radius: 1px; overflow: hidden; flex-shrink: 0; }
@@ -126,6 +151,7 @@
   /* ── Column widths ── */
   .col-index      { width: 56px;  text-align: center; flex-shrink: 0; }
   .col-size       { width: 110px; flex-shrink: 0; }
+  .col-modified   { width: 150px; flex-shrink: 0; }
   .col-path       { width: 480px; flex-shrink: 0; }
   .col-mem        { width: 110px; flex-shrink: 0; }
   .col-pid        { width: 72px;  flex-shrink: 0; }
@@ -151,7 +177,8 @@
 
   .row .col-index    { color: var(--text-dim); font-family: var(--mono); font-size: 11px; text-align: center; }
   .row .col-size     { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
-  .row .col-path     { direction: rtl; text-align: left; }
+  .row .col-modified { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
+  .row .col-path     { direction: rtl; unicode-bidi: plaintext; text-align: left; }
   .row .col-mem      { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
   .row .col-pid      { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
   .row .col-proc-desc{ color: var(--text-dim); font-size: 12px; }
@@ -160,6 +187,23 @@
   .row .col-version  { font-family: var(--mono); color: var(--text-dim); font-size: 11.5px; }
   .row .col-publisher{ color: var(--text-dim); font-size: 12px; }
   .row .col-app-size { font-family: var(--mono); font-weight: 500; color: var(--accent-h); font-size: 12px; }
+
+  /* ── Large Files: same look as Size Scanner ── */
+  #panel-files { --text-dim: #9b9ba6; }
+  #panel-files .controls { padding-top: 10px; }
+  /* Bar down the left edge, so a selected row still reads as selected for
+     anyone who can't pick the tint out on its own. */
+  #panel-files .row { animation-name: fadeInFiles; }
+  #panel-files .row.selected       { background: var(--select); box-shadow: inset 3px 0 0 var(--accent-h); }
+  #panel-files .row.selected:hover { background: var(--select-h); }
+  @keyframes fadeInFiles { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+  /* The list redraws every second during a scan; fading each redraw flickers. */
+  .table-body.live .row { animation: none; }
+
+  .scope-row { display: flex; align-items: center; gap: 10px; padding: 0 20px 10px; flex-wrap: wrap; flex-shrink: 0; }
+  .scope-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; user-select: none; }
+  .scope-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .scope-path { font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── Status dot ── */
   .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
@@ -183,6 +227,9 @@
   .footer-links a { color: var(--text-dim); text-decoration: none; transition: color 0.15s; cursor: pointer; }
   .footer-links a:hover { color: var(--accent-h); }
   .footer-links .sep { opacity: 0.3; }
+  /* Version, CPU, memory and cache. Pushed to the left edge, and allowed to
+     shrink, so its changing length never moves the links on the right. */
+  .footer-usage { margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-family: var(--mono); color: var(--text-dim); }
 
   /* ── Cleaner ── */
   .cleaner-body { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0 20px 16px; }
@@ -231,6 +278,35 @@
   .dialog-message { font-size: 13.5px; color: var(--text); line-height: 1.6; white-space: pre-wrap; text-align: center; }
   .dialog-actions { display: flex; justify-content: center; gap: 8px; }
   @keyframes dialogFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+
+  /* ── Large Files context menu ── */
+  .context-menu { position: fixed; z-index: 9999; min-width: 180px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .context-menu .ctx-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 12.5px; color: var(--text); border-radius: 6px; cursor: pointer; transition: background 0.1s; }
+  .context-menu .ctx-item:hover { background: var(--accent); color: #fff; }
+  .context-menu .ctx-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .context-menu .ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
+
+  /* ── Exclude folders dialog ── */
+  .exclude-dialog { --text-dim: #9b9ba6; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px 16px; width: 560px; max-width: 92vw; max-height: 82vh; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 12px; }
+  .exclude-dialog h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+  .exclude-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .exclude-list { flex: 1; min-height: 90px; max-height: 340px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .exclude-list::-webkit-scrollbar { width: 6px; }
+  .exclude-list::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 3px; }
+  .exclude-empty { padding: 26px 16px; text-align: center; color: var(--text-dim); font-size: 12.5px; }
+  .exclude-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .exclude-item:last-child { border-bottom: none; }
+  .exclude-item input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; flex-shrink: 0; margin: 0; width: 15px; height: 15px; }
+  .exclude-item-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  .exclude-item-remove { flex-shrink: 0; width: 22px; height: 22px; border: none; background: transparent; color: var(--text-dim); font-size: 17px; line-height: 1; border-radius: 5px; cursor: pointer; transition: background 0.1s, color 0.1s; }
+  .exclude-item-remove:hover { background: var(--danger); color: #fff; }
+  .exclude-row-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* ── Settings dialog ── */
+  .settings-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px 16px; width: 520px; max-width: 92vw; box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 12px; }
+  .settings-dialog h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+  .settings-dialog h4 { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .settings-dialog h4 + p { margin-top: -4px; }
 </style>
 </head>
 <body>
@@ -251,6 +327,9 @@
           </svg>
         </div>
         <span>Disk Reaper</span>
+        <button class="settings-btn" id="settingsBtn" title="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+        </button>
       </div>
 
       <div class="nav-item active" data-panel="files">
@@ -283,14 +362,25 @@
           <label for="count">Show top</label>
           <input type="number" id="count" value="50" min="1" max="500" />
           <select id="mode">
-            <option value="files">Largest files</option>
-            <option value="folders">Largest folders</option>
+            <option value="files">Largest Files</option>
+            <option value="folders">Largest Folders</option>
           </select>
-          <button class="btn btn-accent" id="scanBtn">Scan All Drives</button>
-          <button class="btn btn-ghost"  id="pauseBtn" disabled>Pause</button>
-          <button class="btn btn-ghost"  id="stopBtn"  disabled>Stop</button>
+          <button class="btn btn-accent btn-fixed-width" id="scanBtn" data-longest="Scan All Folders"><span>Scan All Files</span></button>
+          <button class="btn btn-ghost" id="pauseBtn" disabled>Pause</button>
+          <button class="btn btn-ghost" id="stopBtn"  disabled>Stop</button>
           <div class="spacer"></div>
           <span class="status-text" id="filesStatus">Ready</span>
+        </div>
+        <div class="scope-row">
+          <label class="scope-toggle"><input type="checkbox" id="wholeSystem" checked /> Scan Whole System</label>
+          <button class="btn btn-ghost" id="folderBtn" disabled>Choose folder…</button>
+          <span class="scope-path" id="folderPath" style="display:none" title=""></span>
+          <button class="btn btn-ghost" id="excludeBtn" disabled>Exclude…</button>
+          <span class="scope-path" id="excludePaths" style="display:none" title=""></span>
+          <div class="scan-progress" id="scanProgress" hidden>
+            <span class="bar"><span class="bar-fill" id="scanProgressFill"></span></span>
+            <strong class="pct" id="scanProgressPct">0%</strong>
+          </div>
         </div>
         <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
         <div class="table-wrap">
@@ -298,25 +388,26 @@
             <div class="table-inner">
               <div class="table-header">
                 <span class="col-index">#</span>
-                <span class="col-size sortable" data-sort="size">Size<span class="sort-ind"> ▼</span></span>
+                <span class="col-size sortable" data-sort="size">Size<span class="sort-ind"> &#9660;</span></span>
+                <span class="col-modified sortable" data-sort="modified">Modified<span class="sort-ind"></span></span>
                 <span class="col-path sortable" data-sort="path">Path<span class="sort-ind"></span></span>
               </div>
               <div class="table-body" id="filesBody">
                 <div class="empty-state" id="filesEmpty">
-                  <div class="icon">⌕</div>
-                  <p>Hit <strong>Scan All Drives</strong> to find the largest files</p>
+                  <div class="icon">&#8981;</div>
+                  <p>Hit <strong>Scan All Files</strong> to find the largest files</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
         <div class="panel-actions">
-          <button class="btn btn-danger" id="deleteBtn">Move to Trash</button>
-          <button class="btn btn-ghost"  id="finderBtn">Reveal in Finder</button>
+          <button class="btn btn-danger" id="deleteBtn">Delete Selected</button>
+          <button class="btn btn-ghost"  id="explorerBtn">Show in Finder</button>
           <div class="spacer"></div>
           <span class="panel-footer-info" id="filesFooter"></span>
           <div class="export-wrap">
-            <button class="btn btn-export" id="filesExportBtn">Export ↑</button>
+            <button class="btn btn-export" id="filesExportBtn">Export &#8593;</button>
             <div class="export-menu" id="filesExportMenu">
               <button data-format="csv">Export as CSV</button>
               <button data-format="txt">Export as TXT</button>
@@ -487,6 +578,7 @@
   </div><!-- .main-layout -->
 
   <div class="global-footer">
+    <span class="footer-usage" id="brandSub" title="Processor and memory used by Disk Reaper and its window, not your whole Mac. Cache is the settings Disk Reaper has saved, not the built-in browser's temporary files."></span>
     <div class="footer-links">
       <span>Made by</span>
       <a id="linkEerie" href="#">EERIE</a>
@@ -496,20 +588,16 @@
   </div>
 </div><!-- #app -->
 
-<!-- Right-click context menu (shared) -->
-<div class="ctx-menu" id="ctxMenu">
-  <div class="ctx-menu-item" id="ctxCopyPath">
-    <svg viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M2 11V3a1 1 0 011-1h8"/></svg>
-    Copy Full Path
+<!-- Large Files context menu -->
+<div class="context-menu" id="fileContextMenu" style="display:none">
+  <div class="ctx-item" id="ctxFileCopyPath">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11V3a1 1 0 011-1h8"/></svg>
+    Copy Path
   </div>
-  <div class="ctx-menu-sep"></div>
-  <div class="ctx-menu-item" id="ctxRevealFinder">
-    <svg viewBox="0 0 16 16"><path d="M2 12V5a1 1 0 011-1h4l2 2h4a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1z"/></svg>
-    Reveal in Finder
-  </div>
-  <div class="ctx-menu-item" id="ctxMoveTrash">
-    <svg viewBox="0 0 16 16"><polyline points="2,4 14,4"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><rect x="4" y="4" width="8" height="10" rx="1"/><line x1="6" y1="7" x2="6" y2="11"/><line x1="10" y1="7" x2="10" y2="11"/></svg>
-    Move to Trash
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctxFileOpenExplorer">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12"/><path d="M2 3h5l2 2h5v8H2z"/></svg>
+    <span id="ctxFileOpenExplorerLabel">Open in Finder</span>
   </div>
 </div>
 
@@ -577,6 +665,25 @@
     });
   }
 
+  function customAlert(message) {
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'dialog-overlay';
+      overlay.innerHTML = `
+        <div class="dialog-box">
+          <div class="dialog-message">${esc(message)}</div>
+          <div class="dialog-actions">
+            <button class="btn btn-accent" id="dlgOk">OK</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const done = () => { overlay.remove(); resolve(); };
+      overlay.querySelector('#dlgOk').addEventListener('click', done);
+      overlay.addEventListener('click', e => { if (e.target === overlay) done(); });
+      overlay.querySelector('#dlgOk').focus();
+    });
+  }
+
   // ── Helpers ───────────────────────────────────────────────────
   function fmtSize(bytes) {
     if (!bytes) return '—';
@@ -585,6 +692,12 @@
     while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
     return i === 0 ? `${v} B` : `${v.toFixed(1)} ${u[i]}`;
   }
+  function fmtDate(ms) {
+    if (!ms) return '—';
+    const d = new Date(ms);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+  }
   function fmtNum(n) { return n.toLocaleString('en-US'); }
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -592,6 +705,10 @@
 
   // ── Column resizing ───────────────────────────────────────────
   const colWidths = {};
+  // Panels whose last column stretches to fill the window, as in Size Scanner,
+  // and the ones where the user has since sized that column themselves.
+  const STRETCH_LAST = new Set(['panel-files']);
+  const lastColManual = {};
 
   function setW(el, w) {
     el.style.width = el.style.minWidth = el.style.maxWidth = w + 'px';
@@ -613,6 +730,15 @@
         const cell = row.children[idx]; if (cell) setW(cell, w);
       });
     });
+
+    // Let the last column (the path) soak up whatever width is left over,
+    // otherwise a maximised window leaves a dead strip down the right side.
+    // Once it's been dragged by hand, leave the chosen width alone.
+    if (!STRETCH_LAST.has(panelId) || lastColManual[panelId]) return;
+    const last = header.children.length - 1;
+    const stretch = el => { if (el) { el.style.maxWidth = ''; el.style.flex = '1 1 auto'; } };
+    stretch(header.children[last]);
+    panel.querySelectorAll('.table-body .row').forEach(row => stretch(row.children[last]));
   }
 
   function fitColumnsToContent(panelId) {
@@ -659,6 +785,9 @@
         panel.querySelectorAll('.table-body .row').forEach(row => { const c = row.children[colIdx]; if (c) maxW = Math.max(maxW, c.scrollWidth + 10); });
         if (!colWidths[panelId]) colWidths[panelId] = {};
         colWidths[panelId][colIdx] = Math.max(maxW, 40);
+        // Double-click means "fit this to its text", which for the last column
+        // is a deliberate choice not to fill the window.
+        if (colIdx === header.children.length - 1) lastColManual[panelId] = true;
         applyColWidths(panelId);
       });
       handle.addEventListener('mousedown', e => {
@@ -671,6 +800,7 @@
           const newW = Math.max(40, startW + ev.clientX - startX);
           if (!colWidths[panelId]) colWidths[panelId] = {};
           colWidths[panelId][colIdx] = newW;
+          if (colIdx === header.children.length - 1) lastColManual[panelId] = true;
           applyColWidths(panelId);
         };
         const onUp = () => {
@@ -731,58 +861,46 @@
     });
   }
 
-  // ── Context menu ─────────────────────────────────────────────
-  const ctxMenu        = $('#ctxMenu');
-  const ctxCopyPath    = $('#ctxCopyPath');
-  const ctxRevealFinder = $('#ctxRevealFinder');
-  const ctxMoveTrash   = $('#ctxMoveTrash');
-  let ctxTargetPath    = null;
+  // ── Large Files context menu ─────────────────────────────────
+  const fileCtxMenu         = $('#fileContextMenu');
+  const ctxFileCopyPath     = $('#ctxFileCopyPath');
+  const ctxFileOpenExplorer = $('#ctxFileOpenExplorer');
+  let fileCtxPath = null;
 
-  function showCtxMenu(x, y, path) {
-    ctxTargetPath = path;
-    // Position — keep inside viewport
-    ctxMenu.classList.add('open');
-    const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
-    const vw = window.innerWidth,   vh = window.innerHeight;
-    ctxMenu.style.left = (x + mw > vw ? vw - mw - 6 : x) + 'px';
-    ctxMenu.style.top  = (y + mh > vh ? y - mh       : y) + 'px';
+  function hideFileContextMenu() { fileCtxMenu.style.display = 'none'; }
+
+  function showFileContextMenu(e, path) {
+    hideProcCtxMenu(); hideCleanerLogCtxMenu();
+    fileCtxPath = path;
+    fileCtxMenu.style.display = 'block';
+    const mx = e.clientX, my = e.clientY;
+    const mw = fileCtxMenu.offsetWidth, mh = fileCtxMenu.offsetHeight;
+    const ww = window.innerWidth, wh = window.innerHeight;
+    fileCtxMenu.style.left = (mx + mw > ww ? mx - mw : mx) + 'px';
+    fileCtxMenu.style.top  = (my + mh > wh ? my - mh : my) + 'px';
   }
 
-  function hideCtxMenu() {
-    ctxMenu.classList.remove('open');
-    ctxTargetPath = null;
-  }
-
-  document.addEventListener('click',       () => { hideCtxMenu(); hideProcCtxMenu(); hideCleanerLogCtxMenu(); });
+  document.addEventListener('click', e => {
+    if (!fileCtxMenu.contains(e.target)) hideFileContextMenu();
+    hideProcCtxMenu(); hideCleanerLogCtxMenu();
+  });
   document.addEventListener('contextmenu', e  => {
-    if (!e.target.closest('.ctx-menu'))          hideCtxMenu();
+    if (!fileCtxMenu.contains(e.target) && !e.target.closest('#filesBody .row')) hideFileContextMenu();
     if (!e.target.closest('#procCtxMenu'))       hideProcCtxMenu();
     if (!e.target.closest('#cleanerLogCtxMenu')) hideCleanerLogCtxMenu();
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { hideCtxMenu(); hideProcCtxMenu(); hideCleanerLogCtxMenu(); }
+    if (e.key === 'Escape') { hideFileContextMenu(); hideProcCtxMenu(); hideCleanerLogCtxMenu(); }
   });
+  window.addEventListener('blur', hideFileContextMenu);
 
-  ctxCopyPath.addEventListener('click', () => {
-    if (ctxTargetPath) { window.api.copyToClipboard(ctxTargetPath); hideCtxMenu(); }
+  ctxFileCopyPath.addEventListener('click', () => {
+    hideFileContextMenu();
+    if (fileCtxPath) window.api.copyToClipboard(fileCtxPath);
   });
-  ctxRevealFinder.addEventListener('click', () => {
-    if (ctxTargetPath) { window.api.showInFinder(ctxTargetPath); hideCtxMenu(); }
-  });
-  ctxMoveTrash.addEventListener('click', async () => {
-    if (!ctxTargetPath) return;
-    const p = ctxTargetPath; hideCtxMenu();
-    if (!await customConfirm(`Move to Trash?\n\n${p}`)) return;
-    const results = await window.api.deleteFiles([p]);
-    if (results[0].ok) {
-      const idx = fileItems.findIndex(it => it.path === p);
-      if (idx !== -1) fileItems.splice(idx, 1);
-      fileSelected.clear();
-      renderFiles();
-      filesStatus.textContent = 'Moved 1 item to Trash';
-    } else {
-      alert(`Could not trash:\n${results[0].error}`);
-    }
+  ctxFileOpenExplorer.addEventListener('click', () => {
+    hideFileContextMenu();
+    if (fileCtxPath) window.api.showInFinder(fileCtxPath);
   });
 
   // ── Process context menu ─────────────────────────────────────
@@ -886,7 +1004,7 @@
           state.dir = state.dir === 'asc' ? 'desc' : 'asc';
         } else {
           state.col = col;
-          state.dir = (col === 'size' || col === 'mem' || col === 'pid') ? 'desc' : 'asc';
+          state.dir = (col === 'size' || col === 'modified' || col === 'mem' || col === 'pid') ? 'desc' : 'asc';
         }
         document.querySelectorAll(panelSel + ' .table-header .sort-ind').forEach(s => s.textContent = '');
         th.querySelector('.sort-ind').textContent = state.dir === 'asc' ? ' ▲' : ' ▼';
@@ -898,41 +1016,52 @@
   // ══════════════════════════════════════════════════════════════
   // LARGE FILES
   // ══════════════════════════════════════════════════════════════
-  const countInput  = $('#count');
-  const modeSelect  = $('#mode');
-  const scanBtn     = $('#scanBtn');
-  const pauseBtn    = $('#pauseBtn');
-  const stopBtn     = $('#stopBtn');
-  const filesStatus = $('#filesStatus');
+  const countInput   = $('#count');
+  const modeSelect   = $('#mode');
+  const scanBtn      = $('#scanBtn');
+  const pauseBtn     = $('#pauseBtn');
+  const stopBtn      = $('#stopBtn');
+  const filesStatus  = $('#filesStatus');
+  const scanProgress = $('#scanProgress');
+
+  // 0% red, 50% amber, 100% green.
+  function setScanProgress(pct) {
+    const h = Math.round(pct * 1.2);
+    const fill = $('#scanProgressFill'), label = $('#scanProgressPct');
+    fill.style.width = pct + '%';
+    fill.style.background = `linear-gradient(90deg, hsl(${h} 72% 42%), hsl(${h} 80% 52%))`;
+    label.textContent = pct + '%';
+    label.style.color = `hsl(${h} 75% 55%)`;
+  }
   const progressBar = $('#progressBar');
   const filesBody   = $('#filesBody');
   const filesEmpty  = $('#filesEmpty');
   const deleteBtn   = $('#deleteBtn');
-  const finderBtn   = $('#finderBtn');
+  const explorerBtn = $('#explorerBtn');
   const filesFooter = $('#filesFooter');
 
+  const FILE_MANAGER = 'Finder';
+  const TRASH_NAME   = 'Trash';
+
   let fileItems = [], fileSelected = new Set(), fileLastClick = null;
+  let filesLabel = 'files';
   const filesSort = { col: 'size', dir: 'desc' };
 
   function sortedFileItems() {
     return [...fileItems].sort((a, b) => {
       if (filesSort.col === 'size') return filesSort.dir === 'desc' ? b.size - a.size : a.size - b.size;
+      if (filesSort.col === 'modified') { const av = a.modified || 0, bv = b.modified || 0; return filesSort.dir === 'desc' ? bv - av : av - bv; }
       if (filesSort.col === 'path') return filesSort.dir === 'asc' ? a.path.localeCompare(b.path) : b.path.localeCompare(a.path);
       return 0;
     });
   }
 
-  const filesTableScroll = document.querySelector('#panel-files .table-scroll');
-
   function renderFiles() {
     filesBody.innerHTML = '';
     if (!fileItems.length) {
-      // Clear stored column widths and reset scroll so the empty state
-      // is centered, not buried off to the right from a previous scan
-      delete colWidths['panel-files'];
-      if (filesTableScroll) filesTableScroll.scrollLeft = 0;
       filesBody.appendChild(filesEmpty);
-      filesEmpty.querySelector('p').innerHTML = 'Hit <strong>Scan All Drives</strong> to find the largest ' + modeSelect.value;
+      const btnLabel = scanBtn.querySelector('span').textContent;
+      filesEmpty.querySelector('p').innerHTML = 'Hit <strong>' + btnLabel + '</strong> to find the largest ' + modeSelect.value;
       return;
     }
     sortedFileItems().forEach((item, i) => {
@@ -944,31 +1073,26 @@
       row.innerHTML = `
         <span class="col-index">${i + 1}</span>
         <span class="col-size">${fmtSize(item.size)}</span>
+        <span class="col-modified">${fmtDate(item.modified)}</span>
         <span class="col-path" title="${esc(item.path)}">${esc(item.path)}</span>`;
       row.addEventListener('click', e => {
-        if (e.metaKey || e.ctrlKey) {
+        if (e.ctrlKey || e.metaKey) {
           fileSelected.has(origIdx) ? fileSelected.delete(origIdx) : fileSelected.add(origIdx);
         } else if (e.shiftKey && fileLastClick !== null) {
           const lo = Math.min(fileLastClick, origIdx), hi = Math.max(fileLastClick, origIdx);
           for (let k = lo; k <= hi; k++) fileSelected.add(k);
-        } else {
-          fileSelected.clear(); fileSelected.add(origIdx);
-        }
+        } else { fileSelected.clear(); fileSelected.add(origIdx); }
         fileLastClick = origIdx;
         filesBody.querySelectorAll('.row').forEach(r =>
           r.classList.toggle('selected', fileSelected.has(parseInt(r.dataset.origidx))));
       });
       row.addEventListener('contextmenu', e => {
         e.preventDefault();
-        e.stopPropagation();
-        // Also select the right-clicked row if not already selected
-        if (!fileSelected.has(origIdx)) {
-          fileSelected.clear(); fileSelected.add(origIdx);
-          fileLastClick = origIdx;
-          filesBody.querySelectorAll('.row').forEach(r =>
-            r.classList.toggle('selected', fileSelected.has(parseInt(r.dataset.origidx))));
-        }
-        showCtxMenu(e.clientX, e.clientY, item.path);
+        fileSelected.clear(); fileSelected.add(origIdx);
+        fileLastClick = origIdx;
+        filesBody.querySelectorAll('.row').forEach(r =>
+          r.classList.toggle('selected', fileSelected.has(parseInt(r.dataset.origidx))));
+        showFileContextMenu(e, item.path);
       });
       filesBody.appendChild(row);
     });
@@ -977,36 +1101,179 @@
 
   makeSortable('#panel-files', filesSort, renderFiles);
 
-  let removeProgressListener = null, paused = false, userStopped = false;
+  // ── Scan scope (whole system vs a chosen folder) ──
+  const wholeSystem  = $('#wholeSystem');
+  const folderBtn    = $('#folderBtn');
+  const folderPath   = $('#folderPath');
+  const excludeBtn   = $('#excludeBtn');
+  const excludePaths = $('#excludePaths');
+  let chosenFolder    = null;
+  let excludedFolders = [];
+
+  function updateScanLabel() {
+    const span = scanBtn.querySelector('span');
+    if (!span) return;
+    const noun = modeSelect.value === 'folders' ? 'Folders' : 'Files';
+    span.textContent = wholeSystem.checked ? `Scan All ${noun}` : `Scan ${noun}`;
+  }
+
+  function renderExcludes() {
+    const specific = !wholeSystem.checked;
+    const active = excludedFolders.filter(e => e.enabled).length;
+    if (!specific || !active) { excludePaths.style.display = 'none'; return; }
+    excludePaths.style.display = '';
+    excludePaths.textContent = active === 1 ? '1 folder excluded' : active + ' folders excluded';
+    excludePaths.title = excludedFolders.filter(e => e.enabled).map(e => e.path).join('\n');
+  }
+  function updateScopeUI() {
+    const specific = !wholeSystem.checked;
+    // Disk Reaper isn't sandboxed, so a whole-system scan reads everything
+    // this Mac lets it read without a grant, and the folder button is only
+    // for picking a narrower root.
+    folderBtn.disabled  = !specific;
+    excludeBtn.disabled = !specific;
+    folderPath.style.display = specific && chosenFolder ? '' : 'none';
+    if (specific && chosenFolder) {
+      folderPath.textContent = chosenFolder;
+      folderPath.title = chosenFolder;
+    }
+    renderExcludes();
+    updateScanLabel();
+  }
+
+  wholeSystem.addEventListener('change', updateScopeUI);
+
+  folderBtn.addEventListener('click', async () => {
+    if (folderBtn.disabled) return;
+    const f = await window.api.pickFolder();
+    if (f) chosenFolder = f;
+    updateScopeUI();
+  });
+
+  excludeBtn.addEventListener('click', () => { if (!excludeBtn.disabled) openExcludeDialog(); });
+  excludePaths.addEventListener('click', () => { if (!wholeSystem.checked) openExcludeDialog(); });
+
+  function openExcludeDialog() {
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay';
+    overlay.innerHTML = `
+      <div class="exclude-dialog">
+        <h3>Exclude folders from scans</h3>
+        <p class="exclude-hint">Ticked folders, and everything inside them, are skipped when you scan a chosen folder. Untick one to keep it in the list without excluding it.</p>
+        <div class="exclude-list" id="excludeList"></div>
+        <div class="exclude-row-actions">
+          <button class="btn btn-ghost" id="excludeAdd">Add Folder…</button>
+          <div class="spacer"></div>
+          <button class="btn btn-accent" id="excludeDone">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const listEl = overlay.querySelector('#excludeList');
+
+    function renderList() {
+      listEl.innerHTML = '';
+      if (!excludedFolders.length) {
+        listEl.innerHTML = '<div class="exclude-empty">No folders yet. Click "Add Folder…" to choose one.</div>';
+        return;
+      }
+      excludedFolders.forEach((entry, i) => {
+        const row = document.createElement('div');
+        row.className = 'exclude-item';
+        row.innerHTML = `
+          <input type="checkbox" ${entry.enabled ? 'checked' : ''} />
+          <span class="exclude-item-path" title="${esc(entry.path)}">${esc(entry.path)}</span>
+          <button class="exclude-item-remove" title="Remove from list">&times;</button>`;
+        row.querySelector('input').addEventListener('change', ev => { entry.enabled = ev.target.checked; });
+        row.querySelector('.exclude-item-remove').addEventListener('click', () => { excludedFolders.splice(i, 1); renderList(); });
+        listEl.appendChild(row);
+      });
+    }
+    renderList();
+
+    overlay.querySelector('#excludeAdd').addEventListener('click', async () => {
+      const f = await window.api.pickFolder();
+      if (f && !excludedFolders.some(e => e.path.toLowerCase() === f.toLowerCase())) {
+        excludedFolders.push({ path: f, enabled: true });
+        renderList();
+      }
+    });
+    const close = () => { overlay.remove(); updateScopeUI(); };
+    overlay.querySelector('#excludeDone').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  }
+
+  modeSelect.addEventListener('change', () => {
+    updateScanLabel();
+    if (!fileItems.length) renderFiles();
+  });
+
+  let removeProgressListener = null, removePartialListener = null, paused = false, scanning = false;
 
   scanBtn.addEventListener('click', async () => {
     const limit = parseInt(countInput.value) || 50;
     const mode  = modeSelect.value;
-    userStopped = false;
-    fileItems = []; fileSelected.clear(); renderFiles();
+    let root = null;
+    let exclude = [];
+    if (!wholeSystem.checked) {
+      if (!chosenFolder) { await customAlert("Pick a folder first, or tick 'Scan Whole System' to scan everything."); return; }
+      root = chosenFolder;
+      exclude = excludedFolders.filter(e => e.enabled).map(e => e.path);
+    }
+    // Whole system: root stays null, the scanner walks "/".
+    fileItems = []; fileSelected.clear();
+    renderFiles();
     scanBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
     progressBar.classList.add('active');
     filesStatus.textContent = 'Scanning…'; filesFooter.textContent = '';
-    removeProgressListener = window.api.onScanProgress(({ scanned, label }) => {
-      filesStatus.textContent = `${fmtNum(scanned)} ${label} scanned…`;
+    setScanProgress(0);
+    removeProgressListener = window.api.onScanProgress(({ scanned, label, bytes, total }) => {
+      filesStatus.innerHTML = `<span class="num">${fmtNum(scanned)}</span> ${label} scanned…`;
+      // Counted bytes against used space. Parts of the disk that can't be read
+      // never get counted, so it holds below 100 until the scan really ends.
+      if (total > 0) {
+        scanProgress.hidden = false;
+        setScanProgress(Math.min(99, Math.floor(bytes / total * 100)));
+      }
+    });
+    // Show the largest items found so far while the scan runs. A whole-disk
+    // scan takes minutes; an empty table for that long reads as a broken app.
+    scanning = true;
+    filesBody.classList.add('live');
+    removePartialListener = window.api.onScanPartial(items => {
+      if (!scanning) return;
+      fileItems = items;
+      renderFiles();
+      // Same column sizing the finished list gets, or long paths stay cut off
+      // until the scan ends.
+      requestAnimationFrame(() => fitColumnsToContent('panel-files'));
     });
     try {
-      const result = await window.api.startScan({ limit, mode });
-      if (!userStopped) {
-        fileItems = result.items;
-        renderFiles();
-        requestAnimationFrame(() => fitColumnsToContent('panel-files'));
-        filesStatus.textContent = `Done — ${fmtNum(result.scanned)} ${result.label} scanned`;
-        const totalSize = fileItems.reduce((s, it) => s + it.size, 0);
-        filesFooter.textContent = `${fileItems.length} ${result.label}  ·  ${fmtSize(totalSize)} total`;
+      const result = await window.api.startScan({ limit, mode, root, exclude });
+      // Stop taking partial lists before the final one lands, so a late update
+      // can't overwrite it.
+      scanning = false;
+      if (removePartialListener) { removePartialListener(); removePartialListener = null; }
+      filesBody.classList.remove('live');
+      fileItems = result.items;
+      filesLabel = result.label;
+      renderFiles();
+      requestAnimationFrame(() => fitColumnsToContent('panel-files'));
+      filesStatus.textContent = `Done - ${fmtNum(result.scanned)} ${result.label} scanned`;
+      if (!scanProgress.hidden) setScanProgress(100);
+      if (result.label === 'folders') {
+        // Folders nest inside each other, so summing their sizes double-counts. Show count only.
+        filesFooter.textContent = `${fileItems.length} folders`;
       } else {
-        filesStatus.textContent = 'Scan stopped';
+        const totalSize = fileItems.reduce((sum, it) => sum + it.size, 0);
+        filesFooter.textContent = `${fileItems.length} files  ·  ${fmtSize(totalSize)} total`;
       }
-    } catch (e) {
-      if (!userStopped) filesStatus.textContent = 'Scan failed: ' + (e?.message || e);
-    }
+    } catch { filesStatus.textContent = 'Scan failed'; }
+    scanning = false;
+    if (removePartialListener) { removePartialListener(); removePartialListener = null; }
+    filesBody.classList.remove('live');
     progressBar.classList.remove('active');
     scanBtn.disabled = false; pauseBtn.disabled = true; pauseBtn.textContent = 'Pause'; stopBtn.disabled = true;
+    paused = false;
     if (removeProgressListener) { removeProgressListener(); removeProgressListener = null; }
   });
 
@@ -1023,39 +1290,46 @@
   });
 
   stopBtn.addEventListener('click', () => {
-    userStopped = true;
-    progressBar.classList.remove('active'); // stop animation immediately
     window.api.stopScan(); stopBtn.disabled = true; pauseBtn.disabled = true;
-    paused = false; pauseBtn.textContent = 'Pause'; filesStatus.textContent = 'Stopped';
-    scanBtn.disabled = false; // re-enable scan button right away
+    paused = false; pauseBtn.textContent = 'Pause'; filesStatus.textContent = 'Stopping…';
   });
 
-  deleteBtn.addEventListener('click', async () => {
-    if (!fileSelected.size) return;
-    const paths  = [...fileSelected].sort((a,b)=>a-b).map(i => fileItems[i].path);
+  async function trashPaths(paths) {
+    if (!paths.length) return;
     const label  = modeSelect.value === 'folders' ? 'folder' : 'file';
     const plural = paths.length > 1 ? label + 's' : label;
-    if (!await customConfirm(`Move ${paths.length} ${plural} to Trash?`)) return;
+    if (!await customConfirm(`Move ${paths.length} ${plural} to ${TRASH_NAME}?`)) return;
     const results = await window.api.deleteFiles(paths);
     let deleted = 0;
     for (const r of results) {
-      if (r.ok) { const idx = fileItems.findIndex(it => it.path === r.path); if (idx !== -1) { fileItems.splice(idx,1); deleted++; } }
-      else alert(`Could not trash:\n${r.path}\n\n${r.error}`);
+      if (r.ok) { const idx = fileItems.findIndex(it => it.path === r.path); if (idx !== -1) { fileItems.splice(idx, 1); deleted++; } }
+      else await customAlert(`Could not delete:\n${r.path}\n\n${r.error}`);
     }
     fileSelected.clear(); renderFiles();
-    if (deleted) filesStatus.textContent = `Moved ${deleted} ${plural} to Trash`;
+    scheduleCacheSize();
+    if (deleted) filesStatus.textContent = `Moved ${deleted} ${plural} to ${TRASH_NAME}`;
+  }
+
+  deleteBtn.addEventListener('click', () => {
+    if (!fileSelected.size) return;
+    trashPaths([...fileSelected].sort((a, b) => a - b).map(i => fileItems[i].path));
   });
 
-  finderBtn.addEventListener('click', () => {
+  explorerBtn.addEventListener('click', () => {
     if (!fileSelected.size) return;
     window.api.showInFinder(fileItems[Math.min(...fileSelected)].path);
   });
 
   wireExport('filesExportBtn', 'filesExportMenu', () => ({
-    filename: 'large-files',
-    headers:  ['#', 'Size', 'Path'],
-    rows:     sortedFileItems().map((f, i) => [i + 1, fmtSize(f.size), f.path]),
+    filename: filesLabel === 'folders' ? 'largest-folders' : 'largest-files',
+    headers:  ['#', 'Size', 'Modified', 'Path'],
+    rows:     sortedFileItems().map((f, i) => [String(i + 1), fmtSize(f.size), fmtDate(f.modified), f.path]),
   }));
+
+  explorerBtn.textContent = `Show in ${FILE_MANAGER}`;
+  $('#ctxFileOpenExplorerLabel').textContent = `Open in ${FILE_MANAGER}`;
+  updateScopeUI();
+  renderFiles();
 
   // ══════════════════════════════════════════════════════════════
   // INSTALLED APPS
@@ -1643,6 +1917,102 @@
     cleanerStatus.textContent = `Done — ${ok} succeeded${fail ? `, ${fail} failed` : ''}.`;
     cleanerRunBtn.disabled = cleanerSelectAllBtn.disabled = cleanerDeselectBtn.disabled = false;
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // APP USAGE + SETTINGS
+  // ══════════════════════════════════════════════════════════════
+  let appVersionStr = '';
+  let cacheSizeStr  = '';
+  let cpuStr        = '';
+  let ramStr        = '';
+
+  function updateBrandSub() {
+    const parts = [];
+    if (appVersionStr) parts.push('v' + appVersionStr);
+    // All three are about Disk Reaper, not the whole Mac. A reading that fails
+    // answers "n/a", and that part is left out rather than printed.
+    if (cpuStr && cpuStr !== 'n/a') parts.push('CPU: ' + cpuStr);
+    if (ramStr && ramStr !== 'n/a') parts.push('RAM: ' + ramStr);
+    if (cacheSizeStr) parts.push('Cache: ' + cacheSizeStr);
+    $('#brandSub').textContent = parts.join(' | ');
+  }
+
+  // The three figures are on by default; one tickbox in Settings hides them all.
+  // An unset key means a first run, which must come out ON, hence !== "0".
+  let metricsOn = true;
+  try { metricsOn = localStorage.getItem('dr.metrics') !== '0'; } catch {}
+
+  function refreshUsage() {
+    if (!metricsOn) return;
+    window.api.usage()
+      .then(([cpu, ram]) => { if (!metricsOn) return; cpuStr = cpu; ramStr = ram; updateBrandSub(); })
+      .catch(() => {});
+  }
+
+  function formatBytes(n) {
+    if (!n) return '0 KB';
+    if (n < 1024 * 1024) return Math.max(1, Math.round(n / 1024)) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function refreshCacheSize() {
+    if (!metricsOn) return;
+    window.api.cacheSize()
+      .then(n => { if (!metricsOn) return; cacheSizeStr = formatBytes(n); updateBrandSub(); })
+      .catch(() => {});
+  }
+
+  // Walking the folder is not free, so a burst of writes turns into one recount.
+  let cacheTimer = null;
+  function scheduleCacheSize() {
+    clearTimeout(cacheTimer);
+    cacheTimer = setTimeout(refreshCacheSize, 50);
+  }
+
+  function applyMetrics(on) {
+    metricsOn = on;
+    try { localStorage.setItem('dr.metrics', on ? '1' : '0'); } catch {}
+    if (on) {
+      refreshUsage();
+      scheduleCacheSize();
+    } else {
+      // Blanking the strings drops them from the line, and refreshUsage now
+      // returns early, so nothing keeps measuring behind a hidden readout.
+      cpuStr = ''; ramStr = ''; cacheSizeStr = '';
+      updateBrandSub();
+    }
+  }
+
+  function openSettingsDialog() {
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay';
+    overlay.innerHTML = `
+      <div class="settings-dialog">
+        <h3>Settings</h3>
+        <h4>General</h4>
+        <label class="scope-toggle"><input type="checkbox" id="chkMetrics" /> Show app usage</label>
+        <p class="exclude-hint">The processor and memory figures beside the version at the bottom of the window, and the cache size. All three are about Disk Reaper itself, never your whole Mac.</p>
+        <div class="exclude-row-actions">
+          <div class="spacer"></div>
+          <button class="btn btn-accent" id="settingsDone">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const chk = overlay.querySelector('#chkMetrics');
+    chk.checked = metricsOn;
+    chk.addEventListener('change', () => applyMetrics(chk.checked));
+    const close = () => overlay.remove();
+    overlay.querySelector('#settingsDone').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  }
+  $('#settingsBtn').addEventListener('click', openSettingsDialog);
+
+  window.api.appVersion().then(v => { appVersionStr = v; updateBrandSub(); }).catch(() => {});
+  refreshUsage();
+  // Two seconds. Faster makes the numbers jitter and adds cost to the very
+  // thing being measured; slower feels dead.
+  setInterval(refreshUsage, 2000);
+  refreshCacheSize();
 
 })(); // end IIFE
 </script>
