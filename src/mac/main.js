@@ -469,6 +469,69 @@ ipcMain.handle('runCleanerTask', async (event, taskId) => {
         return { ok: true, output: r.output || 'Maintenance tasks completed.' };
       }
 
+      case 'devleftovers': {
+        const home = os.homedir();
+
+        // Caches and build output that developer tools regenerate on demand.
+        // Nothing here needs admin, and nothing here is a source file, a build
+        // archive, or anything the user would have to recreate by hand.
+        const targets = [
+          { label: 'Xcode derived data',   path: `${home}/Library/Developer/Xcode/DerivedData` },
+          { label: 'Xcode device support', path: `${home}/Library/Developer/Xcode/iOS DeviceSupport` },
+          { label: 'Xcode caches',         path: `${home}/Library/Caches/com.apple.dt.Xcode` },
+          { label: 'CocoaPods cache',      path: `${home}/Library/Caches/CocoaPods` },
+          { label: 'Carthage cache',       path: `${home}/Library/Caches/org.carthage.CarthageKit` },
+          { label: 'Homebrew cache',       path: `${home}/Library/Caches/Homebrew` },
+          { label: 'npm cache',            path: `${home}/.npm/_cacache` },
+          { label: 'Yarn cache',           path: `${home}/Library/Caches/Yarn` },
+          { label: 'pip cache',            path: `${home}/Library/Caches/pip` },
+          { label: 'Gradle cache',         path: `${home}/.gradle/caches` },
+        ];
+
+        const fmt = kb =>
+          kb >= 1048576 ? `${(kb / 1048576).toFixed(1)} GB` :
+          kb >= 1024    ? `${(kb / 1024).toFixed(0)} MB`     :
+                          `${kb} KB`;
+
+        const sizeOf = async (target) => {
+          const r  = await run(`du -sk "${target.replace(/"/g, '\\"')}" 2>/dev/null`, 120_000);
+          const kb = parseInt((r.output || '').split('\t')[0]);
+          return isNaN(kb) ? 0 : kb;
+        };
+
+        const lines = [];
+        let freedKb = 0;
+
+        // Simulators whose iOS runtime is no longer installed. Simulators for
+        // runtimes that are still present are left alone.
+        const simDir    = `${home}/Library/Developer/CoreSimulator/Devices`;
+        const simBefore = await sizeOf(simDir);
+        const simR      = await run('xcrun simctl delete unavailable 2>&1', 300_000);
+        if (simR.ok) {
+          const saved = Math.max(0, simBefore - await sizeOf(simDir));
+          freedKb += saved;
+          lines.push(saved > 0 ? `Unused simulators: ${fmt(saved)}` : 'Unused simulators: nothing to remove');
+        } else {
+          lines.push('Unused simulators: skipped (Xcode command line tools not found)');
+        }
+
+        for (const t of targets) {
+          if (!fs.existsSync(t.path)) continue;
+          const kb = await sizeOf(t.path);
+          if (kb <= 0) continue;
+          const rm = await run(`rm -rf "${t.path.replace(/"/g, '\\"')}"`, 300_000);
+          if (rm.ok) {
+            freedKb += kb;
+            lines.push(`${t.label}: ${fmt(kb)}`);
+          } else {
+            lines.push(`${t.label}: could not remove (${rm.output || 'permission denied'})`);
+          }
+        }
+
+        lines.push('', `Freed ${fmt(freedKb)} in total.`);
+        return { ok: true, output: lines.join('\n') };
+      }
+
       case 'dns': {
         const r = await adminRun('dscacheutil -flushcache; killall -HUP mDNSResponder');
         if (!r.ok) return { ok: false, output: /cancel/i.test(r.output) ? 'Cancelled.' : (r.output || 'Failed.') };

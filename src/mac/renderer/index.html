@@ -1540,14 +1540,15 @@
   // CLEANER
   // ══════════════════════════════════════════════════════════════
   const CLEANER_TASKS = [
-    { id: 'ram',         name: 'Free Up RAM',                    admin: true,  desc: 'Purges inactive memory and disk cache to free up RAM for your active apps.' },
-    { id: 'purgeable',   name: 'Free Up Purgeable Space',        admin: false, desc: 'Trims local Time Machine snapshots to reclaim disk space marked as purgeable by macOS.' },
-    { id: 'maintenance', name: 'Run Maintenance Tasks',          admin: true,  desc: 'Clears user & system caches, purges temp files, rebuilds the Launch Services database, clears QuickLook thumbnails, rotates system logs, and removes hidden .DS_Store files from your home folder.' },
-    { id: 'dns',         name: 'Flush DNS Cache',                admin: true,  desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
-    { id: 'mail',        name: 'Speed Up Mail',                  admin: false, desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
-    { id: 'spotlight',   name: 'Reindex Spotlight',              admin: true,  desc: 'Erases and rebuilds the Spotlight index for faster, more accurate searches. Rebuilding runs in the background.' },
-    { id: 'permissions', name: 'Repair Disk Permissions',        admin: false, desc: 'Verifies the startup volume for filesystem errors that can cause crashes and sluggish performance.' },
-    { id: 'timemachine', name: 'Time Machine Snapshot Trimming', admin: false, desc: 'Deletes all local Time Machine snapshots to maximise available disk space.' },
+    { id: 'ram',          name: 'Free Up RAM',                    admin: true,   desc: 'Purges inactive memory and disk cache to free up RAM for your active apps.' },
+    { id: 'purgeable',    name: 'Free Up Purgeable Space',        admin: false,  desc: 'Trims local Time Machine snapshots to reclaim disk space marked as purgeable by macOS.' },
+    { id: 'maintenance',  name: 'Run Maintenance Tasks',          admin: true,   desc: 'Clears user & system caches, purges temp files, rebuilds the Launch Services database, clears QuickLook thumbnails, rotates system logs, and removes hidden .DS_Store files from your home folder.' },
+    { id: 'devleftovers', name: 'Clear Developer Leftovers',      admin: false,  desc: 'Deletes simulators for iOS versions you no longer have installed, Xcode derived data and device support files, and the npm, Yarn, pip, Gradle, CocoaPods, Carthage and Homebrew caches. Every one of these is rebuilt automatically the next time it is needed.' },
+    { id: 'dns',          name: 'Flush DNS Cache',                admin: true,   desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
+    { id: 'mail',         name: 'Speed Up Mail',                  admin: false,  desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
+    { id: 'spotlight',    name: 'Reindex Spotlight',              admin: true,   desc: 'Erases and rebuilds the Spotlight index for faster, more accurate searches. Rebuilding runs in the background.' },
+    { id: 'permissions',  name: 'Repair Disk Permissions',        admin: false,  desc: 'Verifies the startup volume for filesystem errors that can cause crashes and sluggish performance.' },
+    { id: 'timemachine',  name: 'Time Machine Snapshot Trimming', admin: false,  desc: 'Deletes all local Time Machine snapshots to maximise available disk space.' },
   ];
 
   const cleanerRunBtn       = $('#cleanerRunBtn');
