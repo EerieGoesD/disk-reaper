@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require('elect
 const path     = require('path');
 const fs       = require('fs');
 const os       = require('os');
-const { execSync, exec } = require('child_process');
+const { execSync, exec, execFile } = require('child_process');
 const { Worker }         = require('worker_threads');
 
 // ── Window ───────────────────────────────────────────────────────
@@ -676,6 +676,198 @@ ipcMain.handle('cacheSize', () => {
     return sum;
   };
   return walk(path.join(app.getPath('userData'), 'Local Storage'));
+});
+
+// ── App leftovers ────────────────────────────────────────────────
+// Files in ~/Library that belong to apps no longer on this Mac. Only entries
+// named after a bundle ID (com.maker.App) are judged, because an ID ties data
+// to one app for certain. A plain folder name is only added when it matches
+// one of those leftover apps, which keeps macOS's own folders out of the list.
+const LEFTOVER_LOCATIONS = [
+  'Application Support', 'Caches', 'Containers', 'Group Containers', 'Preferences',
+  'Saved Application State', 'Logs', 'HTTPStorages', 'WebKit', 'LaunchAgents',
+];
+
+// Apple's data doesn't always start with com.apple: Podcasts sits under
+// groups.com.apple, Shortcuts still uses its old Workflow name, and the TV app
+// has its own group.
+const APPLE_ID = /(^|\.)com\.apple\.|^(is\.workflow|tvappservices)\./;
+const BUNDLE_ID = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9_-]*){2,}$/i;
+
+// Words that name a part of an app rather than the app itself.
+const GENERIC_PART = new Set(['helper', 'extension', 'shared', 'private', 'family', 'client', 'app',
+  'mac', 'macos', 'osx', 'desktop', 'group', 'container', 'sandbox', 'host', 'intents', 'updater',
+  'menu', 'renderer', 'launcher', 'agent', 'service', 'pkg', 'audiounit', 'vst3']);
+
+const normName = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function execFileText(cmd, args, timeout = 30_000) {
+  return new Promise(resolve => {
+    execFile(cmd, args, { timeout, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => resolve(stdout || ''));
+  });
+}
+
+// Bundles (.app, plug-ins, preference panes) under a folder, without looking
+// inside the bundles themselves.
+function findBundles(dir, exts, depth) {
+  const out = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name.startsWith('.')) continue;
+    const full = path.join(dir, e.name);
+    if (exts.some(x => e.name.endsWith(x))) out.push(full);
+    else if (depth > 0) out.push(...findBundles(full, exts, depth - 1));
+  }
+  return out;
+}
+
+// Everything that counts as installed: the Applications folders, whatever
+// Spotlight knows about, apps running right now from anywhere, and audio
+// plug-ins and preference panes, which share their maker's data with the app.
+async function installedBundles() {
+  const home = os.homedir();
+  const ids = new Set();
+  const names = new Set();
+  const paths = new Set();
+
+  for (const dir of ['/Applications', '/System/Applications', path.join(home, 'Applications')]) {
+    for (const b of findBundles(dir, ['.app'], 3)) paths.add(b);
+  }
+  for (const dir of ['/Library/Audio/Plug-Ins', path.join(home, 'Library/Audio/Plug-Ins')]) {
+    for (const b of findBundles(dir, ['.component', '.vst', '.vst3'], 1)) paths.add(b);
+  }
+  for (const dir of ['/Library/PreferencePanes', path.join(home, 'Library/PreferencePanes')]) {
+    for (const b of findBundles(dir, ['.prefPane'], 0)) paths.add(b);
+  }
+
+  const spotlight = await execFileText('mdfind', ['-0', '-attr', 'kMDItemCFBundleIdentifier',
+    "kMDItemContentType == 'com.apple.application-bundle'"]);
+  for (const rec of spotlight.split('\0')) {
+    const m = rec.match(/^(.*\.app)\s+kMDItemCFBundleIdentifier = "?([^"]*)"?$/);
+    if (!m) continue;
+    if (m[2] && m[2] !== '(null)') ids.add(m[2].toLowerCase());
+    names.add(normName(path.basename(m[1], '.app')));
+  }
+
+  const running = await execFileText('ps', ['-axo', 'comm=']);
+  for (const line of running.split('\n')) {
+    const m = line.match(/^(.*?\.app)\//);
+    if (m) paths.add(m[1]);
+  }
+
+  const list = [...paths];
+  for (let i = 0; i < list.length; i += 16) {
+    await Promise.all(list.slice(i, i + 16).map(async b => {
+      names.add(normName(path.basename(b).replace(/\.[^.]+$/, '')));
+      const id = (await execFileText('plutil', ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-',
+        path.join(b, 'Contents', 'Info.plist')], 5_000)).trim();
+      if (id) ids.add(id.toLowerCase());
+    }));
+  }
+
+  const vendors = new Set([...ids].map(id => id.split('.').slice(0, 2).join('.')));
+  const vendorNames = new Set([...vendors].map(v => normName(v.split('.')[1] || '')).filter(n => n.length >= 4));
+  return { ids, vendors, names, vendorNames };
+}
+
+// Two names that are the same thing: equal, or one starts the other and both
+// are long enough that it isn't a coincidence.
+const sameName = (a, b) => a === b || (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a)));
+
+ipcMain.handle('findAppLeftovers', async () => {
+  const home = os.homedir();
+  const installed = await installedBundles();
+  const idInstalled = bare =>
+    installed.ids.has(bare) ||
+    installed.vendors.has(bare.split('.').slice(0, 2).join('.')) ||
+    [...installed.ids].some(id => bare.startsWith(id + '.') || id.startsWith(bare + '.'));
+  const nameInstalled = n =>
+    n.length < 3 ||
+    [...installed.names].some(x => sameName(x, n)) ||
+    [...installed.vendorNames].some(v => sameName(v, n));
+
+  const groups = new Map();   // vendor -> { parts: Map, paths: [] }
+  const plain = [];
+
+  for (const location of LEFTOVER_LOCATIONS) {
+    let entries;
+    try { entries = fs.readdirSync(path.join(home, 'Library', location)); } catch { continue; }
+    for (const entry of entries) {
+      if (entry.startsWith('.')) continue;
+      const full = path.join(home, 'Library', location, entry);
+      const key  = entry.replace(/\.(plist|savedState|binarycookies)$/, '');
+      // Team ID first (ABCDE12345.), then group. or groups., leaves the bare ID.
+      const bare = key.replace(/^[A-Z0-9]{10}\./, '').replace(/^groups?\./i, '');
+
+      if (BUNDLE_ID.test(bare)) {
+        const low = bare.toLowerCase();
+        if (APPLE_ID.test(low) || idInstalled(low)) continue;
+        const segs = bare.split('.');
+        const vendor = segs.slice(0, 2).join('.').toLowerCase();
+        if (!groups.has(vendor)) groups.set(vendor, { parts: new Map(), paths: [] });
+        const g = groups.get(vendor);
+        const part = segs[2];
+        if (!GENERIC_PART.has(part.toLowerCase())) g.parts.set(part, (g.parts.get(part) || 0) + 1);
+        g.paths.push({ path: full, location });
+      } else {
+        const n = normName(key);
+        if (!nameInstalled(n)) plain.push({ path: full, location, n });
+      }
+    }
+  }
+
+  const capital = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const apps = [...groups.entries()].map(([vendor, g]) => {
+    const ranked = [...g.parts.entries()].sort((a, b) => b[1] - a[1]);
+    const maker = vendor.split('.')[1] || vendor;
+    const part = ranked.length && (ranked.length === 1 || ranked[0][1] > ranked[1][1]) ? ranked[0][0] : '';
+    return {
+      part,
+      maker,
+      makerToken: normName(maker),
+      partTokens: [...g.parts.keys()].map(normName).filter(t => t.length >= 3),
+      vendor,
+      paths: g.paths,
+    };
+  });
+
+  // A plain folder joins an app only when its name matches that app: the same
+  // as its maker or one of its parts, or the tail of a part (Code for VSCode).
+  // The tail rule is never used on the maker, where it matches by accident.
+  for (const p of plain) {
+    const owner = apps.find(a =>
+      sameName(a.makerToken, p.n) ||
+      a.partTokens.some(t => sameName(t, p.n) || (p.n.length >= 4 && t.endsWith(p.n))));
+    if (!owner) continue;
+    owner.paths.push({ path: p.path, location: p.location });
+    // A folder spelled like the app's part gives the app its proper casing.
+    const folder = path.basename(p.path);
+    if (owner.part && normName(folder) === normName(owner.part) && folder !== folder.toLowerCase()) owner.part = folder;
+  }
+
+  // Name each app after the part its entries mention most, or its maker.
+  for (const a of apps) a.app = capital(a.part || a.maker);
+
+  // Sizes in one du call, in the same order as the paths.
+  const all = apps.flatMap(a => a.paths.map(x => x.path));
+  const sizes = new Map();
+  if (all.length) {
+    const out = await execFileText('du', ['-sk', ...all], 120_000);
+    for (const line of out.split('\n')) {
+      const tab = line.indexOf('\t');
+      if (tab > 0) sizes.set(line.slice(tab + 1), parseInt(line.slice(0, tab)) * 1024);
+    }
+  }
+
+  return apps
+    .map(a => ({
+      app: a.app,
+      vendor: a.vendor,
+      paths: a.paths.map(x => ({ ...x, size: sizes.get(x.path) || 0 })),
+      size: a.paths.reduce((sum, x) => sum + (sizes.get(x.path) || 0), 0),
+    }))
+    .sort((a, b) => b.size - a.size);
 });
 
 // ── Misc ─────────────────────────────────────────────────────────

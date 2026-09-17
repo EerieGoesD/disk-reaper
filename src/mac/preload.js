@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Cleaner ──────────────────────────────────────────────────
   runCleanerTask: (taskId) => ipcRenderer.invoke('runCleanerTask', taskId),
+  findAppLeftovers: () => ipcRenderer.invoke('findAppLeftovers'),
 
   // ── App usage ────────────────────────────────────────────────
   appVersion: () => ipcRenderer.invoke('appVersion'),

@@ -664,6 +664,9 @@
   .bloat-row .br-desc { flex: 1; color: var(--text-dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bloat-summary { font-size: 12px; color: var(--text-dim); font-family: var(--mono); text-align: center; }
   .bloat-actions { display: flex; justify-content: center; gap: 8px; }
+  /* App leftovers: buttons that sit side by side share one size. */
+  .leftovers-win .bloat-controls .btn { width: 92px; }
+  .leftovers-win .bloat-actions .btn { width: 170px; }
   .bloat-empty { text-align: center; padding: 30px; color: var(--text-dim); font-size: 13px; }
 
   /* ── Networking ── */
@@ -1183,7 +1186,7 @@
               <summary>
                 <div class="section-icon"><svg viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7z"/></svg></div>
                 <div class="section-title">Disk Cleanup</div>
-                <span class="section-hint">Temp folders, Windows.old</span>
+                <span class="section-hint">Temp folders, Windows.old, app leftovers</span>
                 <svg class="section-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </summary>
               <div class="section-body">
@@ -1233,6 +1236,20 @@
                   </div>
                   <button class="btn btn-danger" id="cleanWinOldBtn">Delete</button>
                 </div>
+              </div>
+            </div>
+            <div class="cleaner-card">
+              <div class="cleaner-card-head">
+                <div class="cleaner-card-icon">
+                  <svg viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7z"/><path d="M10 13l4 4M14 13l-4 4"/></svg>
+                </div>
+                <div class="cleaner-card-text">
+                  <h3>App Leftovers</h3>
+                  <p>Finds folders that programs you've uninstalled left behind in AppData, ProgramData and Program Files. You see the list first and pick what goes, and everything you remove is moved to the Recycle Bin. Leftovers of Store apps are ticked for you; other folders are matched by name, so check those before ticking them.</p>
+                </div>
+              </div>
+              <div class="cleaner-card-action align-left">
+                <button class="btn btn-danger" id="leftoversScanBtn">Scan for App Leftovers</button>
               </div>
             </div>
               </div>
@@ -2622,6 +2639,7 @@
     "temp.userTemp":    "#cleanUserTempBtn",
     "temp.windowsTemp": "#cleanWinTempBtn",
     "temp.windowsOld":  "#cleanWinOldBtn",
+    "leftovers.scan":   "#leftoversScanBtn",
     // Bloatware kill, drive optimize, clipboard clear (all one-shot ops)
     "bloat.kill":       "#bloatKillBtn",
     "tweak.optimize":   "#optimizeDriveBtn",
@@ -5809,6 +5827,92 @@ ${r.error}`);
         }
         markLastRun("debloat.uwp");
       } catch (e) { clog("Preinstalled apps remove error: " + (e.message || e), "err"); }
+      finally { setLogJobRunning("panel-cleaner", false); }
+      overlay.remove();
+    });
+  });
+
+  // ── App leftovers: scan, review, move to the Recycle Bin ──
+  document.getElementById("leftoversScanBtn")?.addEventListener("click", async () => {
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `<div class="bloat-dialog leftovers-win"><h3>App Leftovers</h3><div class="bloat-empty">Looking for leftovers...</div></div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+    const box = overlay.querySelector(".bloat-dialog");
+    const closeOnly = (message) => {
+      box.innerHTML = `<h3>App Leftovers</h3><div class="bloat-empty">${esc(message)}</div>
+        <div class="bloat-actions"><button class="btn btn-ghost" id="leftoversClose">Close</button></div>`;
+      box.querySelector("#leftoversClose").addEventListener("click", () => overlay.remove());
+    };
+
+    clog("App leftovers: reading installed programs and scanning AppData, ProgramData, Program Files...", "info");
+    const r = await window.api.findAppLeftovers().catch(e => ({ ok: false, error: e.message || String(e) }));
+    if (!r || !r.ok) {
+      closeOnly("Scan failed: " + ((r && r.error) || "unknown"));
+      clog("App leftovers scan failed: " + ((r && r.error) || "unknown"), "err");
+      return;
+    }
+    markLastRun("leftovers.scan");
+    const apps = r.apps || [];
+    if (!apps.length) {
+      closeOnly("No leftovers found. Every program folder belongs to something still installed.");
+      clog("App leftovers: none found.", "ok");
+      return;
+    }
+    clog(`App leftovers: ${apps.length} found.`, "warn");
+    for (const a of apps) clog(`  ${a.sure ? "STORE" : "CHECK"}: ${a.app} (${fmtSize(a.size)}) ${a.paths.map(p => p.path).join(", ")}`, a.sure ? "warn" : "info");
+
+    const rows = apps.map((a, i) => `
+      <div class="bloat-row" style="align-items:flex-start">
+        <input type="checkbox" data-i="${i}" ${a.sure ? "checked" : ""} style="margin-top:2px" />
+        <span class="br-name" title="${esc(a.app)}">${esc(a.app)}</span>
+        <span class="br-mem">${a.size ? fmtSize(a.size) : "0 B"}</span>
+        <span class="br-desc" style="white-space:normal">${a.paths.map(p => `<div title="${esc(p.path)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.path)}</div>`).join("")}</span>
+      </div>`).join("");
+    box.innerHTML = `
+      <h3>App Leftovers</h3>
+      <p style="font-size:12.5px;color:#c4c4cd;line-height:1.5;margin:0 0 8px;">${apps.length} program(s) left folders behind. Store app leftovers are ticked for you. The rest are matched by folder name, so tick them only if you recognise them. Everything you remove goes to the Recycle Bin.</p>
+      <div class="bloat-controls">
+        <button class="btn btn-ghost btn-sm" id="leftoversAll">Select all</button>
+        <button class="btn btn-ghost btn-sm" id="leftoversNone">Select none</button>
+        <div class="spacer"></div>
+        <span class="bloat-summary" id="leftoversSummary"></span>
+      </div>
+      <div class="bloat-table"><div class="bloat-table-body" id="leftoversList">${rows}</div></div>
+      <div class="bloat-actions">
+        <button class="btn btn-ghost" id="leftoversCancel">Cancel</button>
+        <button class="btn btn-danger" id="leftoversRemove">Move to Recycle Bin</button>
+      </div>`;
+    const list = box.querySelector("#leftoversList");
+    const boxes = [...list.querySelectorAll("input[type=checkbox]")];
+    const chosen = () => boxes.filter(b => b.checked).map(b => apps[+b.dataset.i]);
+    const update = () => {
+      const sel = chosen();
+      const bytes = sel.reduce((sum, a) => sum + a.size, 0);
+      box.querySelector("#leftoversSummary").textContent = `${sel.length} selected · ${bytes ? fmtSize(bytes) : "0 B"}`;
+      box.querySelector("#leftoversRemove").disabled = !sel.length;
+    };
+    list.addEventListener("change", update);
+    box.querySelector("#leftoversAll").addEventListener("click", () => { boxes.forEach(b => b.checked = true); update(); });
+    box.querySelector("#leftoversNone").addEventListener("click", () => { boxes.forEach(b => b.checked = false); update(); });
+    box.querySelector("#leftoversCancel").addEventListener("click", () => overlay.remove());
+    update();
+
+    box.querySelector("#leftoversRemove").addEventListener("click", async () => {
+      const sel = chosen();
+      if (!sel.length) return;
+      const remBtn = box.querySelector("#leftoversRemove");
+      remBtn.disabled = true; remBtn.textContent = "Moving...";
+      setLogJobRunning("panel-cleaner", true);
+      try {
+        const results = await window.api.trashAppLeftovers(sel.flatMap(a => a.paths.map(p => p.path)));
+        const moved = new Set(results.filter(x => x.ok).map(x => x.path));
+        const freed = sel.flatMap(a => a.paths).filter(p => moved.has(p.path)).reduce((sum, p) => sum + p.size, 0);
+        const failed = results.filter(x => !x.ok);
+        clog(`App leftovers: moved ${moved.size} folder(s) to the Recycle Bin, ${freed ? fmtSize(freed) : "0 B"} in total.`, failed.length ? "warn" : "ok");
+        for (const f of failed) clog(`  Could not move ${f.path}: ${f.error}`, "err");
+      } catch (e) { clog("App leftovers remove error: " + (e.message || e), "err"); }
       finally { setLogJobRunning("panel-cleaner", false); }
       overlay.remove();
     });

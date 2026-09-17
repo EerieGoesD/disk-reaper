@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld("api", {
   getFolderInfo:       (key)   => ipcRenderer.invoke("get-folder-info", key),
   clearTempFolder:     (key)   => ipcRenderer.invoke("clear-temp-folder", key),
   deleteWindowsOld:    ()      => ipcRenderer.invoke("delete-windows-old"),
+  findAppLeftovers:    ()      => ipcRenderer.invoke("find-app-leftovers"),
+  trashAppLeftovers:   (paths) => ipcRenderer.invoke("trash-app-leftovers", paths),
   getServiceInfo:      (name)  => ipcRenderer.invoke("get-service-info", name),
   setServiceState:     (name, action) => ipcRenderer.invoke("set-service-state", { name, action }),
   getDeliveryOptState: ()      => ipcRenderer.invoke("get-delivery-opt-state"),
