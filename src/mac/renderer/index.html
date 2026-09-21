@@ -1841,6 +1841,7 @@
     { id: 'purgeable',    name: 'Free Up Purgeable Space',        admin: false,  desc: 'Trims local Time Machine snapshots to reclaim disk space marked as purgeable by macOS.' },
     { id: 'maintenance',  name: 'Run Maintenance Tasks',          admin: true,   desc: 'Clears user & system caches, purges temp files, rebuilds the Launch Services database, clears QuickLook thumbnails, rotates system logs, and removes hidden .DS_Store files from your home folder.' },
     { id: 'appleftovers', name: 'Find App Leftovers',             admin: false,  desc: "Finds settings, caches and saved data that apps you've uninstalled left behind in your Library folder. You see the list first and pick what goes, and everything you remove is moved to the Trash." },
+    { id: 'parallels',    name: 'Remove Parallels Leftovers',     admin: true,   desc: "Clears what Parallels Desktop left behind after being uninstalled, including the Windows programs it published as Mac apps. Those are why Spotlight offers a Windows Terminal, and why opening one says Parallels is missing. Also unassigns the file types still set to open with Parallels." },
     { id: 'devleftovers', name: 'Clear Developer Leftovers',      admin: false,  desc: 'Deletes simulators for iOS versions you no longer have installed, Xcode derived data and device support files, and the npm, Yarn, pip, Gradle, CocoaPods, Carthage and Homebrew caches. Every one of these is rebuilt automatically the next time it is needed.' },
     { id: 'dns',          name: 'Flush DNS Cache',                admin: true,   desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
     { id: 'mail',         name: 'Speed Up Mail',                  admin: false,  desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
@@ -1921,35 +1922,36 @@
     });
   });
 
-  // Scans for leftovers, lets the user untick anything to keep, then moves the
-  // rest to the Trash. Resolves with the same { ok, output } a task returns.
-  function reviewAppLeftovers() {
+  // Scans, lets the user untick anything to keep, then removes the rest. Used
+  // by both leftovers tasks; resolves with the same { ok, output } a task returns.
+  function reviewLeftovers({ title, hint, emptyText, emptyOutput, removeLabel, itemNoun, load, remove }) {
     return new Promise(resolve => {
       const overlay = document.createElement('div');
       overlay.className = 'dialog-overlay';
       overlay.innerHTML = `
         <div class="leftovers-dialog">
-          <h3>App Leftovers</h3>
+          <h3>${esc(title)}</h3>
           <div class="leftovers-empty">Looking for leftovers…</div>
         </div>`;
       document.body.appendChild(overlay);
       const box = overlay.querySelector('.leftovers-dialog');
       const finish = result => { overlay.remove(); resolve(result); };
       const tilde = p => p.replace(/^\/Users\/[^/]+/, '~');
+      const bytes = n => fmtSize(n) === '—' ? '0 B' : fmtSize(n);
 
-      window.api.findAppLeftovers().then(apps => {
-        if (!apps.length) {
+      load().then(items => {
+        if (!items.length) {
           box.innerHTML = `
-            <h3>App Leftovers</h3>
-            <div class="leftovers-empty">No leftovers found. Every app with data in your Library is still installed.</div>
+            <h3>${esc(title)}</h3>
+            <div class="leftovers-empty">${esc(emptyText)}</div>
             <div class="exclude-row-actions"><div class="spacer"></div><button class="btn btn-accent" id="leftoversClose">Close</button></div>`;
-          box.querySelector('#leftoversClose').addEventListener('click', () => finish({ ok: true, output: 'No leftovers found.' }));
+          box.querySelector('#leftoversClose').addEventListener('click', () => finish({ ok: true, output: emptyOutput }));
           return;
         }
 
         box.innerHTML = `
-          <h3>App Leftovers</h3>
-          <p class="exclude-hint">Files in your Library from apps that are no longer on this Mac. Untick anything you want to keep. Everything you remove goes to the Trash.</p>
+          <h3>${esc(title)}</h3>
+          <p class="exclude-hint">${esc(hint)}</p>
           <div class="leftovers-controls">
             <button class="btn btn-ghost" id="leftoversAll">Select all</button>
             <button class="btn btn-ghost" id="leftoversNone">Select none</button>
@@ -1957,47 +1959,47 @@
             <span class="leftovers-summary" id="leftoversSummary"></span>
           </div>
           <div class="exclude-list leftovers-list">
-            ${apps.map((a, i) => `
+            ${items.map((a, i) => `
               <label class="leftover-item">
                 <input type="checkbox" data-i="${i}" checked />
                 <div class="leftover-main">
-                  <div class="leftover-name">${esc(a.app)}<span class="leftover-maker">${esc(a.vendor)}</span></div>
+                  <div class="leftover-name">${esc(a.app)}${a.vendor ? `<span class="leftover-maker">${esc(a.vendor)}</span>` : ''}${a.admin ? '<span class="cleaner-badge" style="margin-left:6px">Admin</span>' : ''}</div>
                   <div class="leftover-paths">${a.paths.map(p => `<div title="${esc(p.path)}">${esc(tilde(p.path))}</div>`).join('')}</div>
                 </div>
-                <span class="leftover-size">${a.size ? fmtSize(a.size) : '0 B'}</span>
+                <span class="leftover-size">${bytes(a.size)}</span>
               </label>`).join('')}
           </div>
           <div class="exclude-row-actions">
             <button class="btn btn-ghost" id="leftoversCancel">Cancel</button>
             <div class="spacer"></div>
-            <button class="btn btn-danger" id="leftoversTrash">Move to Trash</button>
+            <button class="btn btn-danger" id="leftoversTrash">${esc(removeLabel)}</button>
           </div>`;
 
         const boxes = [...box.querySelectorAll('.leftover-item input')];
-        const chosen = () => boxes.filter(b => b.checked).map(b => apps[+b.dataset.i]);
+        const chosen = () => boxes.filter(b => b.checked).map(b => items[+b.dataset.i]);
         const update = () => {
           const sel = chosen();
-          const bytes = sel.reduce((sum, a) => sum + a.size, 0);
-          box.querySelector('#leftoversSummary').textContent = `${sel.length} of ${apps.length} apps · ${fmtSize(bytes) === '—' ? '0 B' : fmtSize(bytes)}`;
+          box.querySelector('#leftoversSummary').textContent =
+            `${sel.length} of ${items.length} ${itemNoun} · ${bytes(sel.reduce((sum, a) => sum + a.size, 0))}`;
           box.querySelector('#leftoversTrash').disabled = !sel.length;
         };
         boxes.forEach(b => b.addEventListener('change', update));
         box.querySelector('#leftoversAll').addEventListener('click', () => { boxes.forEach(b => b.checked = true); update(); });
         box.querySelector('#leftoversNone').addEventListener('click', () => { boxes.forEach(b => b.checked = false); update(); });
-        box.querySelector('#leftoversCancel').addEventListener('click', () => finish({ ok: true, output: 'Cancelled. Nothing was moved.' }));
+        box.querySelector('#leftoversCancel').addEventListener('click', () => finish({ ok: true, output: 'Cancelled. Nothing was removed.' }));
         update();
 
         box.querySelector('#leftoversTrash').addEventListener('click', async () => {
           const sel = chosen();
           const trashBtn = box.querySelector('#leftoversTrash');
-          trashBtn.disabled = true; trashBtn.textContent = 'Moving…';
-          const results = await window.api.deleteFiles(sel.flatMap(a => a.paths.map(p => p.path)));
+          trashBtn.disabled = true; trashBtn.textContent = 'Removing…';
+          const { results, extraLines = [] } = await remove(sel.flatMap(a => a.paths.map(p => p.path)));
           const failed = results.filter(r => !r.ok);
-          const movedPaths = new Set(results.filter(r => r.ok).map(r => r.path));
-          const freed = sel.flatMap(a => a.paths).filter(p => movedPaths.has(p.path)).reduce((sum, p) => sum + p.size, 0);
-          const lines = [`Moved leftovers from ${sel.length} app${sel.length === 1 ? '' : 's'} to the Trash, ${fmtSize(freed) === '—' ? '0 B' : fmtSize(freed)} in total.`];
+          const done = new Set(results.filter(r => r.ok).map(r => r.path));
+          const freed = sel.flatMap(a => a.paths).filter(p => done.has(p.path)).reduce((sum, p) => sum + p.size, 0);
+          const lines = [`Removed ${done.size} of ${results.length} item${results.length === 1 ? '' : 's'}, ${bytes(freed)} in total.`, ...extraLines];
           if (failed.length) {
-            lines.push(`${failed.length} item${failed.length === 1 ? '' : 's'} could not be moved:`);
+            lines.push(`${failed.length} item${failed.length === 1 ? '' : 's'} could not be removed:`);
             for (const f of failed) lines.push(`  ${tilde(f.path)} (${f.error})`);
           }
           finish({ ok: failed.length < results.length, output: lines.join('\n') });
@@ -2007,6 +2009,35 @@
       });
     });
   }
+
+  const reviewAppLeftovers = () => reviewLeftovers({
+    title: 'App Leftovers',
+    hint: 'Files in your Library from apps that are no longer on this Mac. Untick anything you want to keep. Everything you remove goes to the Trash.',
+    emptyText: 'No leftovers found. Every app with data in your Library is still installed.',
+    emptyOutput: 'No leftovers found.',
+    removeLabel: 'Move to Trash',
+    itemNoun: 'apps',
+    load: () => window.api.findAppLeftovers(),
+    remove: async paths => ({ results: await window.api.deleteFiles(paths) }),
+  });
+
+  const reviewParallelsLeftovers = () => reviewLeftovers({
+    title: 'Parallels Leftovers',
+    hint: 'What Parallels Desktop left behind, including the Windows programs it published as Mac apps. Removing those stops Spotlight offering them instead of your real apps. Your files go to the Trash; system files are deleted and ask for your password once.',
+    emptyText: 'Nothing left from Parallels Desktop on this Mac.',
+    emptyOutput: 'No Parallels leftovers found.',
+    removeLabel: 'Remove',
+    itemNoun: 'groups',
+    load: () => window.api.findParallelsLeftovers(),
+    remove: async paths => {
+      const { results, handlers } = await window.api.removeParallelsLeftovers(paths);
+      const extraLines = [];
+      if (handlers > 0) extraLines.push(`Unassigned ${handlers} file type${handlers === 1 ? '' : 's'} that still opened with Parallels.`);
+      if (handlers < 0) extraLines.push('Could not update the list of file types opened with Parallels.');
+      extraLines.push('Rebuilt the list of apps macOS knows about.');
+      return { results, extraLines };
+    },
+  });
 
   cleanerRunBtn.addEventListener('click', async () => {
     const selected = [...cleanerTaskList.querySelectorAll('.cleaner-cb:checked')].map(cb => cb.dataset.id);
@@ -2020,7 +2051,9 @@
       const task = CLEANER_TASKS.find(t => t.id === id);
       setTaskState(id, 'running');
       // App leftovers needs the user to pick what goes, so it runs here.
-      const result = id === 'appleftovers' ? await reviewAppLeftovers() : await window.api.runCleanerTask(id);
+      const result = id === 'appleftovers' ? await reviewAppLeftovers()
+                   : id === 'parallels'    ? await reviewParallelsLeftovers()
+                   : await window.api.runCleanerTask(id);
       setTaskState(id, result.ok ? 'done' : 'error');
       logEntry(task.name, result.ok ? 'done' : 'error', result.output || (result.ok ? 'Done.' : 'Failed.'));
       result.ok ? ok++ : fail++;

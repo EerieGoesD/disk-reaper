@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('api', {
   // ── Cleaner ──────────────────────────────────────────────────
   runCleanerTask: (taskId) => ipcRenderer.invoke('runCleanerTask', taskId),
   findAppLeftovers: () => ipcRenderer.invoke('findAppLeftovers'),
+  findParallelsLeftovers:   ()      => ipcRenderer.invoke('findParallelsLeftovers'),
+  removeParallelsLeftovers: (paths) => ipcRenderer.invoke('removeParallelsLeftovers', paths),
 
   // ── App usage ────────────────────────────────────────────────
   appVersion: () => ipcRenderer.invoke('appVersion'),

@@ -870,6 +870,163 @@ ipcMain.handle('findAppLeftovers', async () => {
     .sort((a, b) => b.size - a.size);
 });
 
+// ── Parallels leftovers ──────────────────────────────────────────
+// Parallels Desktop publishes the Windows programs inside a virtual machine as
+// Mac apps, in ~/Applications (Parallels). Uninstalling Parallels leaves those
+// behind, so macOS still lists a Windows "Terminal" and Spotlight offers it
+// instead of the real one, and opening it only says Parallels is missing. This
+// clears the published apps, the rest of Parallels' files, and the file types
+// still pointed at it.
+const PARALLELS_MATCH = /parallels|^prl/i;
+const LS_SECURE = 'Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist';
+const LSREGISTER = '/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/' +
+  'LaunchServices.framework/Versions/A/Support/lsregister';
+
+// Everything Parallels leaves behind, grouped the way the window lists it.
+function parallelsGroups() {
+  const home = os.homedir();
+  const user = (dir, label) => ({ dir: path.join(home, dir), label, admin: false });
+  const root = (dir, label) => ({ dir, label, admin: true });
+  return [
+    { app: 'Windows apps published to macOS', admin: false, dirs: [], fixed: [path.join(home, 'Applications (Parallels)')] },
+    { app: 'Parallels app data', admin: false, dirs: [
+      user('Library/Containers'), user('Library/Group Containers'), user('Library/Application Scripts'),
+      user('Library/Application Support'), user('Library/Caches'), user('Library/WebKit'),
+      user('Library/HTTPStorages'), user('Library/Saved Application State'),
+    ], fixed: [] },
+    { app: 'Parallels settings, logs and start-up items', admin: false, dirs: [
+      user('Library/Preferences'), user('Library/Logs'), user('Library/LaunchAgents'),
+    ], fixed: [] },
+    { app: 'Parallels keychain', admin: false, dirs: [user('Library/Keychains')], fixed: [] },
+    { app: 'Parallels system files', admin: true, dirs: [
+      root('/Library'), root('/Library/Application Support'), root('/Library/Preferences'),
+      root('/Library/LaunchDaemons'), root('/Library/LaunchAgents'),
+      root('/Library/PrivilegedHelperTools'), root('/usr/local/bin'),
+    ], fixed: [] },
+  ];
+}
+
+// Paths the last scan offered, so the window can only ever remove those.
+let parallelsPaths = new Map();
+
+ipcMain.handle('findParallelsLeftovers', async () => {
+  const home = os.homedir();
+  const groups = [];
+  for (const g of parallelsGroups()) {
+    const hits = [];
+    for (const fixed of g.fixed) {
+      if (fs.existsSync(fixed)) hits.push(fixed);
+    }
+    for (const { dir } of g.dirs) {
+      let entries;
+      try { entries = fs.readdirSync(dir); } catch { continue; }
+      for (const e of entries) {
+        if (PARALLELS_MATCH.test(e)) hits.push(path.join(dir, e));
+      }
+    }
+    if (hits.length) groups.push({ app: g.app, admin: g.admin, hits });
+  }
+
+  const all = groups.flatMap(g => g.hits);
+  const sizes = new Map();
+  if (all.length) {
+    const out = await execFileText('du', ['-sk', ...all], 120_000);
+    for (const line of out.split('\n')) {
+      const tab = line.indexOf('\t');
+      if (tab > 0) sizes.set(line.slice(tab + 1), parseInt(line.slice(0, tab)) * 1024);
+    }
+  }
+
+  parallelsPaths = new Map(all.map(p => [p, groups.find(g => g.hits.includes(p)).admin]));
+  return groups.map(g => ({
+    // The published apps are worth counting, since that is the visible symptom.
+    app: g.app === 'Windows apps published to macOS'
+      ? `${g.app} (${countPublishedApps(g.hits[0])})`
+      : g.app,
+    admin: g.admin,
+    paths: g.hits.map(p => ({
+      path: p,
+      location: p.startsWith(home) ? '~' + p.slice(home.length) : p,
+      size: sizes.get(p) || 0,
+    })),
+    size: g.hits.reduce((sum, p) => sum + (sizes.get(p) || 0), 0),
+  }));
+});
+
+function countPublishedApps(folder) {
+  let count = 0;
+  const walk = (dir, depth) => {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      if (e.name.endsWith('.app')) count++;
+      else if (depth > 0) walk(path.join(dir, e.name), depth - 1);
+    }
+  };
+  walk(folder, 3);
+  return count === 1 ? '1 app' : `${count} apps`;
+}
+
+// Drops the file types still opened by Parallels, leaving every other choice
+// alone. Returns how many were dropped, or -1 when the file can't be rewritten.
+async function unassignParallelsHandlers() {
+  const file = path.join(os.homedir(), LS_SECURE);
+  if (!fs.existsSync(file)) return 0;
+  const json = await execFileText('plutil', ['-convert', 'json', '-o', '-', file], 15_000);
+  let data;
+  try { data = JSON.parse(json); } catch { return -1; }
+  const handlers = data.LSHandlers || [];
+  const kept = handlers.filter(h =>
+    !Object.values(h).some(v => typeof v === 'string' && /parallels/i.test(v)));
+  const dropped = handlers.length - kept.length;
+  if (!dropped) return 0;
+  data.LSHandlers = kept;
+  const temp = path.join(os.tmpdir(), 'disk-reaper-lshandlers.json');
+  try {
+    fs.writeFileSync(temp, JSON.stringify(data));
+    const err = await execFileText('plutil', ['-convert', 'binary1', '-o', file, temp], 15_000);
+    fs.unlinkSync(temp);
+    if (err.trim()) return -1;
+  } catch { return -1; }
+  return dropped;
+}
+
+ipcMain.handle('removeParallelsLeftovers', async (event, paths) => {
+  const results = [];
+  const adminPaths = [];
+  for (const p of paths || []) {
+    if (!parallelsPaths.has(p)) { results.push({ path: p, ok: false, error: 'not part of the last scan' }); continue; }
+    if (parallelsPaths.get(p)) { adminPaths.push(p); continue; }
+    try {
+      await shell.trashItem(p);
+      parallelsPaths.delete(p);
+      results.push({ path: p, ok: true });
+    } catch (e) {
+      results.push({ path: p, ok: false, error: e.message });
+    }
+  }
+
+  // The system files need one password prompt between them.
+  if (adminPaths.length) {
+    const quoted = adminPaths.map(p => `'${p.replace(/'/g, `'\\''`)}'`).join(' ');
+    const escaped = `rm -rf ${quoted}`.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const out = await execFileText('osascript',
+      ['-e', `do shell script "${escaped}" with administrator privileges`], 300_000);
+    for (const p of adminPaths) {
+      const gone = !fs.existsSync(p);
+      if (gone) parallelsPaths.delete(p);
+      results.push({ path: p, ok: gone, error: gone ? undefined : (/cancel/i.test(out) ? 'Cancelled' : 'Needs an administrator password') });
+    }
+  }
+
+  const handlers = await unassignParallelsHandlers();
+  // Rebuild the list of apps macOS knows about, so the published apps stop
+  // turning up in Spotlight and in Open With.
+  await execFileText(LSREGISTER, ['-kill', '-r', '-domain', 'local', '-domain', 'system', '-domain', 'user'], 120_000);
+  return { results, handlers };
+});
+
 // ── Misc ─────────────────────────────────────────────────────────
 ipcMain.on('openExternal',    (event, url)  => shell.openExternal(url));
 ipcMain.on('openFolder',      (event, p)    => shell.openPath(p));
