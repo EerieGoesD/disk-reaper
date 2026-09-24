@@ -568,7 +568,18 @@ ipcMain.handle('runCleanerTask', async (event, taskId) => {
       }
 
       case 'spotlight': {
-        const r = await adminRun('mdutil -E /');
+        // Searching is turned back on first. With it off for the volume macOS
+        // itself lives on, Spotlight finds none of the built-in apps, so
+        // typing "terminal" turns up nothing however often it is rebuilt.
+        const steps = [
+          'mdutil -i on / 2>&1 || true',
+          'mdutil -i on /System/Volumes/Data 2>&1 || true',
+          'mdutil -E / 2>&1 || true',
+          'echo "---"',
+          'mdutil -s / 2>&1',
+          'mdutil -s /System/Volumes/Data 2>&1',
+        ];
+        const r = await adminRun(steps.join('; '));
         if (!r.ok) return { ok: false, output: /cancel/i.test(r.output) ? 'Cancelled.' : (r.output || 'Failed.') };
         return { ok: true, output: (r.output || 'Spotlight index erased.') + '\nRebuilding continues in the background.' };
       }
@@ -775,6 +786,18 @@ async function installedBundles() {
 // are long enough that it isn't a coincidence.
 const sameName = (a, b) => a === b || (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a)));
 
+// Paths the last scan offered, so the window can only ever remove those.
+let appLeftoverPaths = new Set();
+
+ipcMain.handle('removeAppLeftovers', async (event, paths) => {
+  const known = (paths || []).filter(p => appLeftoverPaths.has(p));
+  const unknown = (paths || []).filter(p => !appLeftoverPaths.has(p))
+    .map(p => ({ path: p, ok: false, error: 'not part of the last scan' }));
+  const results = await removeLeftoverPaths(known, () => false);
+  for (const r of results) if (r.ok) appLeftoverPaths.delete(r.path);
+  return [...results, ...unknown];
+});
+
 ipcMain.handle('findAppLeftovers', async () => {
   const home = os.homedir();
   const installed = await installedBundles();
@@ -860,6 +883,7 @@ ipcMain.handle('findAppLeftovers', async () => {
     }
   }
 
+  appLeftoverPaths = new Set(all);
   return apps
     .map(a => ({
       app: a.app,
@@ -869,6 +893,46 @@ ipcMain.handle('findAppLeftovers', async () => {
     }))
     .sort((a, b) => b.size - a.size);
 });
+
+// Moves leftovers to the Trash. Files under /Library are deleted behind one
+// password prompt instead. macOS guards other apps' Containers no matter who
+// asks - a password makes no difference there, only Full Disk Access does - so
+// those are reported rather than retried.
+const NO_ACCESS = /permission|not permitted|denied/i;
+const FULL_DISK_ACCESS = 'macOS blocks this folder until Disk Reaper has Full Disk Access';
+
+async function removeLeftoverPaths(paths, needsAdmin) {
+  const results = [];
+  const adminPaths = [];
+  for (const p of paths) {
+    if (needsAdmin(p)) { adminPaths.push(p); continue; }
+    try {
+      await shell.trashItem(p);
+      results.push({ path: p, ok: true });
+    } catch (e) {
+      const blocked = NO_ACCESS.test(e.message || '');
+      results.push({ path: p, ok: false, error: blocked ? FULL_DISK_ACCESS : e.message, blocked });
+    }
+  }
+
+  // One password prompt covers all of them.
+  if (adminPaths.length) {
+    const quoted = adminPaths.map(p => `'${p.replace(/'/g, `'\\''`)}'`).join(' ');
+    const escaped = `rm -rf ${quoted}`.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const out = await execFileText('osascript',
+      ['-e', `do shell script "${escaped}" with administrator privileges`], 300_000);
+    const cancelled = /cancel/i.test(out);
+    for (const p of adminPaths) {
+      const gone = !fs.existsSync(p);
+      results.push({
+        path: p,
+        ok: gone,
+        error: gone ? undefined : (cancelled ? 'Cancelled at the password prompt' : 'Could not be deleted'),
+      });
+    }
+  }
+  return results;
+}
 
 // ── Parallels leftovers ──────────────────────────────────────────
 // Parallels Desktop publishes the Windows programs inside a virtual machine as
@@ -993,31 +1057,11 @@ async function unassignParallelsHandlers() {
 }
 
 ipcMain.handle('removeParallelsLeftovers', async (event, paths) => {
-  const results = [];
-  const adminPaths = [];
-  for (const p of paths || []) {
-    if (!parallelsPaths.has(p)) { results.push({ path: p, ok: false, error: 'not part of the last scan' }); continue; }
-    if (parallelsPaths.get(p)) { adminPaths.push(p); continue; }
-    try {
-      await shell.trashItem(p);
-      parallelsPaths.delete(p);
-      results.push({ path: p, ok: true });
-    } catch (e) {
-      results.push({ path: p, ok: false, error: e.message });
-    }
-  }
-
-  // The system files need one password prompt between them.
-  if (adminPaths.length) {
-    const quoted = adminPaths.map(p => `'${p.replace(/'/g, `'\\''`)}'`).join(' ');
-    const escaped = `rm -rf ${quoted}`.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const out = await execFileText('osascript',
-      ['-e', `do shell script "${escaped}" with administrator privileges`], 300_000);
-    for (const p of adminPaths) {
-      const gone = !fs.existsSync(p);
-      if (gone) parallelsPaths.delete(p);
-      results.push({ path: p, ok: gone, error: gone ? undefined : (/cancel/i.test(out) ? 'Cancelled' : 'Needs an administrator password') });
-    }
+  const known = (paths || []).filter(p => parallelsPaths.has(p));
+  const results = await removeLeftoverPaths(known, p => parallelsPaths.get(p));
+  for (const r of results) if (r.ok) parallelsPaths.delete(r.path);
+  for (const p of (paths || [])) {
+    if (!parallelsPaths.has(p) && !known.includes(p)) results.push({ path: p, ok: false, error: 'not part of the last scan' });
   }
 
   const handlers = await unassignParallelsHandlers();
@@ -1026,6 +1070,11 @@ ipcMain.handle('removeParallelsLeftovers', async (event, paths) => {
   await execFileText(LSREGISTER, ['-kill', '-r', '-domain', 'local', '-domain', 'system', '-domain', 'user'], 120_000);
   return { results, handlers };
 });
+
+// Opens the Full Disk Access list, the one setting that lets the app clear
+// another app's leftovers.
+ipcMain.handle('openFullDiskAccess', () =>
+  shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles'));
 
 // ── Misc ─────────────────────────────────────────────────────────
 ipcMain.on('openExternal',    (event, url)  => shell.openExternal(url));

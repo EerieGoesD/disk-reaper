@@ -251,8 +251,13 @@
   .cleaner-state.done    { color: var(--success); }
   .cleaner-state.error   { color: var(--danger); }
   .cleaner-log-section { flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
-  .cleaner-log-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 6px; }
-  .cleaner-log { height: 140px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; padding: 8px 12px; font-family: var(--mono); font-size: 11.5px; display: flex; flex-direction: column; gap: 1px; }
+  .cleaner-log-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .cleaner-log-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+  /* Three buttons in a row, so they share one width whatever their labels say. */
+  .log-btn { width: 68px; padding: 4px 0; font-size: 11.5px; }
+  /* The rest of the app blocks text selection; the output is worth keeping,
+     so it can be selected and copied like any other text. */
+  .cleaner-log { height: 140px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; padding: 8px 12px; font-family: var(--mono); font-size: 11.5px; display: flex; flex-direction: column; gap: 1px; user-select: text; cursor: text; }
   .cleaner-log::-webkit-scrollbar { width: 4px; }
   .cleaner-log::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 2px; }
   .cleaner-log-entry { display: flex; gap: 10px; line-height: 1.65; }
@@ -589,7 +594,13 @@
         <div class="cleaner-body">
           <div class="cleaner-scroll" id="cleanerTaskList"></div>
           <div class="cleaner-log-section">
-            <div class="cleaner-log-label">Output</div>
+            <div class="cleaner-log-head">
+              <div class="cleaner-log-label">Output</div>
+              <div class="spacer"></div>
+              <button class="btn btn-ghost log-btn" id="cleanerLogCopy">Copy</button>
+              <button class="btn btn-ghost log-btn" id="cleanerLogExport">Export</button>
+              <button class="btn btn-ghost log-btn" id="cleanerLogClear">Clear</button>
+            </div>
             <div class="cleaner-log" id="cleanerLog">
               <span class="cleaner-log-placeholder">Output will appear here when tasks run.</span>
             </div>
@@ -1002,19 +1013,39 @@
   }
   function hideCleanerLogCtxMenu() { cleanerLogCtxMenu.classList.remove('open'); }
 
-  $('#cleanerLogCtxCopy').addEventListener('click', () => {
-    const lines = [...$('#cleanerLog').querySelectorAll('.cleaner-log-entry')].map(el => {
-      const ts  = el.querySelector('.cleaner-log-ts')?.textContent  || '';
-      const msg = el.querySelector('.cleaner-log-msg')?.textContent || '';
-      return ts ? `${ts}  ${msg}` : msg;
+  function cleanerLogRows() {
+    return [...$('#cleanerLog').querySelectorAll('.cleaner-log-entry')].map(el => [
+      el.querySelector('.cleaner-log-ts')?.textContent  || '',
+      el.querySelector('.cleaner-log-msg')?.textContent || '',
+    ]);
+  }
+  function copyCleanerLog() {
+    const rows = cleanerLogRows();
+    if (rows.length) window.api.copyToClipboard(rows.map(([ts, msg]) => ts ? `${ts}  ${msg}` : msg).join('\n'));
+  }
+  async function exportCleanerLog() {
+    const rows = cleanerLogRows();
+    if (!rows.length) return;
+    const r = await window.api.exportData({
+      format: 'txt', filename: 'cleaner-log.txt', headers: ['Time', 'Message'], rows,
     });
-    if (lines.length) window.api.copyToClipboard(lines.join('\n'));
+    if (!r.ok && r.error && r.error !== 'Cancelled') alert('Export failed:\n' + r.error);
+  }
+  function clearCleanerLog() {
+    $('#cleanerLog').innerHTML = '<span class="cleaner-log-placeholder">Output will appear here when tasks run.</span>';
+  }
+
+  $('#cleanerLogCopy').addEventListener('click',   copyCleanerLog);
+  $('#cleanerLogExport').addEventListener('click', exportCleanerLog);
+  $('#cleanerLogClear').addEventListener('click',  clearCleanerLog);
+
+  $('#cleanerLogCtxCopy').addEventListener('click', () => {
+    copyCleanerLog();
     hideCleanerLogCtxMenu();
   });
 
   $('#cleanerLogCtxClear').addEventListener('click', () => {
-    const log = $('#cleanerLog');
-    log.innerHTML = '<span class="cleaner-log-placeholder">Output will appear here when tasks run.</span>';
+    clearCleanerLog();
     hideCleanerLogCtxMenu();
   });
 
@@ -1845,7 +1876,7 @@
     { id: 'devleftovers', name: 'Clear Developer Leftovers',      admin: false,  desc: 'Deletes simulators for iOS versions you no longer have installed, Xcode derived data and device support files, and the npm, Yarn, pip, Gradle, CocoaPods, Carthage and Homebrew caches. Every one of these is rebuilt automatically the next time it is needed.' },
     { id: 'dns',          name: 'Flush DNS Cache',                admin: true,   desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
     { id: 'mail',         name: 'Speed Up Mail',                  admin: false,  desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
-    { id: 'spotlight',    name: 'Reindex Spotlight',              admin: true,   desc: 'Erases and rebuilds the Spotlight index for faster, more accurate searches. Rebuilding runs in the background.' },
+    { id: 'spotlight',    name: 'Reindex Spotlight',              admin: true,   desc: 'Turns searching back on for every volume, then erases and rebuilds the Spotlight index. Fixes searches that find nothing, including built-in apps like Terminal going missing. Rebuilding runs in the background.' },
     { id: 'permissions',  name: 'Repair Disk Permissions',        admin: false,  desc: 'Verifies the startup volume for filesystem errors that can cause crashes and sluggish performance.' },
     { id: 'timemachine',  name: 'Time Machine Snapshot Trimming', admin: false,  desc: 'Deletes all local Time Machine snapshots to maximise available disk space.' },
   ];
@@ -2002,6 +2033,15 @@
             lines.push(`${failed.length} item${failed.length === 1 ? '' : 's'} could not be removed:`);
             for (const f of failed) lines.push(`  ${tilde(f.path)} (${f.error})`);
           }
+          // Only one setting lets the app clear another app's leftovers, so
+          // offer to open it rather than leaving the user to find it.
+          const blocked = failed.filter(f => f.blocked);
+          if (blocked.length) {
+            lines.push(`Give Disk Reaper Full Disk Access in System Settings > Privacy & Security, then quit and reopen it and run this again.`);
+            if (await customConfirm(`macOS blocked ${blocked.length} item${blocked.length === 1 ? '' : 's'}.\n\nClearing another app's leftovers needs Full Disk Access. Open that setting now?`)) {
+              window.api.openFullDiskAccess();
+            }
+          }
           finish({ ok: failed.length < results.length, output: lines.join('\n') });
         });
       }).catch(e => {
@@ -2018,7 +2058,7 @@
     removeLabel: 'Move to Trash',
     itemNoun: 'apps',
     load: () => window.api.findAppLeftovers(),
-    remove: async paths => ({ results: await window.api.deleteFiles(paths) }),
+    remove: async paths => ({ results: await window.api.removeAppLeftovers(paths) }),
   });
 
   const reviewParallelsLeftovers = () => reviewLeftovers({
