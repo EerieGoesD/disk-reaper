@@ -700,9 +700,9 @@ const LEFTOVER_LOCATIONS = [
 ];
 
 // Apple's data doesn't always start with com.apple: Podcasts sits under
-// groups.com.apple, Shortcuts still uses its old Workflow name, and the TV app
-// has its own group.
-const APPLE_ID = /(^|\.)com\.apple\.|^(is\.workflow|tvappservices)\./;
+// groups.com.apple, Shortcuts still uses its old Workflow name, the TV app has
+// its own group, and org.swift is the Swift toolchain that comes with Xcode.
+const APPLE_ID = /(^|\.)com\.apple\.|^(is\.workflow|tvappservices|org\.swift)\./;
 const BUNDLE_ID = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9_-]*){2,}$/i;
 
 // Words that name a part of an app rather than the app itself.
@@ -855,13 +855,15 @@ ipcMain.handle('findAppLeftovers', async () => {
     };
   });
 
-  // A plain folder joins an app only when its name matches that app: the same
-  // as its maker or one of its parts, or the tail of a part (Code for VSCode).
-  // The tail rule is never used on the maker, where it matches by accident.
+  // A plain folder joins an app only when its name matches that app: its
+  // maker (Microsoft DevDiv for com.microsoft), exactly one of its parts, or
+  // the tail of a part (Code for VSCode). A part never matches by its start:
+  // "network" from io.branch.network would otherwise claim macOS's own
+  // networkserviceproxy folder.
   for (const p of plain) {
     const owner = apps.find(a =>
       sameName(a.makerToken, p.n) ||
-      a.partTokens.some(t => sameName(t, p.n) || (p.n.length >= 4 && t.endsWith(p.n))));
+      a.partTokens.some(t => t === p.n || (p.n.length >= 4 && t.endsWith(p.n))));
     if (!owner) continue;
     owner.paths.push({ path: p.path, location: p.location });
     // A folder spelled like the app's part gives the app its proper casing.
