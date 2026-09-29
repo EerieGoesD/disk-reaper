@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld("api", {
   stopDisableServices: (names) => ipcRenderer.invoke("stop-disable-services", names),
   getFolderInfo:       (key)   => ipcRenderer.invoke("get-folder-info", key),
   clearTempFolder:     (key)   => ipcRenderer.invoke("clear-temp-folder", key),
+  scanLeftovers:       ()      => ipcRenderer.invoke("scan-leftovers"),
+  removeLeftovers:     (ids)   => ipcRenderer.invoke("remove-leftovers", ids),
   deleteWindowsOld:    ()      => ipcRenderer.invoke("delete-windows-old"),
   getServiceInfo:      (name)  => ipcRenderer.invoke("get-service-info", name),
   setServiceState:     (name, action) => ipcRenderer.invoke("set-service-state", { name, action }),

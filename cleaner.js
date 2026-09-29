@@ -347,6 +347,109 @@ function deleteWindowsOld() {
   });
 }
 
+// ── App leftovers & caches ──
+// The scan result stays here in the main process. The renderer only sends
+// back the ids of what the user ticked, never paths, so nothing outside the
+// scan result can be deleted.
+let lastLeftoverScan = null;
+
+function runPsFile(file, args, timeoutMs) {
+  return new Promise((resolve) => {
+    execFile(
+      "powershell",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", file, ...(args || [])],
+      { windowsHide: true, maxBuffer: 20 * 1024 * 1024, timeout: timeoutMs || 0 },
+      (err, stdout, stderr) => resolve({ ok: !err, stdout: String(stdout || ""), stderr: String(stderr || ""), error: err ? err.message : "" })
+    );
+  });
+}
+
+async function scanLeftovers() {
+  const r = await runPsFile(scriptPath("scan-leftovers.ps1"), [], 10 * 60 * 1000);
+  const m = r.stdout.match(/##LEFTOVERS##(\{[\s\S]*\})/);
+  if (!m) return { ok: false, error: (r.stderr || r.error || "Scan produced no result").trim() };
+  let data;
+  try { data = JSON.parse(m[1]); } catch (e) { return { ok: false, error: "Could not read scan result: " + e.message }; }
+  const arr = (v) => (Array.isArray(v) ? v : (v == null ? [] : [v]));
+
+  const leftovers = arr(data.leftovers).map((x, i) => ({
+    id: "L" + i,
+    kind: "leftover",
+    name: String(x.name || ""),
+    paths: [String(x.path || "")],
+    bytes: Number(x.bytes) || 0,
+    lastUsed: String(x.lastUsed || ""),
+    idleDays: Number(x.idleDays) || 0,
+    admin: !!x.admin,
+    reason: String(x.reason || ""),
+    selected: !!x.selected,
+    skip: "",
+  }));
+  const caches = arr(data.caches).map((x, i) => ({
+    id: "C" + i,
+    kind: "cache",
+    name: String(x.label || ""),
+    paths: arr(x.paths).map(String),
+    bytes: Number(x.bytes) || 0,
+    admin: !!x.admin,
+    group: String(x.group || "app"),
+    selected: !!x.selected,
+    skip: String(x.skip || ""),
+  }));
+
+  lastLeftoverScan = new Map([...leftovers, ...caches].map(it => [it.id, it]));
+  return { ok: true, leftovers, caches };
+}
+
+async function removeLeftovers(ids) {
+  if (!lastLeftoverScan) return { ok: false, error: "Run a scan first.", results: [] };
+  const items = (ids || []).map(id => lastLeftoverScan.get(id)).filter(Boolean);
+  if (!items.length) return { ok: false, error: "Nothing selected.", results: [] };
+
+  const inFile = path.join(os.tmpdir(), `dr_leftovers_${Date.now()}_${Math.random().toString(36).slice(2)}.json`);
+  fs.writeFileSync(inFile, JSON.stringify(items.map(it => ({ id: it.id, kind: it.kind, paths: it.paths, skip: it.skip }))), "utf8");
+  const script = scriptPath("remove-leftovers.ps1");
+
+  let stdout = "";
+  let failReason = "";
+  try {
+    if (items.some(it => it.admin)) {
+      const res = await runElevatedBatch([{
+        id: "remove-leftovers",
+        cmd: "powershell",
+        args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-InFile", inFile],
+      }]);
+      const r = res[0];
+      stdout = (r && r.stdout) || "";
+      if (!r || (!r.ok && !/##REMOVED##/.test(stdout))) failReason = (r && r.error) || "Permission was not given";
+    } else {
+      const r = await runPsFile(script, ["-InFile", inFile], 0);
+      stdout = r.stdout;
+      if (!/##REMOVED##/.test(stdout)) failReason = (r.stderr || r.error || "Removal produced no result").trim();
+    }
+  } finally {
+    try { fs.unlinkSync(inFile); } catch {}
+  }
+
+  const m = stdout.match(/##REMOVED##(\[[\s\S]*\])/);
+  if (!m) {
+    return { ok: false, error: failReason || "Removal produced no result", results: items.map(it => ({ id: it.id, name: it.name, ok: false, freed: 0, error: failReason })) };
+  }
+  let data = [];
+  try { data = JSON.parse(m[1]); } catch {}
+  if (!Array.isArray(data)) data = [data];
+  const byId = new Map(data.map(d => [String(d.id), d]));
+  const results = items.map(it => {
+    const d = byId.get(it.id) || {};
+    return { id: it.id, name: it.name, kind: it.kind, ok: !!d.ok, freed: Number(d.freed) || 0, error: String(d.error || "") };
+  });
+  lastLeftoverScan = null;
+  return { ok: true, results };
+}
+
+ipcMain.handle("scan-leftovers",   () => scanLeftovers());
+ipcMain.handle("remove-leftovers", (_, ids) => removeLeftovers(ids));
+
 ipcMain.handle("get-folder-info",    (_, key) => getFolderInfo(key));
 ipcMain.handle("clear-temp-folder",  (_, key) => clearTempFolder(key));
 ipcMain.handle("delete-windows-old", () => deleteWindowsOld());

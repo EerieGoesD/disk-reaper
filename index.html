@@ -1135,7 +1135,7 @@
               <summary>
                 <div class="section-icon"><svg viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7z"/></svg></div>
                 <div class="section-title">Disk Cleanup</div>
-                <span class="section-hint">Temp folders, Windows.old</span>
+                <span class="section-hint">Temp folders, Windows.old, app leftovers</span>
                 <svg class="section-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </summary>
               <div class="section-body">
@@ -1185,6 +1185,21 @@
                   </div>
                   <button class="btn btn-danger" id="cleanWinOldBtn">Delete</button>
                 </div>
+              </div>
+            </div>
+
+            <div class="cleaner-card">
+              <div class="cleaner-card-head">
+                <div class="cleaner-card-icon">
+                  <svg viewBox="0 0 24 24"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+                </div>
+                <div class="cleaner-card-text">
+                  <h3>App Leftovers &amp; Caches</h3>
+                  <p>Finds folders left behind by apps you already uninstalled (including Visual Studio), plus caches that are safe to empty: browser, Visual Studio and VS Code downloads, graphics shader caches, crash dumps and developer package caches. You review the list before anything is removed. Leftover folders go to the Recycle Bin so you can restore them.</p>
+                </div>
+              </div>
+              <div class="cleaner-card-action align-left">
+                <button class="btn btn-accent" id="leftoverScanBtn">Scan for Leftovers and Caches</button>
               </div>
             </div>
               </div>
@@ -2556,6 +2571,7 @@
     "temp.windowsOld":  "#cleanWinOldBtn",
     // Bloatware kill, drive optimize, clipboard clear (all one-shot ops)
     "bloat.kill":       "#bloatKillBtn",
+    "clean.leftovers":  "#leftoverScanBtn",
     "tweak.optimize":   "#optimizeDriveBtn",
     "game.clipboard":   "#clearClipboardBtn",
     // Network diagnostics + fix commands (each is a one-shot maintenance run)
@@ -6484,6 +6500,170 @@ ${r.error}`);
 
   // ── Cleaner: Bloatware ──────────────────────────────────────────
   // Bloatware list is now in cleaner.js (modularized)
+
+  // ── App leftovers & caches ──────────────────────────────────────
+  document.getElementById("leftoverScanBtn")?.addEventListener("click", async () => {
+    const scanBtn = document.getElementById("leftoverScanBtn");
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `
+      <div class="bloat-dialog">
+        <h3>App Leftovers &amp; Caches</h3>
+        <div class="bloat-empty">Scanning for leftovers and caches... this can take a minute.</div>
+      </div>`;
+    document.body.appendChild(overlay);
+    if (scanBtn) scanBtn.disabled = true;
+    clog("Leftovers & caches: scanning...", "info");
+
+    let r;
+    try { r = await window.api.scanLeftovers(); }
+    catch (e) { r = { ok: false, error: e.message || String(e) }; }
+    if (scanBtn) scanBtn.disabled = false;
+
+    const closeOnly = (msg) => {
+      overlay.innerHTML = `
+        <div class="bloat-dialog">
+          <h3>App Leftovers &amp; Caches</h3>
+          <div class="bloat-empty">${esc(msg)}</div>
+          <div class="bloat-actions"><button class="btn btn-ghost" id="loClose">Close</button></div>
+        </div>`;
+      overlay.querySelector("#loClose").addEventListener("click", () => overlay.remove());
+      overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+    };
+
+    if (!r || !r.ok) {
+      clog("Leftovers & caches: scan failed - " + ((r && r.error) || "unknown"), "err");
+      closeOnly("Scan failed: " + ((r && r.error) || "unknown"));
+      return;
+    }
+
+    const sizeOf = (b) => b ? fmtSize(b) : "0 B";
+    const leftovers = r.leftovers || [];
+    const caches = r.caches || [];
+    const all = [...leftovers, ...caches];
+    clog(`Leftovers & caches: found ${leftovers.length} leftover folder(s) and ${caches.length} cache(s), ${sizeOf(all.reduce((t, x) => t + x.bytes, 0))} in total.`, all.length ? "warn" : "ok");
+    for (const x of leftovers) clog(`  Leftover: ${x.paths[0]} - ${x.bytes ? fmtSize(x.bytes) : "empty"}, last used ${x.lastUsed}`, "info");
+    for (const x of caches) clog(`  Cache: ${x.name} - ${fmtSize(x.bytes)}`, "info");
+
+    if (!all.length) {
+      closeOnly("No leftovers or caches worth removing were found.");
+      return;
+    }
+
+    const row = (x) => `
+      <div class="bloat-row">
+        <input type="checkbox" data-lo-id="${esc(x.id)}" ${x.selected ? "checked" : ""} />
+        <span class="br-name" title="${esc(x.paths.join("\n"))}">${esc(x.name)}</span>
+        <span class="br-cat">${esc(x.kind === "leftover" ? x.lastUsed : (x.group === "dev" ? "Dev cache" : "Cache"))}</span>
+        <span class="br-mem">${x.bytes ? fmtSize(x.bytes) : "Empty"}</span>
+        <span class="br-desc" title="${esc(x.paths.join("\n"))}">${esc(
+          x.kind === "leftover"
+            ? `${x.reason} - ${x.paths[0]}`
+            : (x.group === "dev" ? "Downloaded again on your next build - " : "") + x.paths.join(", ")
+        )}</span>
+      </div>`;
+
+    const table = (title, colLabel, items) => !items.length ? "" : `
+      <div class="bloat-table">
+        <div class="bloat-table-header">
+          <span style="width:28px"></span>
+          <span style="flex:1">${title}</span>
+        </div>
+        <div class="bloat-table-header">
+          <span style="width:28px"></span>
+          <span style="width:180px">Name</span>
+          <span style="width:80px">${colLabel}</span>
+          <span style="width:80px;text-align:right;margin-right:12px">Size</span>
+          <span style="flex:1">Location</span>
+        </div>
+        <div class="bloat-table-body">${items.map(row).join("")}</div>
+      </div>`;
+
+    overlay.innerHTML = `
+      <div class="bloat-dialog">
+        <h3>App Leftovers &amp; Caches</h3>
+        <div class="bloat-controls">
+          <label><input type="checkbox" id="loSelectAll" /> Select All</label>
+          <div class="spacer"></div>
+          <span class="bloat-summary" id="loSummary"></span>
+        </div>
+        <div class="bloat-scroll">
+          ${table(`Leftovers from removed apps (${leftovers.length}) - moved to the Recycle Bin`, "Last used", leftovers)}
+          ${table(`Caches (${caches.length}) - contents are deleted and rebuilt when needed`, "Type", caches)}
+        </div>
+        <div class="bloat-actions">
+          <button class="btn btn-ghost btn-fixed-width" data-longest="Remove Selected" id="loCancel"><span>Cancel</span></button>
+          <button class="btn btn-danger btn-fixed-width" data-longest="Remove Selected" id="loConfirm"><span>Remove Selected</span></button>
+        </div>
+      </div>`;
+
+    const byId = new Map(all.map(x => [x.id, x]));
+    const boxes = [...overlay.querySelectorAll("[data-lo-id]")];
+    const selectAll = overlay.querySelector("#loSelectAll");
+    const summary = overlay.querySelector("#loSummary");
+    const confirmBtn = overlay.querySelector("#loConfirm");
+    const cancelBtn = overlay.querySelector("#loCancel");
+
+    function update() {
+      const picked = boxes.filter(b => b.checked).map(b => byId.get(b.dataset.loId));
+      const bytes = picked.reduce((t, x) => t + x.bytes, 0);
+      summary.textContent = `${picked.length} selected - ${sizeOf(bytes)}`;
+      selectAll.checked = picked.length === boxes.length;
+      selectAll.indeterminate = picked.length > 0 && picked.length < boxes.length;
+      confirmBtn.disabled = picked.length === 0;
+    }
+    boxes.forEach(b => b.addEventListener("change", update));
+    selectAll.addEventListener("change", () => { boxes.forEach(b => b.checked = selectAll.checked); update(); });
+    update();
+
+    let busy = false;
+    overlay.addEventListener("click", e => { if (e.target === overlay && !busy) overlay.remove(); });
+    cancelBtn.addEventListener("click", () => {
+      if (busy) return;
+      clog("Leftovers & caches: cancelled.", "info");
+      overlay.remove();
+    });
+
+    confirmBtn.addEventListener("click", async () => {
+      const ids = boxes.filter(b => b.checked).map(b => b.dataset.loId);
+      if (!ids.length) return;
+      busy = true;
+      confirmBtn.disabled = true;
+      confirmBtn.querySelector("span").textContent = "Removing...";
+      cancelBtn.disabled = true;
+      selectAll.disabled = true;
+      boxes.forEach(b => b.disabled = true);
+      const picked = ids.map(id => byId.get(id));
+      if (picked.some(x => x.admin)) clog("Leftovers & caches: some items are in system folders, asking for permission...", "info");
+      clog(`Leftovers & caches: removing ${ids.length} item(s)...`, "info");
+
+      let res;
+      try { res = await window.api.removeLeftovers(ids); }
+      catch (e) { res = { ok: false, error: e.message || String(e), results: [] }; }
+
+      let freed = 0, done = 0, failed = 0;
+      for (const it of (res.results || [])) {
+        freed += it.freed || 0;
+        if (it.ok) {
+          done++;
+          clog(`  ${it.kind === "leftover" ? "Moved to Recycle Bin" : "Emptied"}: ${it.name} - freed ${sizeOf(it.freed)}`, "ok");
+        } else {
+          failed++;
+          clog(`  Failed: ${it.name} - ${it.error || "unknown error"}`, "err");
+        }
+      }
+      if (!res.ok && !(res.results || []).length) clog("Leftovers & caches: " + (res.error || "failed"), "err");
+      clog(`Leftovers & caches: done. ${done} removed, ${failed} failed, ${sizeOf(freed)} freed. Files in use were skipped.`, failed ? "warn" : "ok");
+      markLastRun("clean.leftovers");
+      overlay.remove();
+
+      const lines = [`${sizeOf(freed)} freed`];
+      if (done) lines.push(`${done} item(s) removed`);
+      if (failed) lines.push(`${failed} item(s) could not be removed`);
+      if (picked.some(x => x.kind === "leftover") && done) lines.push("Leftover folders are in the Recycle Bin if you need them back");
+      await customConfirm(lines.join("\n"));
+    });
+  });
 
   $("#bloatKillBtn").addEventListener("click", async () => {
     clog("Kill Bloatware clicked. Loading bloatware signatures...", "info");
