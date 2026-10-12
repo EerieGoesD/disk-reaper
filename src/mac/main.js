@@ -1078,6 +1078,312 @@ ipcMain.handle('removeParallelsLeftovers', async (event, paths) => {
 ipcMain.handle('openFullDiskAccess', () =>
   shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles'));
 
+// ── Xcode simulators and components ──────────────────────────────
+// Lists everything Xcode keeps for simulators and its add-ons, with sizes:
+// each simulator version, old downloads Xcode no longer uses, the simulated
+// devices, the caches that speed simulators up, device support files and the
+// Metal toolchain. Each row carries a key that says how to remove it.
+const SIM_PLATFORMS = {
+  'com.apple.platform.iphonesimulator': 'iOS',
+  'com.apple.platform.watchsimulator': 'watchOS',
+  'com.apple.platform.appletvsimulator': 'tvOS',
+  'com.apple.platform.xrsimulator': 'visionOS',
+};
+const SIM_ASSETS = '/System/Library/AssetsV2';
+
+async function jsonOf(cmd, args) {
+  try { return JSON.parse(await execFileText(cmd, args, 60_000)); } catch { return null; }
+}
+
+// Sizes in one du call, in bytes.
+async function sizesOf(paths) {
+  const sizes = new Map();
+  if (!paths.length) return sizes;
+  const out = await execFileText('du', ['-sk', ...paths], 300_000);
+  for (const line of out.split('\n')) {
+    const tab = line.indexOf('\t');
+    if (tab > 0) sizes.set(line.slice(tab + 1), parseInt(line.slice(0, tab)) * 1024);
+  }
+  return sizes;
+}
+
+// A value anywhere inside a parsed plist.
+function findKey(obj, key) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (key in obj) return obj[key];
+  for (const v of Object.values(obj)) {
+    const hit = findKey(v, key);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+}
+
+const shortDate = iso => {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+// Keys the last scan offered, so the window can only ever remove those.
+let xcodeKeys = new Map();
+
+ipcMain.handle('findXcodeSimulators', async () => {
+  const home = os.homedir();
+  const items = [];
+  const runtimes = (await jsonOf('xcrun', ['simctl', 'runtime', 'list', '-j'])) || {};
+  const deviceSets = ((await jsonOf('xcrun', ['simctl', 'list', 'devices', '-j'])) || {}).devices || {};
+
+  // Simulator versions Xcode has set up.
+  const builds = new Set();
+  for (const [id, r] of Object.entries(runtimes)) {
+    builds.add(r.build);
+    const platform = SIM_PLATFORMS[r.platformIdentifier] || 'Simulator';
+    const devices = (deviceSets[r.runtimeIdentifier] || []).length;
+    items.push({
+      key: `runtime:${id}`,
+      app: `${platform} ${r.version} simulator`,
+      size: r.sizeBytes || 0,
+      lines: [
+        r.lastUsedAt ? `Last used ${shortDate(r.lastUsedAt)}` : 'Not used yet',
+        devices ? `${devices} simulated device${devices === 1 ? '' : 's'} use it` : 'No simulated devices use it',
+        'Xcode downloads it again when you need it',
+      ],
+      disabled: r.deletable === false,
+    });
+  }
+
+  // Downloads still on disk that Xcode isn't using.
+  let assetDirs = [];
+  try { assetDirs = fs.readdirSync(SIM_ASSETS).filter(d => /^com_apple_MobileAsset_.*SimulatorRuntime$/.test(d)); } catch {}
+  const orphans = [];
+  for (const dir of assetDirs) {
+    const platform = (dir.match(/MobileAsset_(.*)SimulatorRuntime$/) || [])[1] || 'Simulator';
+    let assets = [];
+    try { assets = fs.readdirSync(path.join(SIM_ASSETS, dir)).filter(a => a.endsWith('.asset')); } catch {}
+    for (const a of assets) {
+      const full = path.join(SIM_ASSETS, dir, a);
+      const info = await jsonOf('plutil', ['-convert', 'json', '-o', '-', path.join(full, 'Info.plist')]);
+      const build = findKey(info, 'Build');
+      if (build && builds.has(build)) continue;
+      orphans.push({ full, platform, version: findKey(info, 'SimulatorVersion') || 'unknown version' });
+    }
+  }
+  const orphanSizes = await sizesOf(orphans.map(o => o.full));
+  for (const o of orphans) {
+    items.push({
+      key: `orphan:${o.full}`,
+      app: `${o.platform} ${o.version} simulator download`,
+      size: orphanSizes.get(o.full) || 0,
+      lines: ["Xcode isn't using this one", "macOS protects this file, so it can't be removed from here"],
+      disabled: true,
+    });
+  }
+
+  // Simulated devices, one row per version.
+  const devicesByRuntime = Object.entries(deviceSets).filter(([, list]) => list.length);
+  const devicePaths = devicesByRuntime.flatMap(([, list]) => list.map(d => d.dataPath ? path.dirname(d.dataPath) : '')).filter(Boolean);
+  const deviceSizes = await sizesOf(devicePaths);
+  for (const [runtime, list] of devicesByRuntime) {
+    const m = runtime.match(/SimRuntime\.(\w+?)-(\d+(?:-\d+)*)$/);
+    const label = m ? `${m[1]} ${m[2].replace(/-/g, '.')}` : runtime;
+    const gone = list.every(d => d.isAvailable === false);
+    items.push({
+      key: `devices:${runtime}`,
+      app: `${list.length} simulated device${list.length === 1 ? '' : 's'} on ${label}${gone ? ' (version no longer installed)' : ''}`,
+      size: list.reduce((sum, d) => sum + (deviceSizes.get(d.dataPath ? path.dirname(d.dataPath) : '') || 0), 0),
+      lines: list.map(d => d.name),
+      udids: list.map(d => d.udid),
+    });
+  }
+
+  // Caches that make simulators start faster.
+  const dyld = '/Library/Developer/CoreSimulator/Caches/dyld';
+  if (fs.existsSync(dyld)) {
+    const size = (await sizesOf([dyld])).get(dyld) || 0;
+    if (size > 0) items.push({
+      key: 'dyld:all',
+      app: 'Simulator speed-up caches',
+      size,
+      lines: ['Rebuilt automatically the next time a simulator starts'],
+    });
+  }
+
+  // Files Xcode copies from a real iPhone, Watch or Apple TV you've plugged in.
+  let xcodeDirs = [];
+  try { xcodeDirs = fs.readdirSync(path.join(home, 'Library/Developer/Xcode')).filter(d => d.endsWith('DeviceSupport')); } catch {}
+  for (const d of xcodeDirs) {
+    const full = path.join(home, 'Library/Developer/Xcode', d);
+    let versions = [];
+    try { versions = fs.readdirSync(full).filter(v => !v.startsWith('.')); } catch {}
+    if (!versions.length) continue;
+    items.push({
+      key: `devicesupport:${full}`,
+      app: `${d.replace(/DeviceSupport$/, '').trim()} device support files`,
+      size: (await sizesOf([full])).get(full) || 0,
+      lines: [...versions, 'Copied again the next time you plug that device in'],
+    });
+  }
+
+  // Xcode add-ons.
+  const metal = await jsonOf('xcrun', ['xcodebuild', '-showComponent', 'MetalToolchain', '-json']);
+  if (metal && /installed/i.test(metal.status || '') && !/uninstalled/i.test(metal.status || '')) {
+    items.push({
+      key: 'component:MetalToolchain',
+      app: 'Metal Toolchain',
+      size: null,
+      lines: ['Needed to build apps with Metal shaders', 'Xcode downloads it again when you need it'],
+    });
+  }
+
+  xcodeKeys = new Map(items.filter(i => !i.disabled).map(i => [i.key, i]));
+  return items.map(({ udids, ...rest }) => ({ ...rest, paths: [{ path: rest.key, size: rest.size || 0 }] }));
+});
+
+ipcMain.handle('removeXcodeSimulators', async (event, keys) => {
+  const results = [];
+  for (const key of keys || []) {
+    const item = xcodeKeys.get(key);
+    if (!item) { results.push({ path: key, ok: false, error: 'not part of the last scan' }); continue; }
+    const [kind, ...rest] = key.split(':');
+    const target = rest.join(':');
+    let ok = false;
+    let error = '';
+    if (kind === 'runtime') {
+      const out = await execFileText('xcrun', ['simctl', 'runtime', 'delete', target], 300_000);
+      const left = (await jsonOf('xcrun', ['simctl', 'runtime', 'list', '-j'])) || {};
+      ok = !left[target] || /deleting/i.test(left[target].state || '');
+      error = out.trim().split('\n').pop();
+    } else if (kind === 'devices') {
+      for (const udid of item.udids) await execFileText('xcrun', ['simctl', 'delete', udid], 120_000);
+      const left = ((await jsonOf('xcrun', ['simctl', 'list', 'devices', '-j'])) || {}).devices || {};
+      const remaining = (left[target] || []).filter(d => item.udids.includes(d.udid)).length;
+      ok = remaining === 0;
+      error = `${remaining} device${remaining === 1 ? '' : 's'} could not be removed`;
+    } else if (kind === 'dyld') {
+      const out = await execFileText('xcrun', ['simctl', 'runtime', 'dyld_shared_cache', 'remove', '--all'], 300_000);
+      const size = (await sizesOf(['/Library/Developer/CoreSimulator/Caches/dyld'])).get('/Library/Developer/CoreSimulator/Caches/dyld') || 0;
+      ok = size < item.size;
+      error = out.trim().split('\n').pop() || 'The caches are still there';
+    } else if (kind === 'devicesupport') {
+      try { await shell.trashItem(target); ok = true; } catch (e) { error = e.message; }
+    } else if (kind === 'component') {
+      const out = await execFileText('xcrun', ['xcodebuild', '-deleteComponent', target], 300_000);
+      const now = await jsonOf('xcrun', ['xcodebuild', '-showComponent', target, '-json']);
+      ok = !now || /uninstalled/i.test(now.status || '');
+      error = out.trim().split('\n').pop();
+    }
+    if (ok) xcodeKeys.delete(key);
+    results.push({ path: key, ok, error: ok ? undefined : (error || 'Could not be removed') });
+  }
+  return results;
+});
+
+// ── Virtual machines ─────────────────────────────────────────────
+// Every virtual machine on this Mac. Parallels, VMware Fusion, UTM and
+// Android emulators are found by their bundle type wherever they sit in the
+// home folder; Claude's sandbox, VirtualBox, Docker Desktop, Lima, Tart and
+// Vagrant keep theirs in one known place each.
+const VM_BUNDLES = [
+  { ext: '.pvm', kind: 'Parallels' },
+  { ext: '.vmwarevm', kind: 'VMware Fusion' },
+  { ext: '.utm', kind: 'UTM' },
+  { ext: '.avd', kind: 'Android emulator' },
+];
+const VM_SKIP = new Set(['Library', 'node_modules', '.git', '.Trash']);
+
+function findVmBundles(dir, depth, out) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const e of entries) {
+    if (!e.isDirectory() || VM_SKIP.has(e.name)) continue;
+    const full = path.join(dir, e.name);
+    const type = VM_BUNDLES.find(b => e.name.endsWith(b.ext));
+    if (type) out.push({ path: full, kind: type.kind, name: e.name.slice(0, -type.ext.length) });
+    else if (depth > 0) findVmBundles(full, depth - 1, out);
+  }
+}
+
+// Paths the last scan offered, so the window can only ever remove those.
+let vmPaths = new Set();
+
+ipcMain.handle('findVirtualMachines', async () => {
+  const home = os.homedir();
+  const tilde = p => p.startsWith(home) ? '~' + p.slice(home.length) : p;
+  const found = [];
+
+  findVmBundles(home, 4, found);
+  findVmBundles('/Users/Shared', 3, found);
+  findVmBundles(path.join(home, 'Library/Containers/com.utmapp.UTM/Data/Documents'), 1, found);
+
+  // One machine per entry in each app's own folder.
+  const folders = [
+    { dir: path.join(home, 'VirtualBox VMs'), kind: 'VirtualBox' },
+    { dir: path.join(home, '.lima'), kind: 'Lima', skip: n => n.startsWith('_') },
+    { dir: path.join(home, '.tart/vms'), kind: 'Tart' },
+    { dir: path.join(home, '.vagrant.d/boxes'), kind: 'Vagrant box' },
+  ];
+  for (const f of folders) {
+    let entries = [];
+    try { entries = fs.readdirSync(f.dir, { withFileTypes: true }); } catch {}
+    for (const e of entries) {
+      if (e.isDirectory() && !e.name.startsWith('.') && !(f.skip && f.skip(e.name))) {
+        found.push({ path: path.join(f.dir, e.name), kind: f.kind, name: e.name });
+      }
+    }
+  }
+
+  const items = [];
+  // Claude's sandbox, with any half-finished download beside it.
+  const claude = path.join(home, 'Library/Application Support/Claude/vm_bundles');
+  let claudeParts = [];
+  try { claudeParts = fs.readdirSync(claude).map(n => path.join(claude, n)); } catch {}
+  if (claudeParts.length) items.push({ app: 'Claude virtual machine', parts: claudeParts, note: 'Claude downloads it again the next time it needs it' });
+
+  const docker = path.join(home, 'Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw');
+  if (fs.existsSync(docker)) items.push({ app: 'Docker Desktop disk', parts: [docker], note: 'Holds all your Docker images and containers' });
+
+  for (const f of found) {
+    const parts = [f.path];
+    // An Android emulator also has a pointer file beside its folder.
+    if (f.kind === 'Android emulator') {
+      const dir = path.dirname(f.path);
+      let inis = [];
+      try { inis = fs.readdirSync(dir).filter(n => n.endsWith('.ini')); } catch {}
+      for (const ini of inis) {
+        try {
+          if (fs.readFileSync(path.join(dir, ini), 'utf8').split('\n').some(l => l.trim() === `path=${f.path}`)) parts.push(path.join(dir, ini));
+        } catch {}
+      }
+    }
+    items.push({ app: `${f.kind}: ${f.name}`, parts });
+  }
+
+  const sizes = await sizesOf(items.flatMap(i => i.parts));
+  const result = [];
+  for (const i of items) {
+    const inUse = (await Promise.all(i.parts.map(p =>
+      execFileText('lsof', fs.statSync(p).isDirectory() ? ['+D', p] : [p], 60_000)))).some(out => out.trim());
+    result.push({
+      app: i.app,
+      size: i.parts.reduce((sum, p) => sum + (sizes.get(p) || 0), 0),
+      paths: i.parts.map(p => ({ path: p, size: sizes.get(p) || 0 })),
+      lines: [...i.parts.map(tilde), ...(i.note ? [i.note] : []), ...(inUse ? ['Running right now. Quit the app using it first'] : [])],
+      disabled: inUse,
+    });
+  }
+  vmPaths = new Set(result.filter(r => !r.disabled).flatMap(r => r.paths.map(p => p.path)));
+  return result.sort((a, b) => b.size - a.size);
+});
+
+ipcMain.handle('removeVirtualMachines', async (event, paths) => {
+  const known = (paths || []).filter(p => vmPaths.has(p));
+  const results = await removeLeftoverPaths(known, () => false);
+  for (const r of results) if (r.ok) vmPaths.delete(r.path);
+  for (const p of paths || []) {
+    if (!known.includes(p)) results.push({ path: p, ok: false, error: 'not part of the last scan' });
+  }
+  return results;
+});
+
 // ── Misc ─────────────────────────────────────────────────────────
 ipcMain.on('openExternal',    (event, url)  => shell.openExternal(url));
 ipcMain.on('openFolder',      (event, p)    => shell.openPath(p));

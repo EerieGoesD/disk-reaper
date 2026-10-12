@@ -50,6 +50,10 @@ contextBridge.exposeInMainWorld('api', {
   findAppLeftovers: () => ipcRenderer.invoke('findAppLeftovers'),
   removeAppLeftovers: (paths) => ipcRenderer.invoke('removeAppLeftovers', paths),
   openFullDiskAccess: () => ipcRenderer.invoke('openFullDiskAccess'),
+  findXcodeSimulators:   ()     => ipcRenderer.invoke('findXcodeSimulators'),
+  removeXcodeSimulators: (keys) => ipcRenderer.invoke('removeXcodeSimulators', keys),
+  findVirtualMachines:   ()      => ipcRenderer.invoke('findVirtualMachines'),
+  removeVirtualMachines: (paths) => ipcRenderer.invoke('removeVirtualMachines', paths),
   findParallelsLeftovers:   ()      => ipcRenderer.invoke('findParallelsLeftovers'),
   removeParallelsLeftovers: (paths) => ipcRenderer.invoke('removeParallelsLeftovers', paths),
 

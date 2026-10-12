@@ -1868,17 +1868,19 @@
   // CLEANER
   // ══════════════════════════════════════════════════════════════
   const CLEANER_TASKS = [
-    { id: 'ram',          name: 'Free Up RAM',                    admin: true,   desc: 'Purges inactive memory and disk cache to free up RAM for your active apps.' },
-    { id: 'purgeable',    name: 'Free Up Purgeable Space',        admin: false,  desc: 'Trims local Time Machine snapshots to reclaim disk space marked as purgeable by macOS.' },
-    { id: 'maintenance',  name: 'Run Maintenance Tasks',          admin: true,   desc: 'Clears user & system caches, purges temp files, rebuilds the Launch Services database, clears QuickLook thumbnails, rotates system logs, and removes hidden .DS_Store files from your home folder.' },
-    { id: 'appleftovers', name: 'Find App Leftovers',             admin: false,  desc: "Finds settings, caches and saved data that apps you've uninstalled left behind in your Library folder. You see the list first and pick what goes, and everything you remove is moved to the Trash." },
-    { id: 'parallels',    name: 'Remove Parallels Leftovers',     admin: true,   desc: "Clears what Parallels Desktop left behind after being uninstalled, including the Windows programs it published as Mac apps. Those are why Spotlight offers a Windows Terminal, and why opening one says Parallels is missing. Also unassigns the file types still set to open with Parallels." },
-    { id: 'devleftovers', name: 'Clear Developer Leftovers',      admin: false,  desc: 'Deletes simulators for iOS versions you no longer have installed, Xcode derived data and device support files, and the npm, Yarn, pip, Gradle, CocoaPods, Carthage and Homebrew caches. Every one of these is rebuilt automatically the next time it is needed.' },
-    { id: 'dns',          name: 'Flush DNS Cache',                admin: true,   desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
-    { id: 'mail',         name: 'Speed Up Mail',                  admin: false,  desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
-    { id: 'spotlight',    name: 'Reindex Spotlight',              admin: true,   desc: 'Turns searching back on for every volume, then erases and rebuilds the Spotlight index. Fixes searches that find nothing, including built-in apps like Terminal going missing. Rebuilding runs in the background.' },
-    { id: 'permissions',  name: 'Repair Disk Permissions',        admin: false,  desc: 'Verifies the startup volume for filesystem errors that can cause crashes and sluggish performance.' },
-    { id: 'timemachine',  name: 'Time Machine Snapshot Trimming', admin: false,  desc: 'Deletes all local Time Machine snapshots to maximise available disk space.' },
+    { id: 'ram',          name: 'Free Up RAM',                                  admin: true,   desc: 'Purges inactive memory and disk cache to free up RAM for your active apps.' },
+    { id: 'purgeable',    name: 'Free Up Purgeable Space',                      admin: false,  desc: 'Trims local Time Machine snapshots to reclaim disk space marked as purgeable by macOS.' },
+    { id: 'maintenance',  name: 'Run Maintenance Tasks',                        admin: true,   desc: 'Clears user & system caches, purges temp files, rebuilds the Launch Services database, clears QuickLook thumbnails, rotates system logs, and removes hidden .DS_Store files from your home folder.' },
+    { id: 'appleftovers', name: 'Find App Leftovers',                           admin: false,  desc: "Finds settings, caches and saved data that apps you've uninstalled left behind in your Library folder. You see the list first and pick what goes, and everything you remove is moved to the Trash." },
+    { id: 'parallels',    name: 'Remove Parallels Leftovers',                   admin: true,   desc: "Clears what Parallels Desktop left behind after being uninstalled, including the Windows programs it published as Mac apps. Those are why Spotlight offers a Windows Terminal, and why opening one says Parallels is missing. Also unassigns the file types still set to open with Parallels." },
+    { id: 'xcodesims',    name: 'Check + Remove Xcode Simulators + Components', admin: false,  desc: "Lists every simulator version on this Mac (iOS, watchOS, tvOS, visionOS) with its size and when you last used it, old simulator downloads Xcode no longer uses, simulated devices, simulator caches, device support files and Xcode add-ons. You tick what goes." },
+    { id: 'vms',          name: 'Check + Remove Virtual Machines',              admin: false,  desc: "Lists every virtual machine on this Mac with its size: Claude's sandbox, Parallels, VMware Fusion, UTM, VirtualBox, Android emulators, Docker Desktop, Lima, Tart and Vagrant. Everything starts ticked; untick any you want to keep. Removed machines go to the Trash." },
+    { id: 'devleftovers', name: 'Clear Developer Leftovers',                    admin: false,  desc: 'Deletes simulators for iOS versions you no longer have installed, Xcode derived data and device support files, and the npm, Yarn, pip, Gradle, CocoaPods, Carthage and Homebrew caches. Every one of these is rebuilt automatically the next time it is needed.' },
+    { id: 'dns',          name: 'Flush DNS Cache',                              admin: true,   desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
+    { id: 'mail',         name: 'Speed Up Mail',                                admin: false,  desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
+    { id: 'spotlight',    name: 'Reindex Spotlight',                            admin: true,   desc: 'Turns searching back on for every volume, then erases and rebuilds the Spotlight index. Fixes searches that find nothing, including built-in apps like Terminal going missing. Rebuilding runs in the background.' },
+    { id: 'permissions',  name: 'Repair Disk Permissions',                      admin: false,  desc: 'Verifies the startup volume for filesystem errors that can cause crashes and sluggish performance.' },
+    { id: 'timemachine',  name: 'Time Machine Snapshot Trimming',               admin: false,  desc: 'Deletes all local Time Machine snapshots to maximise available disk space.' },
   ];
 
   const cleanerRunBtn       = $('#cleanerRunBtn');
@@ -1955,14 +1957,17 @@
 
   // Scans, lets the user untick anything to keep, then removes the rest. Used
   // by both leftovers tasks; resolves with the same { ok, output } a task returns.
-  function reviewLeftovers({ title, hint, emptyText, emptyOutput, removeLabel, itemNoun, load, remove }) {
+  // Rows can show their own lines instead of paths, start unticked, or be
+  // listed for information only (disabled) when nothing can remove them.
+  function reviewLeftovers({ title, hint, emptyText, emptyOutput, removeLabel, itemNoun, load, remove,
+                             loadingText = 'Looking for leftovers…', startChecked = true }) {
     return new Promise(resolve => {
       const overlay = document.createElement('div');
       overlay.className = 'dialog-overlay';
       overlay.innerHTML = `
         <div class="leftovers-dialog">
           <h3>${esc(title)}</h3>
-          <div class="leftovers-empty">Looking for leftovers…</div>
+          <div class="leftovers-empty">${esc(loadingText)}</div>
         </div>`;
       document.body.appendChild(overlay);
       const box = overlay.querySelector('.leftovers-dialog');
@@ -1991,13 +1996,15 @@
           </div>
           <div class="exclude-list leftovers-list">
             ${items.map((a, i) => `
-              <label class="leftover-item">
-                <input type="checkbox" data-i="${i}" checked />
+              <label class="leftover-item"${a.disabled ? ' style="opacity:0.55;cursor:default"' : ''}>
+                <input type="checkbox" data-i="${i}" ${a.disabled ? 'disabled' : (startChecked ? 'checked' : '')} />
                 <div class="leftover-main">
                   <div class="leftover-name">${esc(a.app)}${a.vendor ? `<span class="leftover-maker">${esc(a.vendor)}</span>` : ''}${a.admin ? '<span class="cleaner-badge" style="margin-left:6px">Admin</span>' : ''}</div>
-                  <div class="leftover-paths">${a.paths.map(p => `<div title="${esc(p.path)}">${esc(tilde(p.path))}</div>`).join('')}</div>
+                  <div class="leftover-paths">${a.lines
+                    ? a.lines.map(l => `<div title="${esc(l)}">${esc(l)}</div>`).join('')
+                    : a.paths.map(p => `<div title="${esc(p.path)}">${esc(tilde(p.path))}</div>`).join('')}</div>
                 </div>
-                <span class="leftover-size">${bytes(a.size)}</span>
+                <span class="leftover-size">${a.size == null ? '—' : bytes(a.size)}</span>
               </label>`).join('')}
           </div>
           <div class="exclude-row-actions">
@@ -2006,12 +2013,12 @@
             <button class="btn btn-danger" id="leftoversTrash">${esc(removeLabel)}</button>
           </div>`;
 
-        const boxes = [...box.querySelectorAll('.leftover-item input')];
+        const boxes = [...box.querySelectorAll('.leftover-item input')].filter(b => !b.disabled);
         const chosen = () => boxes.filter(b => b.checked).map(b => items[+b.dataset.i]);
         const update = () => {
           const sel = chosen();
           box.querySelector('#leftoversSummary').textContent =
-            `${sel.length} of ${items.length} ${itemNoun} · ${bytes(sel.reduce((sum, a) => sum + a.size, 0))}`;
+            `${sel.length} of ${boxes.length} ${itemNoun} · ${bytes(sel.reduce((sum, a) => sum + (a.size || 0), 0))}`;
           box.querySelector('#leftoversTrash').disabled = !sel.length;
         };
         boxes.forEach(b => b.addEventListener('change', update));
@@ -2061,6 +2068,31 @@
     remove: async paths => ({ results: await window.api.removeAppLeftovers(paths) }),
   });
 
+  const reviewXcodeSimulators = () => reviewLeftovers({
+    title: 'Xcode Simulators + Components',
+    hint: 'Everything Xcode keeps on this Mac for simulators and its add-ons. Tick what you want removed. Simulator versions and add-ons download again in Xcode whenever you need them.',
+    loadingText: 'Checking Xcode…',
+    emptyText: 'No simulators or Xcode components found on this Mac.',
+    emptyOutput: 'No simulators or Xcode components found.',
+    removeLabel: 'Remove',
+    itemNoun: 'items',
+    startChecked: false,
+    load: () => window.api.findXcodeSimulators(),
+    remove: async keys => ({ results: await window.api.removeXcodeSimulators(keys) }),
+  });
+
+  const reviewVirtualMachines = () => reviewLeftovers({
+    title: 'Virtual Machines',
+    hint: "Every virtual machine on this Mac. Untick any you want to keep. Removed machines go to the Trash, and a machine that's running can't be removed until you quit the app using it.",
+    loadingText: 'Looking for virtual machines…',
+    emptyText: 'No virtual machines found on this Mac.',
+    emptyOutput: 'No virtual machines found.',
+    removeLabel: 'Move to Trash',
+    itemNoun: 'machines',
+    load: () => window.api.findVirtualMachines(),
+    remove: async paths => ({ results: await window.api.removeVirtualMachines(paths) }),
+  });
+
   const reviewParallelsLeftovers = () => reviewLeftovers({
     title: 'Parallels Leftovers',
     hint: 'What Parallels Desktop left behind, including the Windows programs it published as Mac apps. Removing those stops Spotlight offering them instead of your real apps. Your files go to the Trash; system files are deleted and ask for your password once.',
@@ -2093,6 +2125,8 @@
       // App leftovers needs the user to pick what goes, so it runs here.
       const result = id === 'appleftovers' ? await reviewAppLeftovers()
                    : id === 'parallels'    ? await reviewParallelsLeftovers()
+                   : id === 'xcodesims'    ? await reviewXcodeSimulators()
+                   : id === 'vms'          ? await reviewVirtualMachines()
                    : await window.api.runCleanerTask(id);
       setTaskState(id, result.ok ? 'done' : 'error');
       logEntry(task.name, result.ok ? 'done' : 'error', result.output || (result.ok ? 'Done.' : 'Failed.'));
