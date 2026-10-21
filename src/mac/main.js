@@ -1384,6 +1384,77 @@ ipcMain.handle('removeVirtualMachines', async (event, paths) => {
   return results;
 });
 
+// ── Old macOS leftovers ──────────────────────────────────────────
+// What macOS upgrades leave behind: settings files moved aside to Relocated
+// Items, old "Install macOS" apps, and update downloads in /Library/Updates.
+// macOS protects the update downloads, so those are listed but not removed.
+let oldMacosPaths = new Map();   // path -> needs the password prompt
+
+ipcMain.handle('findOldMacosLeftovers', async () => {
+  const home = os.homedir();
+  const items = [];
+
+  for (const dir of ['/Users/Shared/Relocated Items', '/Users/Shared/Previously Relocated Items']) {
+    if (!fs.existsSync(dir)) continue;
+    let inside = [];
+    try { inside = fs.readdirSync(dir).filter(n => !n.startsWith('.')); } catch {}
+    items.push({
+      app: path.basename(dir),
+      parts: [dir],
+      admin: true,
+      lines: [dir, 'Files macOS moved aside during an upgrade', inside.length ? `Holds: ${inside.join(', ')}` : 'Empty'],
+    });
+  }
+
+  for (const dir of ['/Applications', path.join(home, 'Applications')]) {
+    let names = [];
+    try { names = fs.readdirSync(dir).filter(n => /^Install (macOS|OS X) .*\.app$/.test(n)); } catch {}
+    for (const n of names) {
+      const full = path.join(dir, n);
+      let admin = false;
+      try { admin = fs.statSync(full).uid === 0; } catch {}
+      items.push({ app: n.replace(/\.app$/, ''), parts: [full], admin, lines: [full, 'Only needed to install that version of macOS'] });
+    }
+  }
+
+  const updates = '/Library/Updates';
+  let products = [];
+  try { products = fs.readdirSync(updates).filter(n => fs.statSync(path.join(updates, n)).isDirectory()); } catch {}
+  for (const id of products) {
+    const full = path.join(updates, id);
+    let pkg = '';
+    try { pkg = fs.readdirSync(full).find(n => n.endsWith('.pkg')) || ''; } catch {}
+    const m = pkg.match(/^([A-Za-z]+?)(\d+(?:\.\d+)*)/);
+    items.push({
+      app: m ? `${m[1]} ${m[2]} update download` : `Update download ${id}`,
+      parts: [full],
+      disabled: true,
+      lines: [full, 'Waiting to install. macOS protects it, and clears it once you install the update in Software Update'],
+    });
+  }
+
+  const sizes = await sizesOf(items.flatMap(i => i.parts));
+  oldMacosPaths = new Map(items.filter(i => !i.disabled).flatMap(i => i.parts.map(p => [p, !!i.admin])));
+  return items.map(i => ({
+    app: i.app,
+    admin: !!i.admin,
+    disabled: !!i.disabled,
+    lines: i.lines,
+    paths: i.parts.map(p => ({ path: p, size: sizes.get(p) || 0 })),
+    size: i.parts.reduce((sum, p) => sum + (sizes.get(p) || 0), 0),
+  }));
+});
+
+ipcMain.handle('removeOldMacosLeftovers', async (event, paths) => {
+  const known = (paths || []).filter(p => oldMacosPaths.has(p));
+  const results = await removeLeftoverPaths(known, p => oldMacosPaths.get(p));
+  for (const r of results) if (r.ok) oldMacosPaths.delete(r.path);
+  for (const p of paths || []) {
+    if (!known.includes(p)) results.push({ path: p, ok: false, error: 'not part of the last scan' });
+  }
+  return results;
+});
+
 // ── Misc ─────────────────────────────────────────────────────────
 ipcMain.on('openExternal',    (event, url)  => shell.openExternal(url));
 ipcMain.on('openFolder',      (event, p)    => shell.openPath(p));

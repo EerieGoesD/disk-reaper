@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('api', {
   removeXcodeSimulators: (keys) => ipcRenderer.invoke('removeXcodeSimulators', keys),
   findVirtualMachines:   ()      => ipcRenderer.invoke('findVirtualMachines'),
   removeVirtualMachines: (paths) => ipcRenderer.invoke('removeVirtualMachines', paths),
+  findOldMacosLeftovers:   ()      => ipcRenderer.invoke('findOldMacosLeftovers'),
+  removeOldMacosLeftovers: (paths) => ipcRenderer.invoke('removeOldMacosLeftovers', paths),
   findParallelsLeftovers:   ()      => ipcRenderer.invoke('findParallelsLeftovers'),
   removeParallelsLeftovers: (paths) => ipcRenderer.invoke('removeParallelsLeftovers', paths),
 

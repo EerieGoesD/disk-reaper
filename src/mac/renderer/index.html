@@ -1875,6 +1875,7 @@
     { id: 'parallels',    name: 'Remove Parallels Leftovers',                   admin: true,   desc: "Clears what Parallels Desktop left behind after being uninstalled, including the Windows programs it published as Mac apps. Those are why Spotlight offers a Windows Terminal, and why opening one says Parallels is missing. Also unassigns the file types still set to open with Parallels." },
     { id: 'xcodesims',    name: 'Check + Remove Xcode Simulators + Components', admin: false,  desc: "Lists every simulator version on this Mac (iOS, watchOS, tvOS, visionOS) with its size and when you last used it, old simulator downloads Xcode no longer uses, simulated devices, simulator caches, device support files and Xcode add-ons. You tick what goes." },
     { id: 'vms',          name: 'Check + Remove Virtual Machines',              admin: false,  desc: "Lists every virtual machine on this Mac with its size: Claude's sandbox, Parallels, VMware Fusion, UTM, VirtualBox, Android emulators, Docker Desktop, Lima, Tart and Vagrant. Everything starts ticked; untick any you want to keep. Removed machines go to the Trash." },
+    { id: 'oldmacos',     name: 'Remove Old macOS Leftovers',                   admin: true,   desc: "Finds what macOS upgrades leave behind: settings files moved aside to Relocated Items, old Install macOS apps, and update downloads in /Library/Updates. You see the list first and pick what goes." },
     { id: 'devleftovers', name: 'Clear Developer Leftovers',                    admin: false,  desc: 'Deletes simulators for iOS versions you no longer have installed, Xcode derived data and device support files, and the npm, Yarn, pip, Gradle, CocoaPods, Carthage and Homebrew caches. Every one of these is rebuilt automatically the next time it is needed.' },
     { id: 'dns',          name: 'Flush DNS Cache',                              admin: true,   desc: 'Clears the DNS resolver cache to fix network connectivity issues and speed up domain lookups.' },
     { id: 'mail',         name: 'Speed Up Mail',                                admin: false,  desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
@@ -2093,6 +2094,18 @@
     remove: async paths => ({ results: await window.api.removeVirtualMachines(paths) }),
   });
 
+  const reviewOldMacosLeftovers = () => reviewLeftovers({
+    title: 'Old macOS Leftovers',
+    hint: 'What macOS upgrades leave behind. Untick anything you want to keep. Relocated Items are deleted after one password prompt; installers go to the Trash.',
+    loadingText: 'Looking for old macOS leftovers…',
+    emptyText: 'Nothing left behind by macOS upgrades on this Mac.',
+    emptyOutput: 'No old macOS leftovers found.',
+    removeLabel: 'Remove',
+    itemNoun: 'items',
+    load: () => window.api.findOldMacosLeftovers(),
+    remove: async paths => ({ results: await window.api.removeOldMacosLeftovers(paths) }),
+  });
+
   const reviewParallelsLeftovers = () => reviewLeftovers({
     title: 'Parallels Leftovers',
     hint: 'What Parallels Desktop left behind, including the Windows programs it published as Mac apps. Removing those stops Spotlight offering them instead of your real apps. Your files go to the Trash; system files are deleted and ask for your password once.',
@@ -2127,6 +2140,7 @@
                    : id === 'parallels'    ? await reviewParallelsLeftovers()
                    : id === 'xcodesims'    ? await reviewXcodeSimulators()
                    : id === 'vms'          ? await reviewVirtualMachines()
+                   : id === 'oldmacos'     ? await reviewOldMacosLeftovers()
                    : await window.api.runCleanerTask(id);
       setTaskState(id, result.ok ? 'done' : 'error');
       logEntry(task.name, result.ok ? 'done' : 'error', result.output || (result.ok ? 'Done.' : 'Failed.'));
