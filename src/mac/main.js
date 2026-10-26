@@ -1,18 +1,22 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, nativeTheme } = require('electron');
 const path     = require('path');
 const fs       = require('fs');
 const os       = require('os');
 const { execSync, exec, execFile } = require('child_process');
 const { Worker }         = require('worker_threads');
+const windowState        = require('../window-state');
 
 // ── Window ───────────────────────────────────────────────────────
 let mainWindow;
 let scanWorker = null;
 
 function createWindow() {
+  const state = windowState.load({ width: 1200, height: 720 });
   mainWindow = new BrowserWindow({
-    width:  1200,
-    height: 720,
+    width:  state.width,
+    height: state.height,
+    x: state.x,
+    y: state.y,
     minWidth:  900,
     minHeight: 560,
     titleBarStyle: 'hiddenInset',
@@ -25,8 +29,16 @@ function createWindow() {
       sandbox: false,
     },
   });
+  if (state.maximized) mainWindow.maximize();
+  windowState.track(mainWindow);
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
+
+// Light or dark, chosen in the window. Native parts (menus, dialogs, scroll
+// bars) follow it.
+ipcMain.handle('setTheme', (_e, theme) => {
+  nativeTheme.themeSource = theme === 'light' ? 'light' : 'dark';
+});
 
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
@@ -448,23 +460,12 @@ ipcMain.handle('runCleanerTask', async (event, taskId) => {
   try {
     switch (taskId) {
 
-      case 'ram': {
-        const r = await adminRun('purge');
-        if (!r.ok) return { ok: false, output: /cancel/i.test(r.output) ? 'Cancelled.' : (r.output || 'purge failed.') };
-        return { ok: true, output: r.output || 'Inactive memory purged.' };
-      }
-
-      case 'purgeable': {
-        const r = await run('tmutil thinlocalsnapshots / 9999999999999 4 2>&1', 90_000);
-        return { ok: true, output: r.output || 'No purgeable snapshots found.' };
-      }
-
       case 'maintenance': {
         const home = require('os').homedir();
         const lsreg = '/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister';
         const steps = [
           `echo "Clearing user app caches..."`,
-          `rm -rf "${home}/Library/Caches/"* 2>/dev/null || true`,
+          `rm -rf "${home}/Library/Caches/"* "${home}/.npm/_cacache" "${home}/.gradle/caches" 2>/dev/null || true`,
           `echo "Clearing system caches..."`,
           `rm -rf /Library/Caches/* 2>/dev/null || true`,
           `echo "Clearing temp files..."`,
@@ -482,75 +483,6 @@ ipcMain.handle('runCleanerTask', async (event, taskId) => {
         const r = await adminRun(steps.join('; '));
         if (/cancel/i.test(r.output)) return { ok: false, output: 'Cancelled.' };
         return { ok: true, output: r.output || 'Maintenance tasks completed.' };
-      }
-
-      case 'devleftovers': {
-        const home = os.homedir();
-
-        // Caches and build output that developer tools regenerate on demand.
-        // Nothing here needs admin, and nothing here is a source file, a build
-        // archive, or anything the user would have to recreate by hand.
-        const targets = [
-          { label: 'Xcode derived data',   path: `${home}/Library/Developer/Xcode/DerivedData` },
-          { label: 'Xcode device support', path: `${home}/Library/Developer/Xcode/iOS DeviceSupport` },
-          { label: 'Xcode caches',         path: `${home}/Library/Caches/com.apple.dt.Xcode` },
-          { label: 'CocoaPods cache',      path: `${home}/Library/Caches/CocoaPods` },
-          { label: 'Carthage cache',       path: `${home}/Library/Caches/org.carthage.CarthageKit` },
-          { label: 'Homebrew cache',       path: `${home}/Library/Caches/Homebrew` },
-          { label: 'npm cache',            path: `${home}/.npm/_cacache` },
-          { label: 'Yarn cache',           path: `${home}/Library/Caches/Yarn` },
-          { label: 'pip cache',            path: `${home}/Library/Caches/pip` },
-          { label: 'Gradle cache',         path: `${home}/.gradle/caches` },
-        ];
-
-        const fmt = kb =>
-          kb >= 1048576 ? `${(kb / 1048576).toFixed(1)} GB` :
-          kb >= 1024    ? `${(kb / 1024).toFixed(0)} MB`     :
-                          `${kb} KB`;
-
-        const sizeOf = async (target) => {
-          const r  = await run(`du -sk "${target.replace(/"/g, '\\"')}" 2>/dev/null`, 120_000);
-          const kb = parseInt((r.output || '').split('\t')[0]);
-          return isNaN(kb) ? 0 : kb;
-        };
-
-        const lines = [];
-        let freedKb = 0;
-
-        // Simulators whose iOS runtime is no longer installed. Simulators for
-        // runtimes that are still present are left alone.
-        const simDir    = `${home}/Library/Developer/CoreSimulator/Devices`;
-        const simBefore = await sizeOf(simDir);
-        const simR      = await run('xcrun simctl delete unavailable 2>&1', 300_000);
-        if (simR.ok) {
-          const saved = Math.max(0, simBefore - await sizeOf(simDir));
-          freedKb += saved;
-          lines.push(saved > 0 ? `Unused simulators: ${fmt(saved)}` : 'Unused simulators: nothing to remove');
-        } else {
-          lines.push('Unused simulators: skipped (Xcode command line tools not found)');
-        }
-
-        for (const t of targets) {
-          if (!fs.existsSync(t.path)) continue;
-          const kb = await sizeOf(t.path);
-          if (kb <= 0) continue;
-          const rm = await run(`rm -rf "${t.path.replace(/"/g, '\\"')}"`, 300_000);
-          if (rm.ok) {
-            freedKb += kb;
-            lines.push(`${t.label}: ${fmt(kb)}`);
-          } else {
-            lines.push(`${t.label}: could not remove (${rm.output || 'permission denied'})`);
-          }
-        }
-
-        lines.push('', `Freed ${fmt(freedKb)} in total.`);
-        return { ok: true, output: lines.join('\n') };
-      }
-
-      case 'dns': {
-        const r = await adminRun('dscacheutil -flushcache; killall -HUP mDNSResponder');
-        if (!r.ok) return { ok: false, output: /cancel/i.test(r.output) ? 'Cancelled.' : (r.output || 'Failed.') };
-        return { ok: true, output: r.output || 'DNS cache flushed.' };
       }
 
       case 'mail': {
@@ -589,7 +521,9 @@ ipcMain.handle('runCleanerTask', async (event, taskId) => {
         return { ok: true, output: r.output || 'Disk verification complete.' };
       }
 
-      case 'timemachine': {
+      case 'snapshots': {
+        // Local snapshots are copies macOS keeps on this disk between backups.
+        // Backups on the Time Machine disk itself are not touched.
         const listR = await run('tmutil listlocalsnapshots /', 30_000);
         const snaps = (listR.output || '').split('\n').map(s => s.trim()).filter(Boolean);
         if (!snaps.length) return { ok: true, output: 'No local Time Machine snapshots found.' };
@@ -694,8 +628,9 @@ ipcMain.handle('cacheSize', () => {
 // named after a bundle ID (com.maker.App) are judged, because an ID ties data
 // to one app for certain. A plain folder name is only added when it matches
 // one of those leftover apps, which keeps macOS's own folders out of the list.
+// Caches are left to Clear Caches and Temporary Files, which empties all of them.
 const LEFTOVER_LOCATIONS = [
-  'Application Support', 'Caches', 'Containers', 'Group Containers', 'Preferences',
+  'Application Support', 'Containers', 'Group Containers', 'Preferences',
   'Saved Application State', 'Logs', 'HTTPStorages', 'WebKit', 'LaunchAgents',
 ];
 
@@ -825,7 +760,8 @@ ipcMain.handle('findAppLeftovers', async () => {
 
       if (BUNDLE_ID.test(bare)) {
         const low = bare.toLowerCase();
-        if (APPLE_ID.test(low) || idInstalled(low)) continue;
+        // Parallels has its own task, which also fixes the file types it held.
+        if (APPLE_ID.test(low) || idInstalled(low) || PARALLELS_MATCH.test(low)) continue;
         const segs = bare.split('.');
         const vendor = segs.slice(0, 2).join('.').toLowerCase();
         if (!groups.has(vendor)) groups.set(vendor, { parts: new Map(), paths: [] });
@@ -835,7 +771,7 @@ ipcMain.handle('findAppLeftovers', async () => {
         g.paths.push({ path: full, location });
       } else {
         const n = normName(key);
-        if (!nameInstalled(n)) plain.push({ path: full, location, n });
+        if (!nameInstalled(n) && !PARALLELS_MATCH.test(key)) plain.push({ path: full, location, n });
       }
     }
   }
@@ -957,7 +893,7 @@ function parallelsGroups() {
     { app: 'Windows apps published to macOS', admin: false, dirs: [], fixed: [path.join(home, 'Applications (Parallels)')] },
     { app: 'Parallels app data', admin: false, dirs: [
       user('Library/Containers'), user('Library/Group Containers'), user('Library/Application Scripts'),
-      user('Library/Application Support'), user('Library/Caches'), user('Library/WebKit'),
+      user('Library/Application Support'), user('Library/WebKit'),
       user('Library/HTTPStorages'), user('Library/Saved Application State'),
     ], fixed: [] },
     { app: 'Parallels settings, logs and start-up items', admin: false, dirs: [
@@ -1223,6 +1159,18 @@ ipcMain.handle('findXcodeSimulators', async () => {
     });
   }
 
+  // Build files Xcode keeps for each project it has built.
+  const derived = path.join(home, 'Library/Developer/Xcode/DerivedData');
+  let projects = [];
+  try { projects = fs.readdirSync(derived).filter(d => !d.startsWith('.') && d !== 'ModuleCache.noindex'); } catch {}
+  const derivedSize = fs.existsSync(derived) ? (await sizesOf([derived])).get(derived) || 0 : 0;
+  if (derivedSize > 0) items.push({
+    key: `trash:${derived}`,
+    app: 'Xcode build files (Derived Data)',
+    size: derivedSize,
+    lines: [projects.length ? `${projects.length} project${projects.length === 1 ? '' : 's'}` : 'Shared build caches', 'Rebuilt the next time you build'],
+  });
+
   // Xcode add-ons.
   const metal = await jsonOf('xcrun', ['xcodebuild', '-showComponent', 'MetalToolchain', '-json']);
   if (metal && /installed/i.test(metal.status || '') && !/uninstalled/i.test(metal.status || '')) {
@@ -1263,7 +1211,7 @@ ipcMain.handle('removeXcodeSimulators', async (event, keys) => {
       const size = (await sizesOf(['/Library/Developer/CoreSimulator/Caches/dyld'])).get('/Library/Developer/CoreSimulator/Caches/dyld') || 0;
       ok = size < item.size;
       error = out.trim().split('\n').pop() || 'The caches are still there';
-    } else if (kind === 'devicesupport') {
+    } else if (kind === 'devicesupport' || kind === 'trash') {
       try { await shell.trashItem(target); ok = true; } catch (e) { error = e.message; }
     } else if (kind === 'component') {
       const out = await execFileText('xcrun', ['xcodebuild', '-deleteComponent', target], 300_000);
@@ -1453,6 +1401,177 @@ ipcMain.handle('removeOldMacosLeftovers', async (event, paths) => {
     if (!known.includes(p)) results.push({ path: p, ok: false, error: 'not part of the last scan' });
   }
   return results;
+});
+
+// ── Networking ───────────────────────────────────────────────────
+// The Mac counterpart of the Windows build's Networking section: a diagnosis
+// that says in words where the connection breaks, then the fixes in the order
+// to try them, safest first.
+const dns = require('dns');
+const net = require('net');
+
+function shellText(cmd, timeout = 30_000) {
+  return new Promise(resolve => exec(cmd, { timeout }, (err, stdout, stderr) =>
+    resolve({ ok: !err, out: (stdout || stderr || '').trim() })));
+}
+
+// One password prompt, through macOS's own dialog.
+function adminShell(cmd) {
+  const script = `do shell script "${cmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}" with administrator privileges`;
+  return new Promise(resolve => execFile('osascript', ['-e', script], { timeout: 300_000 }, (err, stdout, stderr) =>
+    resolve({ ok: !err, out: (stdout || stderr || '').trim(), cancelled: /cancel/i.test(stderr || '') })));
+}
+
+const shq = v => `'${String(v).replace(/'/g, `'\\''`)}'`;
+
+// The connection in use (from the default route), its network service name
+// (what System Settings calls it, e.g. "Wi-Fi"), and the router's address.
+async function activeNetwork() {
+  const route = (await shellText('route -n get default 2>/dev/null', 10_000)).out;
+  const device = (route.match(/interface:\s*(\S+)/) || [])[1] || '';
+  const router = (route.match(/gateway:\s*(\S+)/) || [])[1] || '';
+  const order = (await shellText('networksetup -listnetworkserviceorder', 10_000)).out;
+  const services = [];
+  const re = /\(\d+\)\s+(.+)\n\(Hardware Port: ([^,]*), Device: ([^)]*)\)/g;
+  let m;
+  while ((m = re.exec(order))) services.push({ name: m[1].trim(), port: m[2].trim(), device: m[3].trim() });
+  return {
+    device,
+    router,
+    service: services.find(x => x.device && x.device === device) || null,
+    wifi: services.find(x => /wi-?fi|airport/i.test(x.port)) || null,
+  };
+}
+
+function tcpReach(host, port, ms = 3000) {
+  return new Promise(resolve => {
+    const sock = net.connect({ host, port });
+    const done = ok => { sock.destroy(); resolve(ok); };
+    sock.setTimeout(ms, () => done(false));
+    sock.once('connect', () => done(true));
+    sock.once('error', () => done(false));
+  });
+}
+
+function lookupName(name, ms = 4000) {
+  return Promise.race([
+    dns.promises.lookup(name).then(r => r.address).catch(() => null),
+    new Promise(resolve => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
+ipcMain.handle('netDiagnose', async () => {
+  const n = await activeNetwork();
+  const ip = n.device ? (await shellText(`ipconfig getifaddr ${shq(n.device)}`, 5_000)).out : '';
+  const connected = !!(n.device && ip);
+  const where = n.service ? n.service.name : n.device;
+
+  const routerOk = connected && !!n.router && (await shellText(`ping -c 2 -t 3 ${shq(n.router)}`, 8_000)).ok;
+  // Some networks block ping, so a web connection counts as well.
+  const internetOk = connected && (
+    await tcpReach('1.1.1.1', 443) || await tcpReach('8.8.8.8', 53) ||
+    (await shellText('ping -c 2 -t 3 1.1.1.1', 8_000)).ok);
+  const started = Date.now();
+  const address = connected ? await lookupName('apple.com') : null;
+  const lookupMs = Date.now() - started;
+
+  const servers = [...new Set(((await shellText('scutil --dns', 10_000)).out
+    .match(/nameserver\[\d+\]\s*:\s*\S+/g) || []).map(l => l.split(':').pop().trim()))].slice(0, 4);
+  const vpn = ((await shellText('scutil --nc list', 10_000)).out.match(/\(Connected\)[^"]*"([^"]+)"/) || [])[1] || '';
+  const proxy = /(HTTPEnable|HTTPSEnable|SOCKSEnable|ProxyAutoConfigEnable)\s*:\s*1/.test((await shellText('scutil --proxy', 10_000)).out);
+
+  const checks = [
+    { label: 'Connected to a network', ok: connected, detail: connected ? `${where}, address ${ip}` : 'Not connected to Wi-Fi or a cable' },
+    { label: 'Router answers', ok: routerOk, detail: n.router ? `Router at ${n.router}` : 'No router found' },
+    { label: 'Internet reachable', ok: internetOk, detail: internetOk ? 'Reached Cloudflare and Google' : "Couldn't reach Cloudflare or Google" },
+    { label: 'Website names load', ok: !!address, detail: address ? `apple.com found in ${lookupMs} ms` : "Couldn't look up apple.com" },
+  ];
+  const info = [
+    `Website names come from: ${servers.length ? servers.join(', ') : 'none set'}`,
+    vpn ? `VPN connected: ${vpn}` : 'No VPN connected',
+    proxy ? 'A proxy is turned on in System Settings' : 'No proxy',
+  ];
+
+  let verdict, suggest = null;
+  if (!connected) {
+    verdict = "This Mac isn't connected to a network. Check Wi-Fi is on and joined to your network, or that the cable is plugged in.";
+    suggest = n.wifi ? 'wifiRestart' : null;
+  } else if (internetOk && address) {
+    verdict = 'Everything works. If one website still won\'t load, flush the DNS cache.';
+  } else if (internetOk) {
+    verdict = "The internet works but website names don't load. Flush the DNS cache first; if that doesn't help, switch to Google + Cloudflare DNS.";
+    suggest = 'flushDns';
+  } else if (!routerOk) {
+    verdict = "Your router doesn't answer. Renew this Mac's address, or turn Wi-Fi off and on. If that fails, restart the router.";
+    suggest = 'renewIp';
+  } else if (vpn) {
+    verdict = `Your router answers but the internet doesn't, and the VPN "${vpn}" is connected. Disconnect it and run this again.`;
+  } else {
+    verdict = "Your router answers but the internet doesn't. Restart the router; if it keeps happening, contact your internet provider.";
+  }
+  return { checks, info, verdict, suggest };
+});
+
+ipcMain.handle('netFix', async (event, key) => {
+  const n = await activeNetwork();
+  const svc = n.service || n.wifi;
+  const flush = 'dscacheutil -flushcache; killall -HUP mDNSResponder';
+  const fail = r => ({ ok: false, output: r.cancelled ? 'Cancelled.' : (r.out || 'Failed.') });
+
+  switch (key) {
+    case 'flushDns': {
+      const r = await adminShell(flush);
+      return r.ok ? { ok: true, output: 'DNS cache flushed. Website names are looked up fresh from now on.' } : fail(r);
+    }
+    case 'googleDns': {
+      if (!svc) return { ok: false, output: 'No network connection found to change.' };
+      const r = await adminShell(`networksetup -setdnsservers ${shq(svc.name)} 8.8.8.8 1.1.1.1; ${flush}`);
+      return r.ok ? { ok: true, output: `${svc.name} now uses Google (8.8.8.8) and Cloudflare (1.1.1.1) for website names.` } : fail(r);
+    }
+    case 'autoDns': {
+      if (!svc) return { ok: false, output: 'No network connection found to change.' };
+      const r = await adminShell(`networksetup -setdnsservers ${shq(svc.name)} Empty; ${flush}`);
+      return r.ok ? { ok: true, output: `${svc.name} uses your router's DNS again.` } : fail(r);
+    }
+    case 'renewIp': {
+      if (!svc) return { ok: false, output: 'No network connection found to renew.' };
+      const r = await adminShell(`ipconfig set ${shq(svc.device)} DHCP`);
+      if (!r.ok) return fail(r);
+      let ip = '';
+      for (let i = 0; i < 10 && !ip; i++) {
+        await new Promise(res => setTimeout(res, 1000));
+        ip = (await shellText(`ipconfig getifaddr ${shq(svc.device)}`, 5_000)).out;
+      }
+      return { ok: !!ip, output: ip ? `Asked the router for a new address. ${svc.name} now has ${ip}.` : `Asked the router for a new address, but ${svc.name} hasn't got one yet.` };
+    }
+    case 'wifiRestart': {
+      if (!n.wifi) return { ok: false, output: "This Mac doesn't have Wi-Fi." };
+      const dev = shq(n.wifi.device);
+      await shellText(`networksetup -setairportpower ${dev} off`, 15_000);
+      await new Promise(res => setTimeout(res, 2000));
+      const on = await shellText(`networksetup -setairportpower ${dev} on`, 15_000);
+      if (!on.ok) return { ok: false, output: on.out || "Couldn't turn Wi-Fi back on. Turn it on from the menu bar." };
+      let ip = '';
+      for (let i = 0; i < 15 && !ip; i++) {
+        await new Promise(res => setTimeout(res, 1000));
+        ip = (await shellText(`ipconfig getifaddr ${dev}`, 5_000)).out;
+      }
+      return { ok: true, output: ip ? `Wi-Fi turned off and on, and reconnected with address ${ip}.` : 'Wi-Fi turned off and on. It hasn\'t rejoined a network yet.' };
+    }
+    case 'resetNetwork': {
+      // Moved aside, not deleted, so the old settings can be put back.
+      const dir = '/Library/Preferences/SystemConfiguration';
+      const r = await adminShell(
+        `B=${dir}/disk-reaper-backup-$(date +%Y%m%d-%H%M%S); mkdir -p "$B"; ` +
+        `for f in preferences.plist NetworkInterfaces.plist com.apple.airport.preferences.plist; do ` +
+        `[ -e "${dir}/$f" ] && mv "${dir}/$f" "$B/"; done; echo "$B"`);
+      return r.ok
+        ? { ok: true, output: `Network settings reset. Restart your Mac to finish.\nThe old settings are kept in ${r.out}.` }
+        : fail(r);
+    }
+    default:
+      return { ok: false, output: `Unknown fix: ${key}` };
+  }
 });
 
 // ── Misc ─────────────────────────────────────────────────────────

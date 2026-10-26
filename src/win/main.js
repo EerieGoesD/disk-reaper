@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { Worker } = require("worker_threads");
+const windowState = require("../window-state");
 require("./processes");
 require("./services");
 require("./installed_apps");
@@ -19,9 +20,12 @@ require("./drivers");
 let mainWindow;
 
 function createWindow() {
+  const state = windowState.load({ width: 960, height: 600 });
   mainWindow = new BrowserWindow({
-    width: 960,
-    height: 600,
+    width: state.width,
+    height: state.height,
+    x: state.x,
+    y: state.y,
     minWidth: 740,
     minHeight: 440,
     backgroundColor: "#0a0a0c",
@@ -39,6 +43,8 @@ function createWindow() {
     },
   });
 
+  if (state.maximized) mainWindow.maximize();
+  windowState.track(mainWindow);
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 
   // Allow renderer window.open() calls (used by the Activity Log "Pop out"

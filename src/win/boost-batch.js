@@ -87,7 +87,6 @@ const ACTIONS = {
 
   // ── Microsoft Edge policy keys (HKLM) ──
   edgeStartupBoost:   () => regSetDword("HKLM", "SOFTWARE\\Policies\\Microsoft\\Edge", "StartupBoostEnabled", 0),
-  edgeSleepingTabs:   () => regSetDword("HKLM", "SOFTWARE\\Policies\\Microsoft\\Edge", "SleepingTabsEnabled", 0),
   edgeHubsSidebar:    () => regSetDword("HKLM", "SOFTWARE\\Policies\\Microsoft\\Edge", "HubsSidebarEnabled", 0),
 
   // ── Gaming + responsiveness tweaks ──
@@ -101,7 +100,6 @@ const ACTIONS = {
     regSetString("HKCU", "Control Panel\\Desktop", "WaitToKillAppTimeout", "5000"),
     regSetString("HKCU", "Control Panel\\Desktop", "HungAppTimeout", "1000"),
   ]),
-  prioSched:         () => regSetDword("HKLM", "SYSTEM\\CurrentControlSet\\Control\\PriorityControl", "Win32PrioritySeparation", 38),
   gameDvr:           () => multiReg([
     regSetDword("HKCU", "System\\GameConfigStore", "GameDVR_Enabled", 0),
     regSetDword("HKLM", "SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR", "AllowGameDVR", 0),

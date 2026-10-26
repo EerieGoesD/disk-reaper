@@ -529,7 +529,6 @@ async function setDeliveryOptimizationP2P(disable) {
 // loop stays free because we are awaiting a spawn, not blocking on it.
 const PERF_COMMANDS = {
   sfcScan:               { exe: "sfc.exe",  args: ["/scannow"],                                            label: "sfc /scannow",                          longRunning: true  },
-  dismCheckHealth:       { exe: "dism.exe", args: ["/online", "/cleanup-image", "/checkhealth"],            label: "DISM /CheckHealth",                     longRunning: false },
   dismScanHealth:        { exe: "dism.exe", args: ["/online", "/cleanup-image", "/scanhealth"],             label: "DISM /ScanHealth",                      longRunning: true  },
   dismRestoreHealth:     { exe: "dism.exe", args: ["/online", "/cleanup-image", "/restorehealth"],          label: "DISM /RestoreHealth",                   longRunning: true  },
   dismAnalyzeComponent:  { exe: "dism.exe", args: ["/online", "/cleanup-image", "/AnalyzeComponentStore"],  label: "DISM /AnalyzeComponentStore",           longRunning: false },
@@ -676,25 +675,10 @@ async function optimizeSystemDrive() {
   });
 }
 
-// Spawned launchers (open a Windows UI, do not block our process). We use
-// detached/unref so closing Disk Reaper does not kill the launched UI.
-function launchDiskCleanup() {
-  return new Promise((resolve) => {
-    try {
-      const child = spawn("cleanmgr.exe", [], { windowsHide: false, detached: true, stdio: "ignore" });
-      child.unref();
-      resolve({ ok: true });
-    } catch (e) {
-      resolve({ ok: false, error: e.message });
-    }
-  });
-}
-
 ipcMain.handle("apply-best-perf-visuals",  () => applyBestPerformanceVisuals());
 ipcMain.handle("apply-boot-tweaks",        () => applyBootTweaks());
 ipcMain.handle("set-high-perf-power-plan", () => setHighPerformancePowerPlan());
 ipcMain.handle("optimize-system-drive",    () => optimizeSystemDrive());
-ipcMain.handle("launch-disk-cleanup",      () => launchDiskCleanup());
 
 // ── Registry-driven toggles ─────────────────────────────────────────────
 // Per-tweak: a list of keys. Each key carries its own enable / disable value
@@ -737,10 +721,6 @@ const GAMING_REGISTRY_TWEAKS = {
       { hive: "HKCU", subkey: "Control Panel\\Desktop", name: "WaitToKillAppTimeout", enableValue: "20000", disableValue: "5000", type: "String" },
       { hive: "HKCU", subkey: "Control Panel\\Desktop", name: "HungAppTimeout",       enableValue: "5000",  disableValue: "1000", type: "String" },
     ],
-  },
-  priorityScheduling: {
-    keys: [{ hive: "HKLM", subkey: "SYSTEM\\CurrentControlSet\\Control\\PriorityControl", name: "Win32PrioritySeparation" }],
-    enableValue: 2, disableValue: 38, valueType: "DWord", // 38 = 0x26 = "Programs" / foreground-biased
   },
 
   // ── File system tweaks ──

@@ -86,7 +86,6 @@ contextBridge.exposeInMainWorld("api", {
   applyBootTweaks:         () => ipcRenderer.invoke("apply-boot-tweaks"),
   setHighPerfPowerPlan:    () => ipcRenderer.invoke("set-high-perf-power-plan"),
   optimizeSystemDrive:     () => ipcRenderer.invoke("optimize-system-drive"),
-  launchDiskCleanup:       () => ipcRenderer.invoke("launch-disk-cleanup"),
   getGamingTweakState:     (key)         => ipcRenderer.invoke("get-gaming-tweak-state", key),
   setGamingTweak:          (key, disable) => ipcRenderer.invoke("set-gaming-tweak", { key, disable }),
   getCoreParkingState:     ()            => ipcRenderer.invoke("get-core-parking-state"),

@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Cleaner ──────────────────────────────────────────────────
   runCleanerTask: (taskId) => ipcRenderer.invoke('runCleanerTask', taskId),
+  // ── Networking ───────────────────────────────────────────────
+  netDiagnose: ()    => ipcRenderer.invoke('netDiagnose'),
+  netFix:      (key) => ipcRenderer.invoke('netFix', key),
   findAppLeftovers: () => ipcRenderer.invoke('findAppLeftovers'),
   removeAppLeftovers: (paths) => ipcRenderer.invoke('removeAppLeftovers', paths),
   openFullDiskAccess: () => ipcRenderer.invoke('openFullDiskAccess'),
@@ -61,6 +64,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── App usage ────────────────────────────────────────────────
   appVersion: () => ipcRenderer.invoke('appVersion'),
+  setTheme:   (theme) => ipcRenderer.invoke('setTheme', theme),
   cacheSize:  () => ipcRenderer.invoke('cacheSize'),
   // Returns [cpu, ram] as "0.3%" strings, or "n/a" when a reading fails. The
   // main process reports its own footprint; this process adds the window's.
