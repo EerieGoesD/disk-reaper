@@ -62,6 +62,18 @@ Get-CimInstance Win32_DiskDrive | ForEach-Object {
 }
 $info['disks'] = $disks
 
+# Free space per local drive letter
+$volumes = @()
+Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object {
+  $volumes += @{
+    letter = $_.DeviceID
+    label  = [string]$_.VolumeName
+    size   = [long]$_.Size
+    free   = [long]$_.FreeSpace
+  }
+}
+$info['volumes'] = $volumes
+
 # Motherboard
 $mb = Get-CimInstance Win32_BaseBoard
 $info['motherboard'] = @{

@@ -120,4 +120,24 @@ if (Test-Path $uwpBase) {
   }
 }
 
-$items | Select-Object Name,Command,Source,Type,Enabled,UwpPath | ConvertTo-Json -Compress
+# Scheduled tasks that run at sign-in or at startup (Windows' own tasks
+# under \Microsoft\ are left out). TaskPath carries the full task path so
+# the display name can drop the GUID/SID suffixes some vendors add.
+Get-ScheduledTask -ErrorAction SilentlyContinue |
+  Where-Object { $_.TaskPath -notlike '\Microsoft\*' -and ($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }) } |
+  ForEach-Object {
+    $act = $_.Actions | Where-Object { $_.Execute } | Select-Object -First 1
+    $cmd = if ($act) { (([Environment]::ExpandEnvironmentVariables($act.Execute)) + ' ' + $act.Arguments).Trim() } else { '' }
+    $display = $_.TaskName -replace '_?\{[0-9A-Fa-f-]{36}\}$', '' -replace '-sid-S-1-5-[0-9-]+$', ''
+    $items += [PSCustomObject]@{
+      Name     = $display
+      Command  = $cmd
+      Source   = 'Task'
+      Type     = 'ScheduledTask'
+      Enabled  = ($_.State -ne 'Disabled')
+      UwpPath  = ''
+      TaskPath = ($_.TaskPath + $_.TaskName)
+    }
+  }
+
+$items | Select-Object Name,Command,Source,Type,Enabled,UwpPath,TaskPath | ConvertTo-Json -Compress

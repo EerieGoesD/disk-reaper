@@ -46,7 +46,8 @@ Get-Process -ErrorAction SilentlyContinue |
           } catch { 0 }
         }
       }},
-    @{n='description'; e={ if ($_.Description) { $_.Description } else { '' } }} |
+    @{n='description'; e={ if ($_.Description) { $_.Description } else { '' } }},
+    @{n='path';        e={ try { [string]$_.Path } catch { '' } }} |
   Sort-Object memBytes -Descending |
   ConvertTo-Json -Compress -Depth 1
 `;
@@ -62,6 +63,7 @@ Get-Process -ErrorAction SilentlyContinue |
       memBytes:    parseInt(p.memBytes) || 0,
       cpuPct:      parseFloat(p.cpuPct) || 0,
       description: String(p.description || ""),
+      path:        String(p.path        || ""),
     }));
   } catch { return []; }
 }

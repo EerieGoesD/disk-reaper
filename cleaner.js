@@ -21,6 +21,12 @@ function knownPath(key) {
 }
 
 // ── Known bloatware signatures ──
+// process:   exe name without .exe. "*" means any exe, narrowed by pathHas.
+// pathHas:   optional folder pieces; the exe's full path must contain one of
+//            them (case-insensitive). Used for vendors whose programs have
+//            generic names (Monitor.exe, Scheduler.exe).
+// keep:      listed but left unticked, and skipped by the silent Boost kill.
+// note:      shown next to the entry so the user knows what they'd lose.
 const BLOATWARE = [
   // HP
   { process: "TouchpointAnalyticsClientService", service: "HpTouchpointAnalyticsService", label: "HP Telemetry", cat: "HP" },
@@ -38,12 +44,13 @@ const BLOATWARE = [
   { process: "DiagsCap", service: "HPDiagsCap", label: "HP Diagnostics Cap", cat: "HP" },
   { process: "OmenCap", service: "HPOmenCap", label: "HP OMEN Cap", cat: "HP" },
   { process: "HPPrintScanDoctorService", service: "HPPrintScanDoctorService", label: "HP Print Scan Doctor", cat: "HP" },
-  { process: "HPSystemEventUtilityBackground", service: "", label: "HP System Event Utility BG", cat: "HP" },
-  { process: "HPSystemEventUtilityHost", service: "", label: "HP System Event Utility Host", cat: "HP" },
+  { process: "HPSystemEventUtilityBackground", service: "", label: "HP System Event Utility BG", cat: "HP", keep: true, note: "Runs the laptop's Fn keys" },
+  { process: "HPSystemEventUtilityHost", service: "", label: "HP System Event Utility Host", cat: "HP", keep: true, note: "Runs the laptop's Fn keys" },
   { process: "HPAudioSwitch", service: "", label: "HP Audio Switch", cat: "HP" },
   // McAfee
   { process: "mcafee-security", service: "", label: "McAfee Security", cat: "McAfee" },
   { process: "mcafee-security-ft", service: "", label: "McAfee Security FT", cat: "McAfee" },
+  { process: "*", pathHas: ["\\McAfee\\WebAdvisor\\"], service: "McAfee WebAdvisor", label: "McAfee WebAdvisor", cat: "McAfee" },
   // Brave
   { process: "BraveCrashHandler", service: "brave", label: "Brave Crash Handler", cat: "Brave" },
   { process: "BraveCrashHandler64", service: "bravem", label: "Brave Crash Handler 64", cat: "Brave" },
@@ -52,6 +59,9 @@ const BLOATWARE = [
   { process: "MicrosoftEdgeUpdate", service: "edgeupdate", label: "Edge Auto-Updater", cat: "Edge" },
   // IObit
   { process: "ASCService", service: "AdvancedSystemCareService19", label: "Advanced SystemCare", cat: "IObit" },
+  { process: "*", pathHas: ["\\IObit\\"], service: "", label: "IObit background programs", cat: "IObit" },
+  // WildTangent (game store preinstalled by HP and others)
+  { process: "*", pathHas: ["\\WildTangent Games\\", "\\WildGames\\"], service: "GamesAppService", label: "WildTangent Games", cat: "WildTangent" },
   // Microsoft Phone Link / Cross Device sync (only background-y, not the Phone Link app itself)
   { process: "CrossDeviceService", service: "CrossDeviceService", label: "MS Cross Device Service", cat: "Phone Link" },
   { process: "CrossDeviceResume", service: "", label: "MS Cross Device Resume", cat: "Phone Link" },

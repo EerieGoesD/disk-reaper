@@ -1095,7 +1095,7 @@
               <summary>
                 <div class="section-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 3h6a1 1 0 011 1v3H8V4a1 1 0 011-1zM6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/></svg></div>
                 <div class="section-title">Remove Bloat</div>
-                <span class="section-hint">OEM, Microsoft Store apps, OneDrive</span>
+                <span class="section-hint">OEM, Microsoft Store apps, OneDrive, junk programs</span>
                 <svg class="section-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </summary>
               <div class="section-body">
@@ -1126,6 +1126,21 @@
               </div>
               <div class="cleaner-card-action align-left">
                 <button class="btn btn-danger" id="uwpScanBtn">Scan and Remove Microsoft Bloatware</button>
+              </div>
+            </div>
+
+            <div class="cleaner-card">
+              <div class="cleaner-card-head">
+                <div class="cleaner-card-icon">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 8h18M9 12l6 4M15 12l-6 4"/></svg>
+                </div>
+                <div class="cleaner-card-text">
+                  <h3>Bloatware Programs</h3>
+                  <p>Finds installed programs that are widely considered bloatware: IObit Advanced SystemCare and Driver Booster, McAfee WebAdvisor, WildTangent Games and uTorrent. Each one is removed with its own uninstaller.</p>
+                </div>
+              </div>
+              <div class="cleaner-card-action align-left">
+                <button class="btn btn-danger" id="bloatProgScanBtn">Scan for Bloatware Programs</button>
               </div>
             </div>
               </div>
@@ -2546,6 +2561,37 @@
     return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
   }
   function fmtNum(n) { return n.toLocaleString("en-US"); }
+
+  // Which running processes belong to each bloatware entry. An entry matches
+  // by exe name, by folder (pathHas), or both. Each process is claimed by the
+  // first entry that matches, so a vendor's catch-all entry never counts a
+  // process that's already listed by name. includeKept:false skips entries
+  // marked keep (used by the silent Boost kill).
+  function matchBloatware(list, procs, opts) {
+    const includeKept = !opts || opts.includeKept !== false;
+    const claimed = new Set();
+    const out = [];
+    for (const bw of list || []) {
+      if (bw.keep && !includeKept) continue;
+      const name = String(bw.process || "").toLowerCase();
+      const needles = (bw.pathHas || []).map(x => String(x).toLowerCase());
+      if (name === "*" && !needles.length) continue;
+      const matches = (procs || []).filter(pr => {
+        if (claimed.has(pr.pid)) return false;
+        if (name !== "*" && String(pr.name || "").toLowerCase() !== name) return false;
+        if (needles.length) {
+          const pth = String(pr.path || "").toLowerCase();
+          if (!pth || !needles.some(n => pth.includes(n))) return false;
+        }
+        return true;
+      });
+      if (matches.length) {
+        matches.forEach(pr => claimed.add(pr.pid));
+        out.push({ bw, matches });
+      }
+    }
+    return out;
+  }
   function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
   // ── Last-run timestamps (persisted in localStorage, surfaced in tooltips) ──
@@ -2572,6 +2618,7 @@
     // Bloatware kill, drive optimize, clipboard clear (all one-shot ops)
     "bloat.kill":       "#bloatKillBtn",
     "clean.leftovers":  "#leftoverScanBtn",
+    "bloat.programs":   "#bloatProgScanBtn",
     "tweak.optimize":   "#optimizeDriveBtn",
     "game.clipboard":   "#clearClipboardBtn",
     // Network diagnostics + fix commands (each is a one-shot maintenance run)
@@ -4436,7 +4483,7 @@ ${r.error}`);
     const item = suData[suSelected];
     suStatus.textContent = `Enabling "${item.name}"...`;
     suEnableBtn.disabled = true; suDisableBtn.disabled = true;
-    const r = await window.api.setStartupEnabled({ name: item.name, source: item.source, enabled: true, uwpPath: item.uwpPath || "" });
+    const r = await window.api.setStartupEnabled({ name: item.name, source: item.source, enabled: true, uwpPath: item.uwpPath || "", taskPath: item.taskPath || "" });
     if (!r.ok) alert(`Could not enable:\n${r.error}`);
     await loadStartup();
   });
@@ -4447,7 +4494,7 @@ ${r.error}`);
     if (!await customConfirm(`Disable "${item.name}" from startup?`)) return;
     suStatus.textContent = `Disabling "${item.name}"...`;
     suEnableBtn.disabled = true; suDisableBtn.disabled = true;
-    const r = await window.api.setStartupEnabled({ name: item.name, source: item.source, enabled: false, uwpPath: item.uwpPath || "" });
+    const r = await window.api.setStartupEnabled({ name: item.name, source: item.source, enabled: false, uwpPath: item.uwpPath || "", taskPath: item.taskPath || "" });
     if (!r.ok) alert(`Could not disable:\n${r.error}`);
     await loadStartup();
   });
@@ -4583,6 +4630,14 @@ ${r.error}`);
       d.disks.forEach(disk => {
         h += siRow("Drive", disk.model);
         h += siRow("Capacity", fmtSize(disk.size) + " (" + disk.interface + ")");
+      });
+    }
+    if (d.volumes && d.volumes.length) {
+      d.volumes.forEach(v => {
+        if (!v.size) return;
+        const usedPct = Math.round(((v.size - v.free) / v.size) * 100);
+        const name = "Drive " + v.letter + (v.label ? " (" + v.label + ")" : "");
+        h += `<div class="si-row"><span class="si-label">${esc(name)}</span><span class="si-value">${esc(fmtSize(v.free) + " free of " + fmtSize(v.size))}</span>${siBarInline(usedPct, barColor(usedPct))}</div>`;
       });
     }
 
@@ -6041,17 +6096,8 @@ ${r.error}`);
         try {
           const list = await window.api.getBloatwareList();
           const procs = await window.api.getProcesses();
-          const procByName = new Map();
-          for (const p of procs) {
-            const key = (p.name || "").toLowerCase();
-            if (!procByName.has(key)) procByName.set(key, []);
-            procByName.get(key).push(p);
-          }
-          const found = [];
-          for (const bw of list) {
-            const matches = procByName.get(bw.process.toLowerCase()) || [];
-            if (matches.length) found.push({ service: bw.service, pids: matches.map(p => p.pid) });
-          }
+          const found = matchBloatware(list, procs, { includeKept: false })
+            .map(({ bw, matches }) => ({ service: bw.service, pids: matches.map(p => p.pid) }));
           if (!found.length) return { ok: true };
           const services = [...new Set(found.map(f => f.service).filter(Boolean))];
           const pids = found.flatMap(f => f.pids);
@@ -6246,18 +6292,9 @@ ${r.error}`);
     if (keys.includes("killAllBloatware")) {
       try {
         const [list, procs] = await Promise.all([window.api.getBloatwareList(), window.api.getProcesses()]);
-        const procByName = new Map();
-        for (const p of procs) {
-          const k = (p.name || "").toLowerCase();
-          if (!procByName.has(k)) procByName.set(k, []);
-          procByName.get(k).push(p);
-        }
-        for (const bw of list) {
-          const m = procByName.get(bw.process.toLowerCase()) || [];
-          if (m.length) {
-            if (bw.service) bloatwareServices.push(bw.service);
-            for (const p of m) bloatwarePids.push(p.pid);
-          }
+        for (const { bw, matches } of matchBloatware(list, procs, { includeKept: false })) {
+          if (bw.service) bloatwareServices.push(bw.service);
+          for (const p of matches) bloatwarePids.push(p.pid);
         }
         bloatwareServices = [...new Set(bloatwareServices)];
         clog(`  bloatware pre-scan: ${bloatwarePids.length} PIDs, ${bloatwareServices.length} services`, "info");
@@ -6501,6 +6538,91 @@ ${r.error}`);
   // ── Cleaner: Bloatware ──────────────────────────────────────────
   // Bloatware list is now in cleaner.js (modularized)
 
+  // ── Bloatware programs (uninstall) ─────────────────────────────
+  const BLOAT_PROGRAMS = [
+    { why: "Runs at every login and shows ads",          test: a => /iobit/i.test(a.publisher) || /^(advanced systemcare|driver booster|iobit)/i.test(a.name) },
+    { why: "Browser add-on bundled with other installers", test: a => /webadvisor/i.test(a.name) },
+    { why: "Games store preinstalled by the PC maker",   test: a => /wildtangent/i.test(a.name) || /wildtangent/i.test(a.publisher) },
+    { why: "Starts at every login and shows ads",        test: a => /^[µu]torrent/i.test(a.name) },
+  ];
+
+  async function openBloatProgramsDialog(existingOverlay) {
+    const overlay = existingOverlay || document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `
+      <div class="bloat-dialog">
+        <h3>Bloatware Programs</h3>
+        <div class="bloat-empty">Scanning installed programs...</div>
+      </div>`;
+    if (!existingOverlay) {
+      document.body.appendChild(overlay);
+      overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+    }
+    clog("Bloatware programs: scanning installed programs...", "info");
+
+    let apps = [];
+    try { apps = await window.api.getInstalledApps(); } catch (e) { apps = []; }
+    const found = [];
+    for (const a of apps) {
+      const rule = BLOAT_PROGRAMS.find(r => r.test(a));
+      if (rule) found.push({ ...a, why: rule.why });
+    }
+    found.sort((x, y) => x.name.localeCompare(y.name));
+    if (found.length) {
+      clog(`Bloatware programs: found ${found.length}.`, "warn");
+      for (const f of found) clog(`  FOUND: ${f.name}${f.publisher ? " (" + f.publisher + ")" : ""}`, "warn");
+    } else {
+      clog("Bloatware programs: none found.", "ok");
+    }
+
+    const rows = found.map((f, i) => `
+      <div class="bloat-row">
+        <span class="br-name" title="${esc(f.name)}">${esc(f.name)}</span>
+        <span class="br-desc" title="${esc(f.why)}">${esc(f.why)}</span>
+        <button class="btn btn-danger btn-sm btn-fixed-width" data-longest="No uninstaller" data-bp-idx="${i}" ${f.uninstallString ? "" : "disabled"}><span>${f.uninstallString ? "Uninstall" : "No uninstaller"}</span></button>
+      </div>`).join("");
+
+    overlay.innerHTML = `
+      <div class="bloat-dialog">
+        <h3>Bloatware Programs</h3>
+        ${found.length ? `
+        <div class="bloat-scroll">
+          <div class="bloat-table">
+            <div class="bloat-table-header">
+              <span style="width:180px">Program</span>
+              <span style="flex:1">Why it's here</span>
+            </div>
+            <div class="bloat-table-body">${rows}</div>
+          </div>
+        </div>` : `<div class="bloat-empty">No bloatware programs found.</div>`}
+        <div class="bloat-actions">
+          <button class="btn btn-ghost btn-fixed-width" data-longest="Scan Again" id="bpRescan"><span>Scan Again</span></button>
+          <button class="btn btn-ghost btn-fixed-width" data-longest="Scan Again" id="bpClose"><span>Close</span></button>
+        </div>
+      </div>`;
+
+    overlay.querySelector("#bpClose").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#bpRescan").addEventListener("click", () => openBloatProgramsDialog(overlay));
+    overlay.querySelectorAll("[data-bp-idx]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const f = found[parseInt(btn.dataset.bpIdx, 10)];
+        if (!f || !f.uninstallString) return;
+        btn.disabled = true;
+        clog(`Bloatware programs: opening the uninstaller for ${f.name}...`, "info");
+        const r = await window.api.uninstallApp(f.uninstallString);
+        if (r && r.ok) {
+          btn.querySelector("span").textContent = "Started";
+          clog(`  ${f.name}: uninstaller opened. Finish it in its own window, then Scan Again.`, "ok");
+        } else {
+          btn.disabled = false;
+          clog(`  ${f.name}: could not open the uninstaller - ${(r && r.error) || "unknown"}`, "err");
+        }
+      });
+    });
+    markLastRun("bloat.programs");
+  }
+  document.getElementById("bloatProgScanBtn")?.addEventListener("click", () => openBloatProgramsDialog());
+
   // ── App leftovers & caches ──────────────────────────────────────
   document.getElementById("leftoverScanBtn")?.addEventListener("click", async () => {
     const scanBtn = document.getElementById("leftoverScanBtn");
@@ -6689,24 +6811,23 @@ ${r.error}`);
 
     // Match bloatware against running processes
     const found = [];
-    for (const bw of BLOATWARE) {
-      const matches = allProcs.filter(p => p.name.toLowerCase() === bw.process.toLowerCase());
-      if (matches.length > 0) {
-        const totalMem = matches.reduce((s, p) => s + p.memBytes, 0);
-        found.push({
-          ...bw,
-          pids: matches.map(p => p.pid),
-          instances: matches.length,
-          memBytes: totalMem,
-          checked: true,
-        });
-        clog("  FOUND: " + bw.label + " (" + bw.process + ") - " + matches.length + " instance(s), " + fmtSize(totalMem) + ", PIDs: [" + matches.map(p => p.pid).join(", ") + "]" + (bw.service ? ", service: " + bw.service : ""), "warn");
-      }
+    for (const { bw, matches } of matchBloatware(BLOATWARE, allProcs)) {
+      const totalMem = matches.reduce((s, p) => s + p.memBytes, 0);
+      const procNames = [...new Set(matches.map(p => p.name))].join(", ");
+      found.push({
+        ...bw,
+        procNames,
+        pids: matches.map(p => p.pid),
+        instances: matches.length,
+        memBytes: totalMem,
+        checked: !bw.keep,
+      });
+      clog("  FOUND: " + bw.label + " (" + procNames + ") - " + matches.length + " instance(s), " + fmtSize(totalMem) + ", PIDs: [" + matches.map(p => p.pid).join(", ") + "]" + (bw.service ? ", service: " + bw.service : "") + (bw.note ? " - " + bw.note : ""), "warn");
     }
 
-    const notFound = BLOATWARE.filter(bw => !found.some(f => f.process === bw.process));
+    const notFound = BLOATWARE.filter(bw => !found.some(f => f.label === bw.label));
     if (notFound.length > 0) {
-      clog("  Not running: " + notFound.map(b => b.process).join(", "), "ok");
+      clog("  Not running: " + notFound.map(b => b.process === "*" ? b.label : b.process).join(", "), "ok");
     }
 
     // Update dialog with results
@@ -6730,12 +6851,12 @@ ${r.error}`);
 
     const tableRows = found.map((f, i) => `
       <div class="bloat-row">
-        <input type="checkbox" data-bloat-idx="${i}" checked />
-        <span class="br-name" title="${esc(f.process)}">${esc(f.label)}</span>
+        <input type="checkbox" data-bloat-idx="${i}" ${f.checked ? "checked" : ""} />
+        <span class="br-name" title="${esc(f.procNames)}">${esc(f.label)}</span>
         <span class="br-cat">${esc(f.cat)}</span>
         <span class="br-inst">${f.instances}x</span>
         <span class="br-mem">${fmtSize(f.memBytes)}</span>
-        <span class="br-desc">${esc(f.process)}</span>
+        <span class="br-desc" title="${esc(f.procNames + (f.note ? " - " + f.note : ""))}">${esc(f.procNames)}${f.note ? ` <span style="color:var(--warning)">- ${esc(f.note)}</span>` : ""}</span>
       </div>
     `).join("");
 
@@ -6772,7 +6893,7 @@ ${r.error}`);
       <div class="bloat-dialog">
         <h3>Kill Bloatware</h3>
         <div class="bloat-controls">
-          <label><input type="checkbox" id="bloatSelectAll" checked /> Select All</label>
+          <label><input type="checkbox" id="bloatSelectAll" ${found.every(f => f.checked) ? "checked" : ""} /> Select All</label>
           <div class="spacer"></div>
           <span class="bloat-summary" id="bloatSummary">${found.length} processes - ${fmtSize(totalMem)}</span>
         </div>
@@ -6818,6 +6939,7 @@ ${r.error}`);
       updateSummary();
     });
     checkboxes.forEach(cb => cb.addEventListener("change", updateSummary));
+    updateSummary();
 
     overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
 

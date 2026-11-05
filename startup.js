@@ -49,6 +49,7 @@ async function getStartupItems(event) {
       type:    i.Type || "",
       enabled: i.Enabled !== false,
       uwpPath: i.UwpPath || "",
+      taskPath: i.TaskPath || "",
     }));
     items.sort((a, b) => a.name.localeCompare(b.name));
     emitLog(event, `get-startup.ps1 returned ${items.length} item(s)`, "ok");
@@ -60,7 +61,7 @@ async function getStartupItems(event) {
   }
 }
 
-async function setStartupEnabled(event, name, source, enabled, uwpPath) {
+async function setStartupEnabled(event, name, source, enabled, uwpPath, taskPath) {
   // Never pass -UwpPath with an empty value: an empty argument is dropped when
   // the command is relayed to the elevated PowerShell, which then binds
   // -Enabled as the value for -UwpPath and fails with exit 1.
@@ -68,6 +69,7 @@ async function setStartupEnabled(event, name, source, enabled, uwpPath) {
     "-Name", name,
     "-Source", source,
     ...(uwpPath ? ["-UwpPath", uwpPath] : []),
+    ...(taskPath ? ["-TaskPath", taskPath] : []),
     "-Enabled", enabled ? "1" : "0",
   ];
 
@@ -78,6 +80,7 @@ async function setStartupEnabled(event, name, source, enabled, uwpPath) {
     source === "HKLM" ||
     source === "HKLM32" ||
     source === "CommonStartupFolder" ||
+    source === "Task" ||
     /HKEY_LOCAL_MACHINE|^HKLM/i.test(String(uwpPath || ""));
 
   if (needsAdmin) {
@@ -104,6 +107,6 @@ async function setStartupEnabled(event, name, source, enabled, uwpPath) {
 }
 
 ipcMain.handle("get-startup-items", (event) => getStartupItems(event));
-ipcMain.handle("set-startup-enabled", (event, { name, source, enabled, uwpPath }) =>
-  setStartupEnabled(event, name, source, enabled, uwpPath)
+ipcMain.handle("set-startup-enabled", (event, { name, source, enabled, uwpPath, taskPath }) =>
+  setStartupEnabled(event, name, source, enabled, uwpPath, taskPath)
 );

@@ -2,10 +2,17 @@ param(
   [string]$Name,
   [string]$Source,
   [string]$UwpPath,
+  [string]$TaskPath,
   [int]$Enabled
 )
 
-if ($Source -eq 'UWP' -and $UwpPath) {
+if ($Source -eq 'Task' -and $TaskPath) {
+  $cut = $TaskPath.LastIndexOf('\')
+  $folder = $TaskPath.Substring(0, $cut + 1)
+  $leaf = $TaskPath.Substring($cut + 1)
+  if ($Enabled -eq 1) { Enable-ScheduledTask -TaskPath $folder -TaskName $leaf -ErrorAction Stop | Out-Null }
+  else { Disable-ScheduledTask -TaskPath $folder -TaskName $leaf -ErrorAction Stop | Out-Null }
+} elseif ($Source -eq 'UWP' -and $UwpPath) {
   $stateVal = if ($Enabled -eq 1) { 1 } else { 0 }
   $cleanPath = $UwpPath -replace '^Microsoft\.PowerShell\.Core\\Registry::', ''
   Set-ItemProperty -Path "Registry::$cleanPath" -Name 'State' -Value $stateVal -Type DWord -ErrorAction Stop
