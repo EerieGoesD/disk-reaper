@@ -409,8 +409,8 @@
   /* ── Tickboxes: drawn here so they follow the theme ── */
   input[type="checkbox"] { appearance: none; -webkit-appearance: none; position: relative; width: 15px; height: 15px; margin: 0; flex-shrink: 0; cursor: pointer; background: var(--tick-bg); border: 2px solid var(--tick-border); border-radius: 4px; transition: background 0.12s, border-color 0.12s; }
   input[type="checkbox"]:hover { border-color: var(--accent); }
-  input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
-  input[type="checkbox"]:checked::after { content: ""; box-sizing: content-box; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  /* The tick is drawn centred in the box. */
+  input[type="checkbox"]:checked { background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.4 2.4 4.6-5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 10px 10px no-repeat; border-color: var(--accent); }
   input[type="checkbox"]:disabled { opacity: 0.4; cursor: default; }
   input[type="checkbox"]:disabled:hover { border-color: var(--tick-border); }
 
@@ -2061,6 +2061,7 @@
     { group: 'fix',   id: 'spotlight',    name: 'Reindex Spotlight',                            admin: true,  desc: 'Turns searching back on for every volume, then erases and rebuilds the Spotlight index. Fixes searches that find nothing, including built-in apps like Terminal going missing. Rebuilding runs in the background.' },
     { group: 'fix',   id: 'permissions',  name: 'Check Disk for Errors',                        admin: false, desc: 'Checks your startup disk for errors that can cause crashes and freezes. It only checks; nothing is changed.' },
     { group: 'fix',   id: 'mail',         name: 'Speed Up Mail',                                admin: false, desc: 'Compacts the Apple Mail database to reduce its size and improve Mail app launch time.' },
+    { group: 'fix',   id: 'audiodevices', name: 'Remove Extra Audio Devices',                   admin: true,  desc: "Lists the audio inputs and outputs other apps have added to Sound settings, such as virtual, meeting or EQ devices, and deletes the ones you tick. Your Mac's own speakers, microphone and headphones are never listed." },
   ];
 
   const cleanerRunBtn       = $('#cleanerRunBtn');
@@ -2329,6 +2330,19 @@
     },
   });
 
+  const reviewAudioDevices = () => reviewLeftovers({
+    title: 'Extra Audio Devices',
+    hint: "Audio inputs and outputs that other apps added to Sound settings. Tick the ones to remove. They are deleted after one password prompt, not moved to the Trash, and sound may drop for a second while Sound settings reloads. Reinstalling the app that added one brings it back.",
+    loadingText: 'Looking for extra audio devices…',
+    emptyText: "No extra audio devices. Sound settings only has your Mac's own.",
+    emptyOutput: 'No extra audio devices found.',
+    removeLabel: 'Delete',
+    itemNoun: 'items',
+    startChecked: false,
+    load: () => window.api.findAudioDevices(),
+    remove: async paths => ({ results: await window.api.removeAudioDevices(paths), extraLines: ['Reloaded Sound settings.'] }),
+  });
+
   cleanerRunBtn.addEventListener('click', async () => {
     const selected = [...cleanerTaskList.querySelectorAll('.cleaner-cb:checked')].map(cb => cb.dataset.id);
     if (!selected.length) { cleanerStatus.textContent = 'No tasks selected.'; return; }
@@ -2349,6 +2363,7 @@
                    : id === 'xcodesims'    ? await reviewXcodeSimulators()
                    : id === 'vms'          ? await reviewVirtualMachines()
                    : id === 'oldmacos'     ? await reviewOldMacosLeftovers()
+                   : id === 'audiodevices' ? await reviewAudioDevices()
                    : await window.api.runCleanerTask(id);
       unmark();
       setTaskState(id, result.ok ? 'done' : 'error');

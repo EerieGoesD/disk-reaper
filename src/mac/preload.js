@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('api', {
   removeVirtualMachines: (paths) => ipcRenderer.invoke('removeVirtualMachines', paths),
   findOldMacosLeftovers:   ()      => ipcRenderer.invoke('findOldMacosLeftovers'),
   removeOldMacosLeftovers: (paths) => ipcRenderer.invoke('removeOldMacosLeftovers', paths),
+  findAudioDevices:        ()      => ipcRenderer.invoke('findAudioDevices'),
+  removeAudioDevices:      (paths) => ipcRenderer.invoke('removeAudioDevices', paths),
   findParallelsLeftovers:   ()      => ipcRenderer.invoke('findParallelsLeftovers'),
   removeParallelsLeftovers: (paths) => ipcRenderer.invoke('removeParallelsLeftovers', paths),
 

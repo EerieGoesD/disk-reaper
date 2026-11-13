@@ -13,6 +13,7 @@ require("./sysinfo");
 require("./cleaner");
 require("./debloat");
 require("./leftovers");
+require("./audio-devices");
 require("./boost-batch");
 require("./networking");
 require("./drivers");

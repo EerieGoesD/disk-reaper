@@ -66,6 +66,8 @@ contextBridge.exposeInMainWorld("api", {
   deleteWindowsOld:    ()      => ipcRenderer.invoke("delete-windows-old"),
   findAppLeftovers:    ()      => ipcRenderer.invoke("find-app-leftovers"),
   trashAppLeftovers:   (paths) => ipcRenderer.invoke("trash-app-leftovers", paths),
+  findAudioDevices:    ()      => ipcRenderer.invoke("find-audio-devices"),
+  removeAudioDevices:  (ids)   => ipcRenderer.invoke("remove-audio-devices", ids),
   getServiceInfo:      (name)  => ipcRenderer.invoke("get-service-info", name),
   setServiceState:     (name, action) => ipcRenderer.invoke("set-service-state", { name, action }),
   getDeliveryOptState: ()      => ipcRenderer.invoke("get-delivery-opt-state"),

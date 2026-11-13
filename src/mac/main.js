@@ -1403,6 +1403,78 @@ ipcMain.handle('removeOldMacosLeftovers', async (event, paths) => {
   return results;
 });
 
+// ── Extra audio devices ──────────────────────────────────────────
+// Inputs and outputs that other apps add to Sound settings (virtual, meeting,
+// loopback or EQ devices) come from driver bundles in this one folder. The
+// Mac's own speakers, microphone and headphones come from macOS itself and
+// are never in it.
+const AUDIO_HAL = '/Library/Audio/Plug-Ins/HAL';
+
+// Paths the last scan offered, so the window can only ever remove those.
+let audioPaths = new Set();
+
+ipcMain.handle('findAudioDevices', async () => {
+  let entries = [];
+  try { entries = fs.readdirSync(AUDIO_HAL).filter(n => !n.startsWith('.')); } catch {}
+  const profile = await jsonOf('system_profiler', ['SPAudioDataType', '-json']);
+  const devices = ((profile && profile.SPAudioDataType && profile.SPAudioDataType[0] && profile.SPAudioDataType[0]._items) || [])
+    .map(d => d._name).filter(Boolean);
+
+  const found = [];
+  for (const name of entries) {
+    const full = path.join(AUDIO_HAL, name);
+    const isDriver = name.endsWith('.driver');
+    const info = await jsonOf('plutil', ['-convert', 'json', '-o', '-', path.join(full, isDriver ? 'Contents/Info.plist' : 'Info.plist')]) || {};
+    const id = String(info.CFBundleIdentifier || '');
+    if (APPLE_ID.test(id.toLowerCase())) continue;
+    const label = info.CFBundleName || name.replace(/\.driver$/, '');
+    // The devices a driver adds have their names written inside its program.
+    let adds = [];
+    if (isDriver && info.CFBundleExecutable) {
+      try {
+        const program = fs.readFileSync(path.join(full, 'Contents/MacOS', info.CFBundleExecutable));
+        adds = devices.filter(d => program.includes(Buffer.from(d, 'utf8')));
+      } catch {}
+    }
+    found.push(isDriver ? {
+      app: adds.length ? adds.join(', ') : label,
+      vendor: id,
+      path: full,
+      lines: [
+        adds.length ? `Added by ${label}, shown in Sound settings now` : `${label}, not showing a device in Sound settings right now`,
+        full,
+      ],
+    } : {
+      app: `Loose files from ${label}`,
+      vendor: id,
+      path: full,
+      lines: ["Not a working driver, so macOS ignores it", full],
+    });
+  }
+
+  const sizes = await sizesOf(found.map(f => f.path));
+  audioPaths = new Set(found.map(f => f.path));
+  return found.map(f => {
+    const size = sizes.get(f.path) || 0;
+    return { app: f.app, vendor: f.vendor, admin: true, lines: f.lines, size, paths: [{ path: f.path, size }] };
+  });
+});
+
+// Deletes the chosen drivers with one password prompt, then restarts the
+// Mac's sound system so the devices leave Sound settings straight away.
+ipcMain.handle('removeAudioDevices', async (event, paths) => {
+  const known = (paths || []).filter(p => audioPaths.has(p));
+  const results = (paths || []).filter(p => !audioPaths.has(p)).map(p => ({ path: p, ok: false, error: 'not part of the last scan' }));
+  if (!known.length) return results;
+  const r = await adminShell(`rm -rf ${known.map(shq).join(' ')}; killall coreaudiod`);
+  for (const p of known) {
+    const gone = !fs.existsSync(p);
+    if (gone) audioPaths.delete(p);
+    results.push({ path: p, ok: gone, error: gone ? undefined : (r.cancelled ? 'Cancelled at the password prompt' : 'Could not be deleted') });
+  }
+  return results;
+});
+
 // ── Networking ───────────────────────────────────────────────────
 // The Mac counterpart of the Windows build's Networking section: a diagnosis
 // that says in words where the connection breaks, then the fixes in the order

@@ -738,8 +738,8 @@
   /* ── Tickboxes: drawn here so they follow the theme ── */
   input[type="checkbox"] { appearance: none; -webkit-appearance: none; position: relative; width: 15px; height: 15px; margin: 0; flex-shrink: 0; cursor: pointer; background: var(--tick-bg); border: 2px solid var(--tick-border); border-radius: 4px; transition: background 0.12s, border-color 0.12s; }
   input[type="checkbox"]:hover { border-color: var(--accent); }
-  input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
-  input[type="checkbox"]:checked::after { content: ""; box-sizing: content-box; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  /* The tick is drawn centred in the box. */
+  input[type="checkbox"]:checked { background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.4 2.4 4.6-5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 10px 10px no-repeat; border-color: var(--accent); }
   input[type="checkbox"]:disabled { opacity: 0.4; cursor: default; }
   input[type="checkbox"]:disabled:hover { border-color: var(--tick-border); }
 
@@ -2260,6 +2260,21 @@
                 </div>
               </div>
             </div>
+
+            <div class="cleaner-card">
+              <div class="cleaner-card-head">
+                <div class="cleaner-card-icon">
+                  <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M19 5a10 10 0 010 14"/></svg>
+                </div>
+                <div class="cleaner-card-text">
+                  <h3>Extra Audio Devices</h3>
+                  <p>Lists the sound inputs and outputs other apps have added to Sound settings, such as virtual cables or meeting, streaming and EQ devices, and removes the ones you tick along with their drivers. Your PC's own speakers, microphone, headphones and HDMI sound are never listed.</p>
+                </div>
+              </div>
+              <div class="cleaner-card-action align-left">
+                <button class="btn btn-danger" id="audioDevicesScanBtn">Scan for Audio Devices</button>
+              </div>
+            </div>
               </div>
             </details>
 
@@ -2830,8 +2845,7 @@
       ".po-scroll-label { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; line-height: 1; color: #9b9ba6; cursor: pointer; user-select: none; padding: 0 6px; }" +
       ".po-scroll-label input { appearance: none; -webkit-appearance: none; position: relative; box-sizing: border-box; width: 15px; height: 15px; margin: 0; padding: 0; cursor: pointer; background: #a1a1aa; border: 2px solid #d4d4d8; border-radius: 4px; }" +
       ".po-scroll-label input:hover { border-color: #6366f1; }" +
-      ".po-scroll-label input:checked { background: #6366f1; border-color: #6366f1; }" +
-      ".po-scroll-label input:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }" +
+      ".po-scroll-label input:checked { background: #6366f1 url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.4 2.4 4.6-5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\") center / 10px 10px no-repeat; border-color: #6366f1; }" +
       ".po-scroll-label span { line-height: 1; display: inline-block; }" +
       ".po-btn { padding: 4px 10px; font-size: 11px; background: transparent; color: #9b9ba6; border: 1px solid #222228; border-radius: 6px; cursor: pointer; font-family: inherit; transition: color 0.12s, background 0.12s; }" +
       ".po-btn:hover { background: #111114; color: #d4d4d8; }" +
@@ -5947,6 +5961,99 @@ ${r.error}`);
         for (const f of failed) clog(`  Could not move ${f.path}: ${f.error}`, "err");
       } catch (e) { clog("App leftovers remove error: " + (e.message || e), "err"); }
       finally { setLogJobRunning("panel-cleaner", false, document.getElementById("leftoversScanBtn")); }
+      overlay.remove();
+    });
+  });
+
+  // ── Extra audio devices: scan, review, remove with their drivers ──
+  document.getElementById("audioDevicesScanBtn")?.addEventListener("click", async () => {
+    const scanBtn = document.getElementById("audioDevicesScanBtn");
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `<div class="bloat-dialog leftovers-win"><h3>Extra Audio Devices</h3><div class="bloat-empty">Looking for extra audio devices...</div></div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+    const box = overlay.querySelector(".bloat-dialog");
+    const closeOnly = (message) => {
+      box.innerHTML = `<h3>Extra Audio Devices</h3><div class="bloat-empty">${esc(message)}</div>
+        <div class="bloat-actions"><button class="btn btn-ghost" id="audioClose">Close</button></div>`;
+      box.querySelector("#audioClose").addEventListener("click", () => overlay.remove());
+    };
+
+    clog("Extra audio devices: reading sound devices...", "info");
+    const r = await window.api.findAudioDevices().catch(e => ({ ok: false, error: e.message || String(e) }));
+    if (!r || !r.ok) {
+      closeOnly("Scan failed: " + ((r && r.error) || "unknown"));
+      clog("Extra audio devices scan failed: " + ((r && r.error) || "unknown"), "err");
+      return;
+    }
+    const devs = r.devices || [];
+    if (!devs.length) {
+      closeOnly("No extra audio devices. Sound settings only has your PC's own.");
+      clog("Extra audio devices: none found.", "ok");
+      return;
+    }
+    clog(`Extra audio devices: ${devs.length} found.`, "info");
+    for (const d of devs) clog(`  ${d.name}${d.provider ? " (" + d.provider + ")" : ""}`, "info");
+
+    const where = d => d.shows.length ? "In Sound settings as: " + d.shows.join(", ")
+                     : d.present ? "Not showing in Sound settings right now" : "Not connected right now";
+    const rows = devs.map((d, i) => `
+      <div class="bloat-row" style="align-items:flex-start">
+        <input type="checkbox" data-i="${i}" style="margin-top:2px" />
+        <span class="br-name" title="${esc(d.name)}">${esc(d.name)}</span>
+        <span class="br-desc" style="white-space:normal">
+          <div title="${esc(where(d))}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(where(d))}</div>
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.provider ? "Made by " + d.provider : "Maker not listed")}</div>
+        </span>
+      </div>`).join("");
+    box.innerHTML = `
+      <h3>Extra Audio Devices</h3>
+      <p style="font-size:12.5px;color:#c4c4cd;line-height:1.5;margin:0 0 8px;">Sound devices that other apps added. Tick the ones to remove. Each one is removed with its driver after one admin prompt, so it doesn't come back after a restart. Reinstalling the app that added it brings it back.</p>
+      <div class="bloat-controls">
+        <button class="btn btn-ghost btn-sm" id="audioAll">Select all</button>
+        <button class="btn btn-ghost btn-sm" id="audioNone">Select none</button>
+        <div class="spacer"></div>
+        <span class="bloat-summary" id="audioSummary"></span>
+      </div>
+      <div class="bloat-table"><div class="bloat-table-body" id="audioList">${rows}</div></div>
+      <div class="bloat-actions">
+        <button class="btn btn-ghost" id="audioCancel">Cancel</button>
+        <button class="btn btn-danger" id="audioRemove">Remove</button>
+      </div>`;
+    const list = box.querySelector("#audioList");
+    const boxes = [...list.querySelectorAll("input[type=checkbox]")];
+    const chosen = () => boxes.filter(b => b.checked).map(b => devs[+b.dataset.i]);
+    const update = () => {
+      const sel = chosen();
+      box.querySelector("#audioSummary").textContent = `${sel.length} of ${devs.length} selected`;
+      box.querySelector("#audioRemove").disabled = !sel.length;
+    };
+    list.addEventListener("change", update);
+    box.querySelector("#audioAll").addEventListener("click", () => { boxes.forEach(b => b.checked = true); update(); });
+    box.querySelector("#audioNone").addEventListener("click", () => { boxes.forEach(b => b.checked = false); update(); });
+    box.querySelector("#audioCancel").addEventListener("click", () => overlay.remove());
+    update();
+
+    box.querySelector("#audioRemove").addEventListener("click", async () => {
+      const sel = chosen();
+      if (!sel.length) return;
+      const remBtn = box.querySelector("#audioRemove");
+      remBtn.disabled = true; remBtn.textContent = "Removing...";
+      clog(`Extra audio devices: removing ${sel.length}...`, "info");
+      setLogJobRunning("panel-cleaner", true, scanBtn);
+      try {
+        const res = await window.api.removeAudioDevices(sel.map(d => d.id));
+        if (!res || !res.ok) {
+          clog("Extra audio devices: " + ((res && res.error) || "nothing was removed"), "err");
+        } else {
+          const done = res.devices.filter(d => d.ok).length;
+          clog(`Extra audio devices: removed ${done} of ${res.devices.length}.`, done === res.devices.length ? "ok" : "warn");
+          for (const d of res.devices) clog(`  ${d.ok ? "Removed" : "Could not remove"}: ${d.name}`, d.ok ? "ok" : "err");
+          for (const d of res.drivers) clog(`  ${d.ok ? "Deleted driver" : "Kept driver (another device still uses it, or Windows refused)"}: ${d.inf}`, d.ok ? "ok" : "warn");
+        }
+      } catch (e) { clog("Extra audio devices remove error: " + (e.message || e), "err"); }
+      finally { setLogJobRunning("panel-cleaner", false, scanBtn); }
       overlay.remove();
     });
   });
