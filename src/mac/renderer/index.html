@@ -287,6 +287,10 @@
   .cleaner-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: rgba(234,179,8,0.12); color: var(--warning); letter-spacing: 0.04em; }
   .cleaner-state { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
   .cleaner-state.running { border: 2px solid var(--warning); border-bottom-color: transparent; border-radius: 50%; animation: spin 0.75s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* The job running right now: outlined, with a timer counting up. */
+  .cleaner-item.running, .net-row.running { border-color: var(--accent); background: rgba(99,102,241,0.07); }
+  .cleaner-badge.running { background: rgba(99,102,241,0.15); color: var(--accent-h); font-variant-numeric: tabular-nums; }
   .cleaner-state.done    { color: var(--success); }
   .cleaner-state.error   { color: var(--danger); }
   /* Group headings inside a long page: common and safe first, rare last. */
@@ -2107,6 +2111,24 @@
     cleanerTaskList.appendChild(item);
   });
 
+  // Marks a row as running: outlined, with a "Running 0:05" badge that counts
+  // up. Returns the function that takes it off again.
+  function markRunning(row) {
+    const badge = document.createElement('span');
+    badge.className = 'cleaner-badge running';
+    const t0 = Date.now();
+    const tick = () => {
+      const sec = Math.floor((Date.now() - t0) / 1000);
+      badge.textContent = `Running ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+    };
+    tick();
+    row.querySelector('.cleaner-item-header').appendChild(badge);
+    row.classList.add('running');
+    row.scrollIntoView({ block: 'nearest' });
+    const timer = setInterval(tick, 1000);
+    return () => { clearInterval(timer); badge.remove(); row.classList.remove('running'); };
+  }
+
   function setTaskState(taskId, state) {
     const el = cleanerTaskList.querySelector(`[data-cstate="${taskId}"]`);
     if (!el) return;
@@ -2312,12 +2334,15 @@
     if (!selected.length) { cleanerStatus.textContent = 'No tasks selected.'; return; }
 
     cleanerRunBtn.disabled = cleanerSelectAllBtn.disabled = cleanerDeselectBtn.disabled = true;
-    cleanerStatus.textContent = `Running ${selected.length} task${selected.length !== 1 ? 's' : ''}…`;
+    cleanerRunBtn.textContent = 'Running…';
 
     let ok = 0, fail = 0;
-    for (const id of selected) {
+    for (const [i, id] of selected.entries()) {
       const task = CLEANER_TASKS.find(t => t.id === id);
       setTaskState(id, 'running');
+      cleanerStatus.textContent = selected.length > 1 ? `${i + 1} of ${selected.length}: ${task.name}…` : `${task.name}…`;
+      logEntry(task.name, 'running', 'Started…');
+      const unmark = markRunning(cleanerTaskList.querySelector(`[data-cstate="${id}"]`).closest('.cleaner-item'));
       // App leftovers needs the user to pick what goes, so it runs here.
       const result = id === 'appleftovers' ? await reviewAppLeftovers()
                    : id === 'parallels'    ? await reviewParallelsLeftovers()
@@ -2325,12 +2350,14 @@
                    : id === 'vms'          ? await reviewVirtualMachines()
                    : id === 'oldmacos'     ? await reviewOldMacosLeftovers()
                    : await window.api.runCleanerTask(id);
+      unmark();
       setTaskState(id, result.ok ? 'done' : 'error');
       logEntry(task.name, result.ok ? 'done' : 'error', result.output || (result.ok ? 'Done.' : 'Failed.'));
       result.ok ? ok++ : fail++;
     }
 
     cleanerStatus.textContent = `Done — ${ok} succeeded${fail ? `, ${fail} failed` : ''}.`;
+    cleanerRunBtn.textContent = 'Run Selected';
     cleanerRunBtn.disabled = cleanerSelectAllBtn.disabled = cleanerDeselectBtn.disabled = false;
   });
 
@@ -2379,6 +2406,7 @@
   netDiagBtn.addEventListener('click', async () => {
     setNetBusy(true);
     netStatus.textContent = 'Checking…';
+    netLogEntry('Diagnostics', null, 'Started…');
     document.querySelectorAll('.net-row').forEach(r => {
       r.classList.remove('suggested');
       r.querySelector('.cleaner-badge.accent')?.remove();
@@ -2427,8 +2455,11 @@
     state.className = 'cleaner-state running'; state.textContent = '';
     setNetBusy(true);
     netStatus.textContent = `${name}…`;
+    netLogEntry(name, null, 'Started…');
+    const unmark = markRunning(row);
     let r;
     try { r = await window.api.netFix(key); } catch (e) { r = { ok: false, output: e?.message || String(e) }; }
+    unmark();
     setNetBusy(false);
     state.className = `cleaner-state ${r.ok ? 'done' : 'error'}`;
     state.textContent = r.ok ? '✓' : '✗';

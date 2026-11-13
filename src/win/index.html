@@ -608,6 +608,10 @@
 
   .cleaner-badge { display: inline-block; padding: 1px 7px; font-size: 10px; font-weight: 600; border-radius: 10px; background: rgba(234, 179, 8, 0.15); color: var(--warning); text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; vertical-align: middle; }
   .cleaner-badge.danger { background: rgba(239, 68, 68, 0.18); color: var(--danger); }
+  /* The job running right now: outlined, with a timer counting up. */
+  #panel-cleaner .cleaner-row.is-running, #panel-cleaner .cleaner-card.is-running,
+  #panel-network .cleaner-row.is-running, #panel-network .cleaner-card.is-running { border-color: var(--accent); background: rgba(99,102,241,0.07); }
+  .cleaner-badge.running { background: rgba(99,102,241,0.15); color: var(--accent-h); font-variant-numeric: tabular-nums; }
 
   /* Connection Status card uses the existing .net-diag children; keep the
      refresh button visually aligned with the other card heads. */
@@ -2978,7 +2982,32 @@
   // to that panel's right column. Combined with .is-collapsed the CSS makes
   // the collapse button glow and wobble to point the user at the log.
   const logJobCounts = { "panel-cleaner": 0, "panel-network": 0 };
-  function setLogJobRunning(panelId, running) {
+
+  // The row (or card) of each job that is running: outlined, with a
+  // "Running 0:05" badge that counts up until the job ends.
+  const runningMarks = new Map();
+  function markJobRow(el, running) {
+    const row = el && (el.closest(".cleaner-row") || el.closest(".cleaner-card"));
+    if (!row) return;
+    if (!running) { runningMarks.get(row)?.(); runningMarks.delete(row); return; }
+    if (runningMarks.has(row)) return;
+    const head = row.matches(".cleaner-row") ? row.querySelector(".cleaner-row-title") : row.querySelector(".cleaner-card-text h3");
+    const badge = document.createElement("span");
+    badge.className = "cleaner-badge running";
+    const t0 = Date.now();
+    const tick = () => {
+      const sec = Math.floor((Date.now() - t0) / 1000);
+      badge.textContent = `Running ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+    };
+    tick();
+    head?.appendChild(badge);
+    row.classList.add("is-running");
+    const timer = setInterval(tick, 1000);
+    runningMarks.set(row, () => { clearInterval(timer); badge.remove(); row.classList.remove("is-running"); });
+  }
+
+  function setLogJobRunning(panelId, running, el) {
+    if (el) markJobRow(el, running);
     if (!(panelId in logJobCounts)) return;
     const wasZero = logJobCounts[panelId] === 0;
     logJobCounts[panelId] += running ? 1 : -1;
@@ -2996,10 +3025,10 @@
       } catch {}
     }
   }
-  async function runWithLogIndicator(panelId, fn) {
-    setLogJobRunning(panelId, true);
+  async function runWithLogIndicator(panelId, fn, el) {
+    setLogJobRunning(panelId, true, el);
     try { return await fn(); }
-    finally { setLogJobRunning(panelId, false); }
+    finally { setLogJobRunning(panelId, false, el); }
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -5032,7 +5061,7 @@ ${r.error}`);
     try {
       res = await runWithLogIndicator("panel-cleaner", () => isDelete
         ? window.api.deleteWindowsOld()
-        : window.api.clearTempFolder(key));
+        : window.api.clearTempFolder(key), btn);
     } catch (e) {
       clog(`${label} failed: ${e.message || e}`, "err");
       btn.disabled = false;
@@ -5371,7 +5400,7 @@ ${r.error}`);
     setServiceMeta(svcName, action === "disable" ? "Disabling..." : "Restoring...", true);
     clog(`${svcName}: ${action} requested...`, "info");
     try {
-      const r = await runWithLogIndicator("panel-cleaner", () => window.api.setServiceState(svcName, action));
+      const r = await runWithLogIndicator("panel-cleaner", () => window.api.setServiceState(svcName, action), btn);
       markLastRun("svc." + svcName);
       if (!r || !r.ok) {
         clog(`${svcName}: ${action} failed - ${(r && r.error) || "unknown"}`, "err");
@@ -5398,7 +5427,7 @@ ${r.error}`);
     setServiceMeta("DOp2p", wantDisable ? "Disabling..." : "Restoring...", true);
     clog(`Delivery Optimization P2P: ${wantDisable ? "disable" : "restore"} requested...`, "info");
     try {
-      const r = await runWithLogIndicator("panel-cleaner", () => window.api.setDeliveryOptP2P(wantDisable));
+      const r = await runWithLogIndicator("panel-cleaner", () => window.api.setDeliveryOptP2P(wantDisable), btn);
       markLastRun("svc.DOp2p");
       if (!r || !r.ok) {
         clog(`Delivery Optimization: action failed - ${(r && r.error) || "unknown"}`, "err");
@@ -5486,7 +5515,7 @@ ${r.error}`);
     btn.disabled = true;
     setServiceMeta(key, wantDisable ? "Applying..." : "Restoring...", true);
     clog(`${meta.name}: ${wantDisable ? "disable" : "restore"} requested...`, "info");
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     try {
       let r;
       if (group === "privacy")  r = await window.api.setPrivacyTweak(key, wantDisable);
@@ -5498,7 +5527,7 @@ ${r.error}`);
     } catch (e) {
       clog(`${meta.name}: error - ${e.message || e}`, "err");
     } finally {
-      setLogJobRunning("panel-cleaner", false);
+      setLogJobRunning("panel-cleaner", false, btn);
     }
     await refreshDebloatTweak(group, key);
   }
@@ -5554,11 +5583,13 @@ ${r.error}`);
     if (!await customConfirm("Restart Explorer now?\n\nYour open File Explorer windows will close and the taskbar will flicker briefly while it reloads. Required for some Taskbar / Right-click menu changes to take effect.")) return;
     btn.disabled = true; const orig = btn.textContent; btn.textContent = "Restarting...";
     clog("Restart Explorer requested...", "info");
+    markJobRow(btn, true);
     try {
       const r = await window.api.restartExplorer();
       if (r && r.ok) clog("Explorer restarted.", "ok");
       else clog("Explorer restart returned non-OK.", "warn");
     } catch (e) { clog("Explorer restart error: " + (e.message || e), "err"); }
+    markJobRow(btn, false);
     btn.disabled = false; btn.textContent = orig;
   });
 
@@ -5598,7 +5629,7 @@ ${r.error}`);
     if (wantDisable && !await customConfirm("Disable Windows telemetry scheduled tasks?\n\nDisables: Microsoft Compatibility Appraiser, ProgramDataUpdater, StartupAppTask, Autochk Proxy (CEIP), CEIP Consolidator, USB CEIP, Disk Diagnostic Data Collector, Feedback DmClient (x2).\n\nThese tasks normally run in the background and upload usage data to Microsoft. Disabling them is safe and reversible.")) return;
     btn.disabled = true;
     setServiceMeta("telemetryTasks", wantDisable ? "Disabling tasks..." : "Re-enabling tasks...", true);
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     clog(`Telemetry tasks: ${wantDisable ? "disable" : "restore"} requested...`, "info");
     try {
       const r = await window.api.setTelemetryTasksState(wantDisable);
@@ -5606,7 +5637,7 @@ ${r.error}`);
       else clog(`Telemetry tasks: ${r.succeeded} succeeded, ${r.failed} failed.`, r.failed ? "warn" : "ok");
       markLastRun("debloat.telemetryTasks");
     } catch (e) { clog("Telemetry tasks error: " + (e.message || e), "err"); }
-    finally { setLogJobRunning("panel-cleaner", false); }
+    finally { setLogJobRunning("panel-cleaner", false, btn); }
     await refreshTelemetryTasksState();
   });
 
@@ -5641,14 +5672,14 @@ ${r.error}`);
     btn.disabled = true;
     setServiceMeta("hibernation", wantDisable ? "Disabling..." : "Enabling...", true);
     clog(`Hibernation: ${wantDisable ? "disable" : "enable"} requested...`, "info");
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     try {
       const r = await window.api.setHibernationState(wantDisable);
       if (!r || !r.ok) clog(`Hibernation: failed - ${(r && r.error) || "unknown"}`, "err");
       else clog(`Hibernation ${wantDisable ? "disabled" : "enabled"}.`, "ok");
       markLastRun("debloat.hibernation");
     } catch (e) { clog("Hibernation error: " + (e.message || e), "err"); }
-    finally { setLogJobRunning("panel-cleaner", false); }
+    finally { setLogJobRunning("panel-cleaner", false, btn); }
     await refreshHibernationState();
   });
 
@@ -5683,14 +5714,14 @@ ${r.error}`);
     btn.disabled = true;
     setServiceMeta("bgApps", wantDisable ? "Applying..." : "Restoring...", true);
     clog(`Background AppX apps: ${wantDisable ? "disable" : "restore"} requested...`, "info");
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     try {
       const r = await window.api.setBackgroundAppsState(wantDisable);
       if (!r || !r.ok) clog(`Background AppX apps: failed - ${(r && r.error) || "unknown"}`, "err");
       else clog(`Background AppX apps: ${wantDisable ? "disabled" : "restored"}.`, "ok");
       markLastRun("debloat.bgApps");
     } catch (e) { clog("Background AppX apps error: " + (e.message || e), "err"); }
-    finally { setLogJobRunning("panel-cleaner", false); }
+    finally { setLogJobRunning("panel-cleaner", false, btn); }
     await refreshBgAppsState();
   });
 
@@ -5699,14 +5730,14 @@ ${r.error}`);
     const btn = document.getElementById("createRestorePointBtn");
     if (!btn || btn.disabled) return;
     btn.disabled = true; const orig = btn.textContent; btn.textContent = "Creating...";
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     clog("System restore point: creation requested...", "info");
     try {
       const r = await window.api.createRestorePoint("Disk Reaper manual checkpoint");
       if (r && r.ok) clog("System restore point created.", "ok");
       else clog("Restore point creation failed: " + ((r && r.error) || "unknown"), "err");
     } catch (e) { clog("Restore point error: " + (e.message || e), "err"); }
-    finally { setLogJobRunning("panel-cleaner", false); }
+    finally { setLogJobRunning("panel-cleaner", false, btn); }
     btn.disabled = false; btn.textContent = orig;
   });
 
@@ -5715,14 +5746,14 @@ ${r.error}`);
     if (!btn || btn.disabled) return;
     if (!await customConfirm("Delete ALL System Restore Points?\n\nRuns vssadmin delete shadows /all on the system drive. Frees the disk space reserved by existing restore points. You will lose the ability to roll back to any of those checkpoints until you create new ones.\n\nThis cannot be undone.")) return;
     btn.disabled = true; const orig = btn.textContent; btn.textContent = "Deleting...";
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     clog("Delete all restore points: requested...", "info");
     try {
       const r = await window.api.deleteAllRestorePoints();
       if (r && r.ok) clog("Restore points deleted. " + (r.output || ""), "ok");
       else clog("Delete restore points failed: " + ((r && r.error) || "unknown"), "err");
     } catch (e) { clog("Delete restore points error: " + (e.message || e), "err"); }
-    finally { setLogJobRunning("panel-cleaner", false); }
+    finally { setLogJobRunning("panel-cleaner", false, btn); }
     btn.disabled = false; btn.textContent = orig;
   });
 
@@ -5808,7 +5839,7 @@ ${r.error}`);
       if (!keys.length && !wantOneDrive) return;
       const remBtn = overlay.querySelector("#uwpRemove");
       remBtn.disabled = true; remBtn.textContent = "Removing...";
-      setLogJobRunning("panel-cleaner", true);
+      setLogJobRunning("panel-cleaner", true, document.getElementById("uwpScanBtn"));
       clog(`Preinstalled apps remove: ${keys.length} UWP package(s)${wantOneDrive ? " + OneDrive" : ""} requested...`, "info");
       try {
         if (keys.length) {
@@ -5829,7 +5860,7 @@ ${r.error}`);
         }
         markLastRun("debloat.uwp");
       } catch (e) { clog("Preinstalled apps remove error: " + (e.message || e), "err"); }
-      finally { setLogJobRunning("panel-cleaner", false); }
+      finally { setLogJobRunning("panel-cleaner", false, document.getElementById("uwpScanBtn")); }
       overlay.remove();
     });
   });
@@ -5906,7 +5937,7 @@ ${r.error}`);
       if (!sel.length) return;
       const remBtn = box.querySelector("#leftoversRemove");
       remBtn.disabled = true; remBtn.textContent = "Moving...";
-      setLogJobRunning("panel-cleaner", true);
+      setLogJobRunning("panel-cleaner", true, document.getElementById("leftoversScanBtn"));
       try {
         const results = await window.api.trashAppLeftovers(sel.flatMap(a => a.paths.map(p => p.path)));
         const moved = new Set(results.filter(x => x.ok).map(x => x.path));
@@ -5915,7 +5946,7 @@ ${r.error}`);
         clog(`App leftovers: moved ${moved.size} folder(s) to the Recycle Bin, ${freed ? fmtSize(freed) : "0 B"} in total.`, failed.length ? "warn" : "ok");
         for (const f of failed) clog(`  Could not move ${f.path}: ${f.error}`, "err");
       } catch (e) { clog("App leftovers remove error: " + (e.message || e), "err"); }
-      finally { setLogJobRunning("panel-cleaner", false); }
+      finally { setLogJobRunning("panel-cleaner", false, document.getElementById("leftoversScanBtn")); }
       overlay.remove();
     });
   });
@@ -6045,7 +6076,7 @@ ${r.error}`);
     btn.disabled = true;
     setServiceMeta(key, wantDisable ? "Disabling..." : "Restoring...", true);
     clog(`${meta.name}: ${wantDisable ? "disable" : "restore"} requested...`, "info");
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     try {
       let r;
       if (key === "8dot3")        r = await window.api.set8dot3State(wantDisable);
@@ -6056,7 +6087,7 @@ ${r.error}`);
     } catch (e) {
       clog(`${meta.name}: error - ${e.message || e}`, "err");
     } finally {
-      setLogJobRunning("panel-cleaner", false);
+      setLogJobRunning("panel-cleaner", false, btn);
     }
     await refreshCliTweak(key);
   }
@@ -6078,7 +6109,7 @@ ${r.error}`);
     btn.disabled = true;
     setServiceMeta(key, wantDisable ? "Disabling..." : "Restoring...", true);
     clog(`${GAMING_LABELS[key].name}: ${wantDisable ? "disable" : "restore"} requested...`, "info");
-    setLogJobRunning("panel-cleaner", true);
+    setLogJobRunning("panel-cleaner", true, btn);
     try {
       let r;
       if (kind === "reg")    r = await window.api.setGamingTweak(key, wantDisable);
@@ -6104,7 +6135,7 @@ ${r.error}`);
     } catch (e) {
       clog(`${GAMING_LABELS[key].name}: error - ${e.message || e}`, "err");
     } finally {
-      setLogJobRunning("panel-cleaner", false);
+      setLogJobRunning("panel-cleaner", false, btn);
     }
     if (kind === "reg")    await refreshGamingRegTweak(key);
     else if (kind === "park") await refreshCoreParking();
@@ -6125,6 +6156,7 @@ ${r.error}`);
     const orig = btn.textContent;
     btn.textContent = "Clearing...";
     clog("Clipboard: clearing current contents + history...", "info");
+    markJobRow(btn, true);
     try {
       const r = await window.api.clearClipboardHistory();
       markLastRun("game.clipboard");
@@ -6133,6 +6165,7 @@ ${r.error}`);
     } catch (e) {
       clog(`Clipboard: error - ${e.message || e}`, "err");
     }
+    markJobRow(btn, false);
     btn.disabled = false;
     btn.textContent = orig;
   });
@@ -6598,7 +6631,7 @@ ${r.error}`);
       clog(`${label}: starting...`, "info");
       const t0 = Date.now();
       try {
-        const r = await runWithLogIndicator("panel-cleaner", () => window.api.runPerfCommand(key));
+        const r = await runWithLogIndicator("panel-cleaner", () => window.api.runPerfCommand(key), btn);
         markLastRun(key);
         const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
         if (!r) {
@@ -6630,7 +6663,7 @@ ${r.error}`);
     clog(`${label}: starting...`, "info");
     const t0 = Date.now();
     try {
-      const r = await runWithLogIndicator("panel-cleaner", () => apiCall());
+      const r = await runWithLogIndicator("panel-cleaner", () => apiCall(), btn);
       markLastRun(lastRunKey);
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       if (r && r.ok) {
@@ -7044,7 +7077,7 @@ ${r.error}`);
     if (btn) btn.disabled = true;
     if (runBtn) runBtn.disabled = true;
     if (btnLabel) btnLabel.textContent = "Fixing...";
-    setLogJobRunning("panel-network", true);
+    setLogJobRunning("panel-network", true, btn);
     nlog(`Fixing ${plan.label}...`, "info");
     let last = null;
     let sawRouterOk = false;
@@ -7176,7 +7209,7 @@ ${r.error}`);
       }
       markLastRun("net.runDiag");
     } finally {
-      setLogJobRunning("panel-network", false);
+      setLogJobRunning("panel-network", false, btn);
       if (btn) btn.disabled = false;
       if (btnLabel) btnLabel.textContent = orig || "Fix";
       if (runBtn) runBtn.disabled = false;
@@ -7314,7 +7347,7 @@ ${r.error}`);
     netDiag.innerHTML = `<div class="net-running">Running diagnostics... this takes a few seconds.</div>`;
     nlog("Running diagnostics: adapter detection + ping 8.8.8.8 + ping google.com...", "info");
     try {
-      const data = await runWithLogIndicator("panel-network", () => window.api.netDiagnostics());
+      const data = await runWithLogIndicator("panel-network", () => window.api.netDiagnostics(), document.getElementById("netRunDiagBtn"));
       netPrimaryAdapter = data && data.primary ? data.primary.InterfaceAlias : null;
       if (netPrimaryAdapter) nlog("Primary adapter detected: " + netPrimaryAdapter, "info");
       renderDiag(data);
@@ -7358,66 +7391,66 @@ ${r.error}`);
     const btn = $("#" + id);
     btn.addEventListener("click", async () => {
       btn.disabled = true;
-      try { await fn(); } finally { btn.disabled = false; }
+      try { await fn(btn); } finally { btn.disabled = false; }
     });
   }
 
   wireNetBtn("netRunDiagBtn", runNetDiagnostics);
   wireNetBtn("netAutoFixBtn", runNetAutoFix);
 
-  wireNetBtn("netFixDnsBtn", async () => {
+  wireNetBtn("netFixDnsBtn", async (btn) => {
     const adapter = await ensureAdapter();
     if (!adapter) return;
     nlog("Setting static DNS on '" + adapter + "' to 8.8.8.8 + 1.1.1.1...", "info");
-    const r = await runWithLogIndicator("panel-network", () => window.api.netFixDns({ adapter, primary: "8.8.8.8", secondary: "1.1.1.1" }));
+    const r = await runWithLogIndicator("panel-network", () => window.api.netFixDns({ adapter, primary: "8.8.8.8", secondary: "1.1.1.1" }), btn);
     logSteps(r);
     nlog(r.ok ? "DNS updated. Try your browser now." : "DNS change failed. Run the app as administrator and retry.", r.ok ? "ok" : "err");
     markLastRun("net.fixDns");
   });
 
-  wireNetBtn("netResetDnsBtn", async () => {
+  wireNetBtn("netResetDnsBtn", async (btn) => {
     const adapter = await ensureAdapter();
     if (!adapter) return;
     nlog("Resetting DNS on '" + adapter + "' to automatic (DHCP)...", "info");
-    const r = await runWithLogIndicator("panel-network", () => window.api.netResetDns({ adapter }));
+    const r = await runWithLogIndicator("panel-network", () => window.api.netResetDns({ adapter }), btn);
     logSteps(r);
     nlog(r.ok ? "DNS reset to automatic." : "Reset failed. Administrator rights required.", r.ok ? "ok" : "err");
     markLastRun("net.resetDns");
   });
 
-  wireNetBtn("netFlushDnsBtn", async () => {
+  wireNetBtn("netFlushDnsBtn", async (btn) => {
     nlog("Flushing DNS resolver cache...", "info");
-    const r = await runWithLogIndicator("panel-network", () => window.api.netFlushDns());
+    const r = await runWithLogIndicator("panel-network", () => window.api.netFlushDns(), btn);
     logSteps(r);
     nlog(r.ok ? "DNS cache flushed." : "Flush failed.", r.ok ? "ok" : "err");
     markLastRun("net.flushDns");
   });
 
-  wireNetBtn("netRenewIpBtn", async () => {
+  wireNetBtn("netRenewIpBtn", async (btn) => {
     const ok = await customConfirm("Release and renew your IP address?\nThis will briefly disconnect your network.");
     if (!ok) return;
     nlog("Releasing and renewing IP address...", "info");
-    const r = await runWithLogIndicator("panel-network", () => window.api.netRenewIp());
+    const r = await runWithLogIndicator("panel-network", () => window.api.netRenewIp(), btn);
     logSteps(r);
     nlog(r.ok ? "IP renewed." : "Renew failed.", r.ok ? "ok" : "err");
     markLastRun("net.renewIp");
   });
 
-  wireNetBtn("netResetWinsockBtn", async () => {
+  wireNetBtn("netResetWinsockBtn", async (btn) => {
     const ok = await customConfirm("Reset Winsock?\nThis clears the Windows socket catalog and requires a RESTART to take effect.");
     if (!ok) return;
     nlog("Running netsh winsock reset...", "info");
-    const r = await runWithLogIndicator("panel-network", () => window.api.netResetWinsock());
+    const r = await runWithLogIndicator("panel-network", () => window.api.netResetWinsock(), btn);
     logSteps(r);
     nlog(r.ok ? "Winsock reset. Restart your PC for the change to apply." : "Reset failed. Administrator rights required.", r.ok ? "warn" : "err");
     markLastRun("net.resetWinsock");
   });
 
-  wireNetBtn("netResetIpStackBtn", async () => {
+  wireNetBtn("netResetIpStackBtn", async (btn) => {
     const ok = await customConfirm("Reset the Windows IP stack?\nThis rewrites TCP/IP settings and requires a RESTART.");
     if (!ok) return;
     nlog("Running netsh int ip reset...", "info");
-    const r = await runWithLogIndicator("panel-network", () => window.api.netResetIpStack());
+    const r = await runWithLogIndicator("panel-network", () => window.api.netResetIpStack(), btn);
     logSteps(r);
     nlog(r.ok ? "IP stack reset. Restart your PC for the change to apply." : "Reset failed. Administrator rights required.", r.ok ? "warn" : "err");
     markLastRun("net.resetIpStack");
